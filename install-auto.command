@@ -6,7 +6,7 @@
 cd "$(dirname "$0")" || exit 1
 BASE="$(pwd)"
 SCRIPT="$BASE/update-backup.sh"
-LABEL="com.respaldos-llms.backup"
+LABEL="com.agentlog.backup"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 echo "== Install daily automatic backup (12:00) =="

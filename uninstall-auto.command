@@ -2,7 +2,7 @@
 # uninstall-auto.command
 # Removes the launchd task for the automatic backup. Double-click to uninstall.
 
-LABEL="com.respaldos-llms.backup"
+LABEL="com.agentlog.backup"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 echo "== Uninstall automatic backup =="
