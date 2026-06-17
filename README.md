@@ -115,6 +115,10 @@ writes local Markdown. Nothing, raw or derived, leaves your machine.
 | OpenCode     | `~/.local/share/opencode/opencode.db`                                   |
 | Cursor       | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`   |
 
+> Paths shown are macOS. On **Linux**, Claude Code and Codex are the same;
+> Cursor/OpenCode use XDG paths (`~/.config/Cursor…`, `~/.local/share/opencode…`);
+> Cowork is macOS-only and skipped.
+
 ### Not supported (and why)
 
 - **Antigravity** — stores sessions in a proprietary protobuf format with no
@@ -126,7 +130,8 @@ writes local Markdown. Nothing, raw or derived, leaves your machine.
 
 ## Install
 
-Requires **macOS** and **Python 3** (ships with macOS).
+Requires **macOS or Linux** and **Python 3** (ships with macOS; preinstalled on
+most Linux distros).
 
 **1. Get the code** — clone it (or download the ZIP from the green **Code**
 button on GitHub and unzip it):
@@ -166,17 +171,21 @@ You can also **double-click** `update-backup.command`.
 
 ### Enable the automatic backup (daily, 12:00)
 
-Double-click `install-auto.command`. It installs a `launchd` task that runs the
-backup every day at noon (or when the Mac wakes up if it was asleep).
+Double-click `install-auto.command` (macOS) — or run it from the terminal. It
+installs a daily task: a **`launchd`** agent on macOS, a **`cron`** entry on Linux.
+By default it runs every day at noon.
 
-Prefer a different time? Run it from the terminal with an hour (24h):
+Prefer a different time (or on Linux)? Run it from the terminal with an hour (24h):
 
 ```bash
 ./install-auto.command 22       # every day at 22:00
 ./install-auto.command 7:30     # every day at 07:30
 ```
 
-To remove it: double-click `uninstall-auto.command`.
+To remove it: double-click (or run) `uninstall-auto.command`.
+
+> On Linux, cron does **not** catch up runs missed while the machine was off
+> (macOS launchd does, on wake).
 
 ---
 
@@ -273,9 +282,10 @@ conventions and the one hard rule: the viewer makes **zero network calls**.
 
 ## Notes
 
-- **macOS-only for now.** It uses `launchd` and macOS-specific paths to locate
-  the sources. Porting to Linux/Windows would mean adjusting those paths and the
-  automatic-task mechanism.
+- **macOS & Linux.** Source paths are resolved per-OS (macOS app-support paths;
+  XDG `~/.config` / `~/.local/share` on Linux) and the daily task uses `launchd`
+  on macOS or `cron` on Linux. **Windows** isn't supported. Cowork is macOS-only
+  (no official Linux Claude desktop), so it's simply skipped on Linux.
 
 ---
 

@@ -119,6 +119,10 @@ Markdown local. Nada, ni crudo ni derivado, sale de tu máquina.
 | OpenCode     | `~/.local/share/opencode/opencode.db`                                   |
 | Cursor       | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`   |
 
+> Las rutas mostradas son de macOS. En **Linux**, Claude Code y Codex son iguales;
+> Cursor/OpenCode usan rutas XDG (`~/.config/Cursor…`, `~/.local/share/opencode…`);
+> Cowork es solo de macOS y se saltea.
+
 ### No soportadas (y por qué)
 
 - **Antigravity** — guarda las sesiones en un formato protobuf propietario sin
@@ -130,7 +134,8 @@ Markdown local. Nada, ni crudo ni derivado, sale de tu máquina.
 
 ## Instalación
 
-Requiere **macOS** y **Python 3** (viene con macOS).
+Requiere **macOS o Linux** y **Python 3** (viene con macOS; preinstalado en la
+mayoría de las distros Linux).
 
 **1. Conseguí el código** — cloná el repo (o descargá el ZIP desde el botón verde
 **Code** en GitHub y descomprimilo):
@@ -170,17 +175,21 @@ También podés hacer **doble clic** en `update-backup.command`.
 
 ### Activar el respaldo automático (diario, 12:00)
 
-Doble clic en `install-auto.command`. Instala una tarea de `launchd` que corre el
-respaldo todos los días al mediodía (o al despertar la Mac si estaba dormida).
+Doble clic en `install-auto.command` (macOS) — o correlo desde la terminal.
+Instala una tarea diaria: un agente **`launchd`** en macOS, una entrada **`cron`**
+en Linux. Por defecto corre todos los días al mediodía.
 
-¿Preferís otro horario? Correlo desde la terminal con una hora (24h):
+¿Preferís otro horario (o estás en Linux)? Correlo desde la terminal con una hora (24h):
 
 ```bash
 ./install-auto.command 22       # todos los días a las 22:00
 ./install-auto.command 7:30     # todos los días a las 07:30
 ```
 
-Para quitarla: doble clic en `uninstall-auto.command`.
+Para quitarla: doble clic (o correr) `uninstall-auto.command`.
+
+> En Linux, cron **no** recupera corridas perdidas mientras la máquina estuvo
+> apagada (el launchd de macOS sí, al despertar).
 
 ---
 
@@ -277,9 +286,11 @@ convenciones y la regla de oro: el visor hace **cero llamadas de red**.
 
 ## Notas
 
-- **macOS-only por ahora.** Usa `launchd` y rutas propias de macOS para ubicar
-  los orígenes. Portarlo a Linux/Windows implicaría ajustar esas rutas y el
-  mecanismo de tarea automática.
+- **macOS y Linux.** Las rutas de cada fuente se resuelven según el OS (rutas de
+  app-support en macOS; XDG `~/.config` / `~/.local/share` en Linux) y la tarea
+  diaria usa `launchd` en macOS o `cron` en Linux. **Windows** no está soportado.
+  Cowork es solo de macOS (no hay Claude desktop oficial en Linux), así que en
+  Linux simplemente se saltea.
 
 ---
 

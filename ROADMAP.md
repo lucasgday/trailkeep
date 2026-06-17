@@ -8,8 +8,6 @@ something that isn't here).
 
 ## Planned
 
-- **Linux support.** Map each source's paths on Linux and replace the
-  macOS-specific automatic-task mechanism. Biggest reach blocker today.
 - **Per-conversation summaries.** A short summary at the top of each conversation
   so you can skim instead of re-reading every reply.
 - **Per-project overview.** A project "home": stack, activity, a rolled-up
@@ -36,3 +34,4 @@ the model.
 - Multi-tool backup (Claude Code, Codex, Cursor, OpenCode, Cowork) → Markdown
 - Standalone, bilingual (EN/ES) viewer with grouping, search, analytics
 - Incremental + cumulative; daily automatic backup; portable Markdown history
+- **macOS & Linux** — per-OS source paths; `launchd` (macOS) / `cron` (Linux)

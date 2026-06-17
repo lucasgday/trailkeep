@@ -91,9 +91,20 @@ TMP="$BASE/.sync-tmp"
 PY_CLAUDE="$SCRIPT_DIR/converters/convert_claude.py"
 PY_CODEX="$SCRIPT_DIR/converters/convert_codex.py"
 
+# OS-aware source paths (macOS vs Linux/XDG). Claude Code (~/.claude) and Codex
+# (~/.codex) are the same on both; Cowork/Cursor/OpenCode differ.
+OS="$(uname -s)"
+XDG_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
+XDG_DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 HOME_CLAUDE="$HOME/.claude"
 HOME_CODEX="$HOME/.codex"
-COWORK_DIR="$HOME/Library/Application Support/Claude/local-agent-mode-sessions"
+if [ "$OS" = "Darwin" ]; then
+  COWORK_DIR="$HOME/Library/Application Support/Claude/local-agent-mode-sessions"
+else
+  COWORK_DIR="$XDG_CONFIG/Claude/local-agent-mode-sessions"
+fi
+# portable hasher (macOS has shasum; Linux usually sha1sum)
+if command -v shasum >/dev/null 2>&1; then HASHER="shasum"; else HASHER="sha1sum"; fi
 
 echo "== agentlog backup =="
 echo "Base: $BASE"
@@ -106,7 +117,7 @@ echo ""
 # detects changes but writes nothing.
 need_process() {
   local f="$1" key sz prev
-  key=$(echo "$f" | shasum | cut -d' ' -f1)
+  key=$(echo "$f" | "$HASHER" | cut -d' ' -f1)
   sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
   prev=$(cat "$STATE/$key.size" 2>/dev/null || echo "")
   if [ "$sz" != "$prev" ]; then
@@ -270,7 +281,7 @@ fi
 # Fully reconverted when the DB changed in size (incremental at the DB level).
 # ---------------------------------------------------------------------------
 if want opencode; then
-OPENCODE_DB="$HOME/.local/share/opencode/opencode.db"
+OPENCODE_DB="$XDG_DATA/opencode/opencode.db"
 PY_OPENCODE="$SCRIPT_DIR/converters/convert_opencode.py"
 if [ -f "$OPENCODE_DB" ] && [ -f "$PY_OPENCODE" ]; then
   echo "-- OpenCode --"
@@ -293,7 +304,11 @@ fi
 # The global DB holds the conversations; reconverted if the DB changed in size.
 # ---------------------------------------------------------------------------
 if want cursor; then
-CURSOR_DB="$HOME/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+if [ "$OS" = "Darwin" ]; then
+  CURSOR_DB="$HOME/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+else
+  CURSOR_DB="$XDG_CONFIG/Cursor/User/globalStorage/state.vscdb"
+fi
 PY_CURSOR="$SCRIPT_DIR/converters/convert_cursor.py"
 if [ -f "$CURSOR_DB" ] && [ -f "$PY_CURSOR" ]; then
   echo "-- Cursor --"
@@ -358,10 +373,12 @@ hist = hist[:50]
 json.dump(hist, open(log_path, "w"), ensure_ascii=False, indent=2)
 PYEOF
 
-# macOS notification (only if osascript exists, i.e. on a Mac)
+# desktop notification (macOS osascript, or Linux notify-send if present)
+if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
 if command -v osascript >/dev/null 2>&1; then
-  if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
   osascript -e "display notification \"$BODY\" with title \"agentlog\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send "agentlog — backup updated" "$BODY" >/dev/null 2>&1 || true
 fi
 
 echo ""

@@ -2,7 +2,7 @@
 
 Context for AI agents (and humans) working on **agentlog** — a local, self-hosted
 backup + viewer for your AI-coding-tool conversations (Claude Code, Codex, Cursor,
-OpenCode, Cowork). macOS for now.
+OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only).
 
 ## Non-negotiable rules
 

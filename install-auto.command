@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # install-auto.command
-# Installs (or reinstalls) the launchd task that runs the backup every day.
+# Installs (or reinstalls) the daily automatic backup.
+#   macOS → a launchd agent.   Linux → a cron entry.
 # Double-click to install at the default time (12:00). Or run from the terminal
 # with a time to pick when it runs:
-#   ./install-auto.command 22       → every day at 22:00
-#   ./install-auto.command 7:30     → every day at 07:30
+#   ./install-auto.command 22       -> every day at 22:00
+#   ./install-auto.command 7:30     -> every day at 07:30
 # The base is the folder where this file lives.
 
 cd "$(dirname "$0")" || exit 1
 BASE="$(pwd)"
 SCRIPT="$BASE/update-backup.sh"
 LABEL="com.agentlog.backup"
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+OS="$(uname -s)"
 
 # ---------- pick the time (default 12:00) ----------
 HOUR=12; MIN=0
@@ -20,7 +21,7 @@ case "${1:-}" in
     echo "Usage: install-auto.command [HH | HH:MM]   (default 12:00)"
     echo "Examples: install-auto.command 22   |   install-auto.command 7:30"
     exit 0;;
-  "") ;;  # no argument → default 12:00
+  "") ;;  # no argument -> default 12:00
   *)
     if [[ "$1" =~ ^([0-9]{1,2})(:([0-9]{1,2}))?$ ]]; then
       HOUR=$((10#${BASH_REMATCH[1]})); MIN=$((10#${BASH_REMATCH[3]:-0}))
@@ -43,11 +44,14 @@ if [ ! -f "$SCRIPT" ]; then
   read -r -p "Press Enter to close."; exit 1
 fi
 chmod +x "$SCRIPT"
+mkdir -p "$BASE/.sync-state"
 
-mkdir -p "$HOME/Library/LaunchAgents"
-
-# Write the .plist. RunAtLoad=false so it doesn't run on install; StartCalendarInterval = chosen time.
-cat > "$PLIST" <<PLISTEOF
+if [ "$OS" = "Darwin" ]; then
+  # ---------- macOS: launchd ----------
+  PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+  mkdir -p "$HOME/Library/LaunchAgents"
+  # RunAtLoad=false so it doesn't run on install; StartCalendarInterval = chosen time.
+  cat > "$PLIST" <<PLISTEOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -76,17 +80,29 @@ cat > "$PLIST" <<PLISTEOF
 </dict>
 </plist>
 PLISTEOF
-
-mkdir -p "$BASE/.sync-state"
-
-# reload: unload if already present, then load again
-launchctl unload "$PLIST" 2>/dev/null
-if launchctl load "$PLIST" 2>/dev/null; then
-  echo "✓ Installed. The backup will run every day at $HHMM (or when the Mac wakes up if it was asleep)."
-  echo "  To see it working: open the viewer and check the run-history panel, or look at $BASE/.sync-state/log.json"
+  launchctl unload "$PLIST" 2>/dev/null
+  if launchctl load "$PLIST" 2>/dev/null; then
+    echo "✓ Installed (launchd). The backup will run every day at $HHMM (or when the Mac wakes up)."
+    echo "  To see it: open the viewer and check the run-history panel, or look at $BASE/.sync-state/log.json"
+  else
+    echo "There was a problem loading the task. macOS may ask for Full Disk Access."
+    echo "System Settings → Privacy & Security → Full Disk Access → add 'bash' or Terminal."
+  fi
 else
-  echo "There was a problem loading the task. macOS may ask for Full Disk Access."
-  echo "System Settings → Privacy & Security → Full Disk Access → add 'bash' or Terminal."
+  # ---------- Linux: cron ----------
+  if ! command -v crontab >/dev/null 2>&1; then
+    echo "ERROR: 'crontab' not found. Install cron (e.g. 'sudo apt install cron'),"
+    echo "or add this line to your scheduler manually:"
+    echo "  $MIN $HOUR * * * /bin/bash \"$SCRIPT\" \"$BASE\"  # $LABEL"
+    exit 1
+  fi
+  MARKER="# $LABEL"
+  CRONLINE="$MIN $HOUR * * * /bin/bash \"$SCRIPT\" \"$BASE\" >> \"$BASE/.sync-state/cron.log\" 2>&1  $MARKER"
+  # replace any previous agentlog line, then add the new one
+  ( crontab -l 2>/dev/null | grep -vF "$MARKER"; echo "$CRONLINE" ) | crontab -
+  echo "✓ Installed (cron). The backup will run every day at $HHMM."
+  echo "  Note: unlike macOS, cron does NOT catch up missed runs while the machine is off."
+  echo "  To see it: open the viewer and check the run-history panel, or look at $BASE/.sync-state/log.json"
 fi
 echo ""
 read -r -p "Done. Press Enter to close."
