@@ -16,6 +16,8 @@ sample data, to see how it works. It runs entirely in your browser and **uploads
 nothing**; to back up and browse *your own* conversations, install it (below) and
 use the local `viewer.html`.
 
+![agentlog — conversation list, analytics, run history, bilingual UI](docs/hero.gif)
+
 ---
 
 ## Why

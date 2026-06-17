@@ -16,6 +16,8 @@ datos de ejemplo, para ver cómo funciona. Corre 100% en tu navegador y **no sub
 nada**; para respaldar y navegar *tus propias* conversaciones, instalalo (abajo) y
 usá el `viewer.html` local.
 
+![agentlog — lista de conversaciones, analytics, historial, UI bilingüe](docs/hero.gif)
+
 ---
 
 ## Por qué
