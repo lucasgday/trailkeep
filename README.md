@@ -11,8 +11,10 @@ HTML viewer to browse, group, filter and see analytics of your usage.
 Everything runs **locally on your Mac**. Nothing is uploaded anywhere. The viewer
 UI is **bilingual (English / Spanish)** with a language toggle.
 
-**▶ [Try the live demo](https://lucasgday.github.io/agentlog/)** — runs in your
-browser with sample data, nothing to install.
+**▶ [Try the live demo](https://lucasgday.github.io/agentlog/)** — the viewer with
+sample data, to see how it works. It runs entirely in your browser and **uploads
+nothing**; to back up and browse *your own* conversations, install it (below) and
+use the local `viewer.html`.
 
 ---
 
@@ -197,6 +199,11 @@ source contributed.
   folders, the raw data (`*.jsonl`, `*.db`, `*.vscdb`, `*.pb`) and the sync
   state. Everyone backs up **their own** conversations locally; real content is
   never committed.
+- **Even the hosted demo uploads nothing.** GitHub Pages only serves static HTML;
+  any folder you open is read in your browser via the File API and never sent
+  anywhere — the viewer makes zero network calls. That said, a hosted page is
+  fetched fresh each visit, so for real, everyday use prefer the local
+  `viewer.html` (`file://`): it's fixed and fully inspectable.
 
 ---
 

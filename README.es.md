@@ -11,8 +11,10 @@ standalone para navegarlas, agruparlas, filtrarlas y ver analíticas de tu uso.
 Todo corre **localmente en tu Mac**. Nada se sube a ningún lado. La interfaz del
 visor es **bilingüe (inglés / español)** con un selector de idioma.
 
-**▶ [Probá la demo en vivo](https://lucasgday.github.io/agentlog/)** — corre en tu
-navegador con datos de ejemplo, sin instalar nada.
+**▶ [Probá la demo en vivo](https://lucasgday.github.io/agentlog/)** — el visor con
+datos de ejemplo, para ver cómo funciona. Corre 100% en tu navegador y **no sube
+nada**; para respaldar y navegar *tus propias* conversaciones, instalalo (abajo) y
+usá el `viewer.html` local.
 
 ---
 
@@ -200,6 +202,11 @@ conversaciones nuevas aportó cada fuente.
   carpetas de markdown, los datos crudos (`*.jsonl`, `*.db`, `*.vscdb`, `*.pb`) y
   el estado de sincronización. Cada quien respalda **sus propias** conversaciones
   localmente; nunca se commitea contenido real.
+- **Ni siquiera la demo hosteada sube nada.** GitHub Pages solo sirve HTML
+  estático; cualquier carpeta que abras se lee en tu navegador vía File API y no
+  se manda a ningún lado — el visor no hace ninguna llamada de red. Aun así, una
+  página hosteada se baja en cada visita, así que para el uso real de todos los
+  días conviene el `viewer.html` local (`file://`): es fijo y 100% inspeccionable.
 
 ---
 
