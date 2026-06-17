@@ -86,10 +86,10 @@ cd "$BASE" || { echo "Could not enter $BASE"; exit 1; }
 STATE="$BASE/.sync-state"          # index of processed sizes (incremental)
 mkdir -p "$STATE"
 TMP="$BASE/.sync-tmp"
-# The converters live next to this script (SCRIPT_DIR), not in the data folder,
-# so the code and the markdowns can live in different folders.
-PY_CLAUDE="$SCRIPT_DIR/convert_claude.py"
-PY_CODEX="$SCRIPT_DIR/convert_codex.py"
+# The converters live in converters/ next to this script (SCRIPT_DIR), not in the
+# data folder, so the code and the markdowns can live in different folders.
+PY_CLAUDE="$SCRIPT_DIR/converters/convert_claude.py"
+PY_CODEX="$SCRIPT_DIR/converters/convert_codex.py"
 
 HOME_CLAUDE="$HOME/.claude"
 HOME_CODEX="$HOME/.codex"
@@ -271,7 +271,7 @@ fi
 # ---------------------------------------------------------------------------
 if want opencode; then
 OPENCODE_DB="$HOME/.local/share/opencode/opencode.db"
-PY_OPENCODE="$SCRIPT_DIR/convert_opencode.py"
+PY_OPENCODE="$SCRIPT_DIR/converters/convert_opencode.py"
 if [ -f "$OPENCODE_DB" ] && [ -f "$PY_OPENCODE" ]; then
   echo "-- OpenCode --"
   if need_process "$OPENCODE_DB"; then
@@ -294,7 +294,7 @@ fi
 # ---------------------------------------------------------------------------
 if want cursor; then
 CURSOR_DB="$HOME/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
-PY_CURSOR="$SCRIPT_DIR/convert_cursor.py"
+PY_CURSOR="$SCRIPT_DIR/converters/convert_cursor.py"
 if [ -f "$CURSOR_DB" ] && [ -f "$PY_CURSOR" ]; then
   echo "-- Cursor --"
   if need_process "$CURSOR_DB"; then
