@@ -69,6 +69,8 @@
   .lg-range{font-weight:500;font-size:11.5px;color:var(--ink-soft);margin-left:6px}
   .lg-grid{display:flex;flex-wrap:wrap;gap:14px}
   .lg-grid .an-stat{flex:1 1 92px;min-width:92px}
+  .an-stat[data-tip]{cursor:help}
+  .an-stat[data-tip]:hover{outline:1px solid var(--line);outline-offset:-1px}
   .lg-bars{display:flex;flex-direction:column;gap:8px;margin-top:14px}
   .lg-bar-row{display:flex;align-items:center;gap:10px;font-size:12px}
   .lg-bar-row[data-tip]{cursor:help}
@@ -413,6 +415,7 @@ const I18N = {
     lg_tokens_title:"Tokens by model", lg_top_tools:"Top tools", lg_total_tokens:"tokens (in+out)", lg_total_all:"total tokens", lg_inout:"in + out", lg_tok_total:"total",
     lg_cache_read:"cache read", lg_cache_write:"cache write", lg_range:"activity", lg_calls:"calls",
     tool_desc:{shell:"Runs a shell command", edit:"Edits a file in place", write:"Writes a new file", read:"Reads a file", grep:"Searches file contents (regex)", glob:"Finds files by name pattern", notebook:"Edits a Jupyter notebook", websearch:"Searches the web", webfetch:"Fetches a URL", plan:"Updates the task / plan list", agent:"Spawns a sub-agent", ask:"Asks the user a question", patch:"Applies a code patch", stdin:"Sends input to a running process", toolsearch:"Looks up available tools", mcp:"MCP tool", other:"Tool"},
+    metric_desc:{unique_tools:"Distinct tools used across all sessions (Bash, Edit, Read, MCP tools…).", tpp:"Average tool calls per prompt — how much the agent does per message you send.", tests:"Shell commands that ran tests (pytest, jest, go test, npm test…).", builds:"Shell commands that built the project (make, tsc, webpack, cargo build…).", errors:"API errors plus tool calls that returned an error or non-zero exit.", mcp:"Calls to MCP tools (Model Context Protocol servers / connectors)."},
   },
   es: {
     doc_title:"agentlog · Visor de sesiones",
@@ -452,6 +455,7 @@ const I18N = {
     lg_tokens_title:"Tokens por modelo", lg_top_tools:"Top tools", lg_total_tokens:"tokens (in+out)", lg_total_all:"tokens totales", lg_inout:"in + out", lg_tok_total:"total",
     lg_cache_read:"caché leído", lg_cache_write:"caché escrito", lg_range:"actividad", lg_calls:"llamadas",
     tool_desc:{shell:"Corre un comando de shell", edit:"Edita un archivo", write:"Escribe un archivo nuevo", read:"Lee un archivo", grep:"Busca en el contenido (regex)", glob:"Busca archivos por patrón", notebook:"Edita un notebook Jupyter", websearch:"Busca en la web", webfetch:"Trae una URL", plan:"Actualiza la lista de tareas / plan", agent:"Lanza un sub-agente", ask:"Le pregunta al usuario", patch:"Aplica un patch de código", stdin:"Manda input a un proceso", toolsearch:"Busca tools disponibles", mcp:"Tool MCP", other:"Tool"},
+    metric_desc:{unique_tools:"Tools distintas usadas en todas las sesiones (Bash, Edit, Read, tools MCP…).", tpp:"Promedio de llamadas a tools por prompt — cuánto hace el agente por cada mensaje tuyo.", tests:"Comandos de shell que corrieron tests (pytest, jest, go test, npm test…).", builds:"Comandos de shell que buildearon el proyecto (make, tsc, webpack, cargo build…).", errors:"Errores de API más llamadas a tools que devolvieron error o exit no-cero.", mcp:"Llamadas a tools MCP (servidores / conectores Model Context Protocol)."},
   }
 };
 function t(k){ const d=I18N[state.lang]||I18N.en; return (k in d)?d[k]:(I18N.en[k]!==undefined?I18N.en[k]:k); }
@@ -991,12 +995,16 @@ function cardDetailMetrics(lg){
   card.innerHTML=`<h3>${t("detail_title")}</h3>`;
   const T=lg.totals;
   const stats=[
-    [T.unique_tools,t("lg_unique_tools")],[T.tools_per_user_msg,t("lg_tpp")],
-    [T.test_runs,t("lg_tests")],[T.build_runs,t("lg_builds")],
-    [T.errors,t("lg_errors")],[T.mcp_tool_calls,t("lg_mcp")],
+    [T.unique_tools,t("lg_unique_tools"),"unique_tools"],[T.tools_per_user_msg,t("lg_tpp"),"tpp"],
+    [T.test_runs,t("lg_tests"),"tests"],[T.build_runs,t("lg_builds"),"builds"],
+    [T.errors,t("lg_errors"),"errors"],[T.mcp_tool_calls,t("lg_mcp"),"mcp"],
   ];
+  const md=(I18N[state.lang]||I18N.en).metric_desc||{};
   const cont=document.createElement("div"); cont.className="lg-grid";
-  cont.innerHTML=stats.map(([n,l])=>`<div class="an-stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join("");
+  cont.innerHTML=stats.map(([n,l,key])=>{
+    const tip=md[key]?` data-tip="<b>${escapeHtml(l)}</b><br>${escapeHtml(md[key])}"`:"";
+    return `<div class="an-stat"${tip}><div class="num">${n}</div><div class="lbl">${l}</div></div>`;
+  }).join("");
   card.appendChild(cont);
   return card;
 }
