@@ -244,7 +244,13 @@
 
   .countbar{position:sticky;top:0;z-index:5;background:rgba(250,250,246,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:9px 38px;font-size:12px;color:var(--ink-soft);display:flex;gap:12px;align-items:center}
   .countbar .cb-title{font-weight:650;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  .countbar .cb-src{font-size:9px;flex:0 0 auto}
+  .countbar .cb-src{font-size:9px;flex:0 0 auto;border:none;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em}
+  .countbar .cb-src.src-claude-code{background:#2f8f82;color:#04211d}
+  .countbar .cb-src.src-codex{background:#8b7fd4;color:#150f2e}
+  .countbar .cb-src.src-cowork{background:#d49a52;color:#241402}
+  .countbar .cb-src.src-opencode{background:#5b9bd8;color:#04162e}
+  .countbar .cb-src.src-cursor{background:#d87093;color:#2e0414}
+  .countbar .cb-proj{font-size:11.5px;color:var(--ink-soft);flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .countbar .cb-counts{display:flex;gap:14px;align-items:center;margin-left:auto;flex:0 0 auto}
   .countbar .n{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
@@ -1248,7 +1254,8 @@ function openSession(id){
   reader.innerHTML=`
     <div class="countbar">
       <span class="cb-title" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>
-      <span class="pill src-pill src-${escapeHtml(s.fuente)} cb-src">${escapeHtml(niceSource(s.fuente))}</span>
+      <span class="src-pill src-${escapeHtml(s.fuente)} cb-src">${escapeHtml(niceSource(s.fuente))}</span>
+      <span class="cb-proj" title="${escapeHtml(s.project)}">${escapeHtml(s.project)}</span>
       <span class="cb-counts">
         <button class="cb-count${state.types.user?'':' off'}" data-type="user" title="${t("show_blocks")}"><span class="n">${counts.user}</span> ${t("you").toLowerCase()}</button>
         <button class="cb-count${state.types.assistant?'':' off'}" data-type="assistant" title="${t("show_blocks")}"><span class="n">${counts.assistant}</span> ${escapeHtml(niceSource(s.fuente).toLowerCase())}</button>
