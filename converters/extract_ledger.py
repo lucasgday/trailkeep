@@ -22,9 +22,16 @@ Usage: extract_ledger.py <input_path> <output_dir> <source> [format]
 Per-source results are merged into _ledger.json (like _backup-info.json). The
 viewer reads every _ledger.json and aggregates across sources.
 
-INCREMENTAL: per-session metrics are cached in `_ledger-cache.json`, validated by
-size:mtime — file-based sources (claude/codex) re-scan only changed sessions;
-DB sources (cursor/opencode) re-scan the whole DB only when it changed.
+INCREMENTAL: per-session metrics are cached in `_ledger-cache.json` (in the data
+folder, next to the markdowns), validated by size:mtime — file-based sources
+(claude/codex) re-scan only changed sessions; DB sources re-scan only when changed.
+
+CUMULATIVE + PORTABLE (AGENTS.md rule #3): a session stays in the ledger as long as
+its `.md` exists, even after the tool prunes the raw transcript. Token data, once
+computed from raw, is carried forward from the cache — so it persists in the data
+folder and travels with the markdowns. Recovered raw (AGENTLOG_CLAUDE_RAW_EXTRA, see
+below) only needs to be read ONCE to seed the tokens; after that the archive is
+optional. Nothing already measured is ever lost just because the raw went away.
 """
 import json, os, re, sys, glob, datetime
 
@@ -474,8 +481,10 @@ def scan_markdown(path):
     return finish_session(s)
 
 
-def collect_markdown(out_dir, raw_ids, old):
-    """Scan out_dir/*.md; add sessions whose id has no surviving raw."""
+def collect_markdown(out_dir, old):
+    """Scan out_dir/*.md → (cache, every session's metrics). The Markdown backup
+    is cumulative + portable, so it is the durable anchor: a session is "still
+    real" iff it has a .md here, even after its raw transcript was pruned."""
     cache, sessions, hits, misses = {}, [], 0, 0
     for root, _dirs, fnames in os.walk(out_dir):
         for base in fnames:
@@ -496,8 +505,6 @@ def collect_markdown(out_dir, raw_ids, old):
                     continue
                 misses += 1
             cache[key] = {"sig": sig, "metrics": metrics}
-            if metrics.get("id") and metrics["id"] in raw_ids:
-                continue   # raw is richer — only fall back to the .md when raw is gone
             sessions.append(metrics)
     return cache, sessions, hits, misses
 
@@ -671,11 +678,30 @@ def main():
     else:
         new_cache, sessions, hits, misses = collect_db_source(input_path, fmt, old)
 
-    # Markdown fallback: the raw transcripts get pruned by the tools, but the .md
-    # backup is cumulative — cover those raw-less sessions from the Markdown
-    # (counts only; tokens/model only exist in the raw).
+    # Make the ledger cumulative + portable, like the Markdown backup itself
+    # (AGENTS.md rule #3). A session is "still real" as long as its .md exists
+    # here, even after the tool pruned its raw transcript. So:
+    #   - carry forward every session ever measured from raw (its cached metrics,
+    #     with tokens) — token data, once computed, persists in the data folder and
+    #     travels with the markdowns; no dependency on the raw after the first read;
+    #   - sessions whose raw was never seen fall back to the .md (counts only).
     raw_ids = {m.get("id") for m in sessions if m.get("id")}
-    md_cache, md_sessions, md_hits, md_misses = collect_markdown(out_dir, raw_ids, old)
+    md_cache, md_all, md_hits, md_misses = collect_markdown(out_dir, old)
+    md_ids = {m.get("id") for m in md_all if m.get("id")}
+    carried = 0
+    for key, entry in old.items():
+        if key.startswith("md\t") or key in new_cache:
+            continue  # md-fallback entry, or a raw session re-scanned this run
+        m = entry.get("metrics") if isinstance(entry, dict) else None
+        if not isinstance(m, dict):
+            continue
+        sid = m.get("id")
+        if sid and sid in md_ids and sid not in raw_ids:
+            sessions.append(m)        # keep its tokens
+            new_cache[key] = entry    # persist (cumulative)
+            raw_ids.add(sid)
+            carried += 1
+    md_sessions = [m for m in md_all if not (m.get("id") and m["id"] in raw_ids)]
     new_cache.update(md_cache)
     sessions = sessions + md_sessions
 
@@ -705,6 +731,7 @@ def main():
 
     tt = ledger["totals"]
     md_note = f", {len(md_sessions)} from .md (raw pruned)" if md_sessions else ""
+    md_note += f", {carried} carried (cumulative)" if carried else ""
     print(f"Ledger [{source}]: {tt['sessions']} sessions "
           f"({hits + md_hits} cached, {misses + md_misses} scanned{md_note}), "
           f"{tt['tool_calls']} tool calls, {tt['files_modified']} files, "
