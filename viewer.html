@@ -52,11 +52,8 @@
   .pj-chip.on .pj-chip-n{opacity:.85}
   .pj-tbsort{margin-left:auto;display:flex;align-items:center;gap:7px}
   .pj-select{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
-  .proj-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:10px;min-height:104px;border-left:3px solid var(--line)}
+  .proj-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:10px;min-height:104px}
   .proj-card:hover{border-color:var(--line-strong);box-shadow:0 4px 14px rgba(0,0,0,.06)}
-  .proj-card.pj-c-active{border-left-color:#1a8f7f}
-  .proj-card.pj-c-inactive{border-left-color:var(--line-strong)}
-  .proj-card.pj-c-gone{border-left-color:#c44d6e}
   .pj-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .pj-name{font-weight:700;font-size:15px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .pj-status{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;flex:0 0 auto}
@@ -144,7 +141,8 @@
   .side-nav{display:flex;gap:6px;padding:10px 12px 8px;border-bottom:1px solid #0a201e}
   .side-link{flex:1;font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:7px 8px;border-radius:8px;border:1px solid #2c534f;background:#0c2422;color:#e7f0ee;white-space:nowrap;text-align:center;transition:.12s}
   .side-link:hover{background:#12302c;color:#fff;border-color:#3a6b64}
-  .side-link-lang{flex:0 0 auto}
+  .side-link-sec{flex:0 0 auto;font-weight:500;background:transparent;color:#9fb8b3;border-color:#21443f}
+  .side-link-sec:hover{background:#0c2422;color:#e7f0ee}
   .side-search{display:block;padding:10px 12px;border-bottom:1px solid #0a201e}
   .side-search input{width:100%;max-width:none}
   .side-scroll{flex:1;overflow-y:auto;min-height:0}
@@ -337,6 +335,7 @@
     <div class="brand"><span class="mark">agentlog</span><span class="sub" id="backupStamp">local viewer · 100% offline</span></div>
     <div class="grow"></div>
     <div class="global-count" id="globalCount"></div>
+    <button class="btn ghost" id="btnLang" title="Language">🌐 EN</button>
     <button class="btn" id="openBtn">Open folder</button>
     <input id="folder" type="file" webkitdirectory directory multiple hidden>
   </header>
@@ -348,8 +347,7 @@
       <div class="side-nav">
         <button class="side-link" id="btnProjects">📁 projects</button>
         <button class="side-link" id="btnAnalytics">📊 analytics</button>
-        <button class="side-link" id="btnLog">⟳ runs</button>
-        <button class="side-link side-link-lang" id="btnLang" title="Language">🌐 ES</button>
+        <button class="side-link side-link-sec" id="btnLog">⟳ runs</button>
       </div>
       <div class="side-search">
         <div class="search">
@@ -938,7 +936,7 @@ function cardProject(p){
   const srcMini=[...p.sources].map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
   const lastRaw=(m.last_activity||p.last||"");
   const lastDate=lastRaw?escapeHtml(formatDate(lastRaw.slice(0,10),false)):"";
-  return `<div class="proj-card${st?" pj-c-"+st:""}" data-proj="${escapeHtml(p.name)}">
+  return `<div class="proj-card" data-proj="${escapeHtml(p.name)}">
     <div class="pj-head"><span class="pj-name">${escapeHtml(p.name)}</span>${statusPill}</div>
     <div class="pj-meta">${gitPill}${stackPills}${deployed}</div>
     <div class="pj-foot"><span class="pj-count"><b>${p.count}</b> ${t("pj_sessions")}</span><span class="pj-src">${srcMini}</span><span class="pj-date">${lastDate}</span></div>
