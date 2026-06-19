@@ -43,7 +43,7 @@ except Exception:
         parts = [p for p in folder.split("-") if p]
         return parts[-1] if parts else folder
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 # Recovered-raw archives often hold duplicate project folders with a localized
 # "(del respaldo)" / "(copy)" suffix; strip it so they map to the real project.
@@ -53,12 +53,45 @@ _DUP_SUFFIX = re.compile(r"\s*\((?:del respaldo|copia|copy|backup|restored)\)\s*
 def clean_project_dir(name):
     return _DUP_SUFFIX.sub("", name)
 
+# Detect test/build RUNS at command position — not by substring, which used to
+# match keywords inside file paths, args, and catted heredoc bodies (e.g. counting
+# `git add foo.test.ts` or `cat >> notes` as runs), and missed pnpm/bun/deno.
+_HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[\s\S]*?(?:^|\n)\1\b", re.M)
+_CMD_SEP = re.compile(r"&&|\|\||[|;\n]|\bthen\b|\bdo\b")
+# leading noise to skip before the real command in a sub-command
+_LEAD = re.compile(
+    r"^\s*(?:(?:sudo|time|exec|command|env|nice)\s+|cd\s+[^\s&;|]+\s*|"
+    r"source\s+[^\s&;|]+\s*|\.\s+[^\s&;|]+\s*|[A-Za-z_]\w*=\S*\s+|\d?>\S+\s*)+")
+# optional package-manager / runner prefix, e.g. "pnpm exec ", "npx ", "pnpm "
+_PM = r"(?:(?:npm|pnpm|yarn|bun|deno|poetry|uv|npx)\s+(?:run\s+|exec\s+|x\s+)?)?"
 TEST_RE = re.compile(
-    r"\b(pytest|jest|vitest|go test|cargo test|npm (?:run )?test|"
-    r"yarn test|py_compile|bash -n|rspec|phpunit|mvn test|gradle test)\b")
+    _PM + r"(pytest|jest|vitest|mocha|ava|playwright\s+test|deno\s+test|go\s+test|"
+    r"cargo\s+test|dotnet\s+test|swift\s+test|mvn\s+test|gradle\s+test|rspec|phpunit|"
+    r"tox|ctest|py_compile|bash\s+-n)"
+    r"|(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test", re.I)
 BUILD_RE = re.compile(
-    r"\b(make|tsc|webpack|vite build|npm run build|yarn build|"
-    r"cargo build|go build|mvn package|gradle build|docker build)\b")
+    _PM + r"(tsc|webpack|rollup|esbuild|vite\s+build|next\s+build|nuxt\s+build|"
+    r"astro\s+build|cargo\s+build|go\s+build|mvn\s+package|gradle\s+build|"
+    r"docker\s+build|make(?:\s|$))"
+    r"|(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?build", re.I)
+
+
+def classify_cmd(cmd):
+    """(is_test, is_build) for a shell command, judged per sub-command at command
+    position so paths/args/heredoc bodies don't trigger false matches."""
+    if not cmd:
+        return False, False
+    cmd = _HEREDOC.sub(" ", cmd)
+    is_test = is_build = False
+    for part in _CMD_SEP.split(cmd):
+        part = _LEAD.sub("", part.strip())
+        if not part:
+            continue
+        if not is_test and TEST_RE.match(part):
+            is_test = True
+        if not is_build and BUILD_RE.match(part):
+            is_build = True
+    return is_test, is_build
 
 # Edit-ish tool names across tools (lowercased) → count distinct files touched.
 EDIT_TOOLS = {"edit", "write", "multiedit", "notebookedit", "apply_patch",
@@ -126,9 +159,10 @@ def record_tool(s, name, cmd=None, fpath=None):
     if low in EDIT_TOOLS and fpath:
         s["_files"].add(fpath)
     if cmd:
-        if TEST_RE.search(cmd):
+        ct, cb = classify_cmd(cmd)
+        if ct:
             s["test_runs"] += 1
-        if BUILD_RE.search(cmd):
+        if cb:
             s["build_runs"] += 1
 
 
@@ -468,15 +502,16 @@ def scan_markdown(path):
         if low in EDIT_TOOLS and target:
             s["_files"].add(target)
         if target:  # cursor/opencode keep the shell command in the → target
-            if TEST_RE.search(target):
+            ct, cb = classify_cmd(target)
+            if ct:
                 s["test_runs"] += 1
-            if BUILD_RE.search(target):
+            if cb:
                 s["build_runs"] += 1
     for bm in MD_BASH_RE.finditer(txt):  # claude/codex keep it in a bash block
-        cmd = bm.group(1)
-        if TEST_RE.search(cmd):
+        ct, cb = classify_cmd(bm.group(1))
+        if ct:
             s["test_runs"] += 1
-        if BUILD_RE.search(cmd):
+        if cb:
             s["build_runs"] += 1
     return finish_session(s)
 
