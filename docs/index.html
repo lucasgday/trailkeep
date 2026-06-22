@@ -50,15 +50,17 @@
   .pj-chip.on{background:var(--spine);color:#fff;border-color:var(--spine)}
   .pj-chip-n{font-size:10.5px;font-variant-numeric:tabular-nums;opacity:.7}
   .pj-chip.on .pj-chip-n{opacity:.85}
-  .pj-hidden-row{align-items:flex-start}
-  .pj-hidden-drawer{display:flex;flex-direction:column;gap:7px;min-width:220px;max-width:520px}
-  .pj-hidden-toggle{border-radius:7px;width:max-content}
-  .pj-hidden-list{display:flex;flex-direction:column;gap:6px}
-  .pj-hidden-empty{font-size:12px;color:var(--ink-soft);padding:3px 0}
-  .pj-hidden-item{font:inherit;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 10px;transition:.12s}
+  .pj-hidden-row{align-items:center;flex-wrap:nowrap}
+  .pj-hidden-drawer{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;flex:1}
+  .pj-hidden-toggle{border-radius:7px;flex:0 0 auto}
+  .pj-hidden-caret{font-size:10px;line-height:1;opacity:.72}
+  .pj-hidden-list{display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;min-width:0;overflow:visible}
+  .pj-hidden-empty{font-size:12px;color:var(--ink-soft);padding:3px 0;white-space:nowrap}
+  .pj-hidden-item{font:inherit;cursor:pointer;display:grid;grid-template-columns:minmax(96px,1fr) auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:6px 9px;transition:.12s;min-width:184px;max-width:240px;flex:0 0 auto}
   .pj-hidden-item:hover{border-color:var(--line-strong);background:var(--paper)}
-  .pj-hidden-name{font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pj-hidden-meta{font-size:11px;color:var(--ink-soft)}
+  .pj-hidden-item > span:first-child{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .pj-hidden-name{display:block;font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pj-hidden-meta{display:block;font-size:11px;color:var(--ink-soft);white-space:nowrap}
   .pj-hidden-restore{font-size:11.5px;color:var(--you);font-weight:650;white-space:nowrap}
   .pj-tbsort{margin-left:auto;display:flex;align-items:center;gap:7px}
   .pj-sort-chip{border-radius:7px}
@@ -1124,7 +1126,7 @@ function renderProjToolbar(all){
     <div class="pj-tbrow pj-hidden-row">
       <span class="pj-tblabel">${t("pj_hidden")}</span>
       <div class="pj-hidden-drawer">
-        <button class="pj-chip pj-hidden-toggle${PJ.showHidden?" on":""}" data-hidden-toggle>${t("pj_hidden_title")} <span class="pj-chip-n">${hidden.length}</span></button>
+        <button class="pj-chip pj-hidden-toggle${PJ.showHidden?" on":""}" data-hidden-toggle aria-expanded="${PJ.showHidden?"true":"false"}"><span class="pj-hidden-caret">${PJ.showHidden?"▾":"▸"}</span>${t("pj_hidden_title")} <span class="pj-chip-n">${hidden.length}</span></button>
         ${PJ.showHidden ? `<div class="pj-hidden-list">${hidden.length ? hidden.map(p=>`
           <button class="pj-hidden-item" data-restore-project="${escapeHtml(p.name)}">
             <span>
