@@ -26,6 +26,7 @@ MANIFESTS = [
 # Hints that a project is deployed somewhere (local read, no network).
 DEPLOY_HINTS = ["vercel.json", "netlify.toml", "fly.toml", ".github/workflows",
                 "Procfile", "render.yaml", "wrangler.toml"]
+ACTIVE_DAYS = 30
 
 
 def first_cwd_claude(path):
@@ -188,7 +189,7 @@ def main():
                     d = datetime.datetime.fromisoformat(last.replace("Z", "+00:00"))
                     if d.tzinfo is None:
                         d = d.replace(tzinfo=datetime.timezone.utc)
-                    status = "active" if (now - d).days <= 21 else "inactive"
+                    status = "active" if (now - d).days <= ACTIVE_DAYS else "inactive"
                 except Exception:
                     pass
             out[name] = {
@@ -201,22 +202,25 @@ def main():
         path = max(p["paths"].items(), key=lambda kv: kv[1])[0]
         exists = os.path.isdir(path)
         git = git_info(path) if exists else None
-        # status: active if touched in the last 21 days, else inactive; gone if the
-        # directory no longer exists.
+        deployed = is_deployed(path) if exists else False
+        # status: active if touched in the last month or deployed, else inactive;
+        # gone if the directory no longer exists.
         status = "gone" if not exists else "inactive"
-        if exists and last:
+        if exists and deployed:
+            status = "active"
+        elif exists and last:
             try:
                 d = datetime.datetime.fromisoformat(last.replace("Z", "+00:00"))
                 if d.tzinfo is None:
                     d = d.replace(tzinfo=datetime.timezone.utc)
-                status = "active" if (now - d).days <= 21 else "inactive"
+                status = "active" if (now - d).days <= ACTIVE_DAYS else "inactive"
             except Exception:
                 pass
         out[name] = {
             "path": path, "exists": exists, "status": status,
             "last_activity": last, "sources": sorted(p["sources"]),
             "git": git, "stack": detect_stack(path) if exists else [],
-            "deployed": is_deployed(path) if exists else False,
+            "deployed": deployed,
         }
 
     doc = {"generated": datetime.datetime.now().astimezone().isoformat(), "projects": out}
