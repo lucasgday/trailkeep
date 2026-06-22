@@ -404,6 +404,8 @@
 
   .countbar{position:sticky;top:0;z-index:5;background:rgba(250,250,246,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:9px 38px;font-size:12px;color:var(--ink-soft);display:flex;gap:12px;align-items:center}
   .countbar .cb-title{font-weight:650;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .countbar .cb-back-project{font:inherit;font-size:11.5px;font-weight:650;color:var(--ink);flex:0 0 auto;white-space:nowrap;background:var(--panel);border:1px solid var(--line);cursor:pointer;padding:3px 8px;border-radius:7px}
+  .countbar .cb-back-project:hover{background:var(--tool-bg);border-color:var(--line-strong)}
   .countbar .cb-src{font-size:9px;flex:0 0 auto;border:none;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em}
   .countbar .cb-src.src-claude-code{background:#2f8f82;color:#fff}
   .countbar .cb-src.src-codex{background:#8b7fd4;color:#fff}
@@ -624,7 +626,7 @@ const I18N = {
     metric_conv:"conversations", metric_turns:"turns",
     top_projects:"Projects by", top_projects_more:"View more", top_projects_less:"View less", no_activity:"no activity", total:"total", period_total:"period total",
     archived_badge:"archived", n_turns:"turns", mark_reviewed:"Mark as reviewed",
-    project_pill:"Project", copy_conv:"Copy conversation",
+    project_pill:"Project", back_to_project:"← Project", copy_conv:"Copy conversation",
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
     collapse_expand:"Collapse/expand all", copy:"copy", copied:"✓ copied",
     mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool",
@@ -682,7 +684,7 @@ const I18N = {
     metric_conv:"conversaciones", metric_turns:"turnos",
     top_projects:"Proyectos por", top_projects_more:"Ver más", top_projects_less:"Ver menos", no_activity:"sin actividad", total:"total", period_total:"total del período",
     archived_badge:"archivada", n_turns:"turnos", mark_reviewed:"Marcar como revisada",
-    project_pill:"Proyecto", copy_conv:"Copiar conversación",
+    project_pill:"Proyecto", back_to_project:"← proyecto", copy_conv:"Copiar conversación",
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
     collapse_expand:"Colapsar/expandir todos", copy:"copiar", copied:"✓ copiado",
     mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.",
@@ -1969,6 +1971,7 @@ function openSession(id){
 
   reader.innerHTML=`
     <div class="countbar">
+      <button class="cb-back-project" id="cbBackProject">${t("back_to_project")}</button>
       <span class="cb-title" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>
       <span class="src-pill src-${escapeHtml(s.fuente)} cb-src">${escapeHtml(niceSource(s.fuente))}</span>
       <button class="cb-proj" id="cbProjectHome" aria-label="${t("projects_title")}: ${escapeHtml(s.project)}">${escapeHtml(s.project)}</button>
@@ -2011,6 +2014,7 @@ function openSession(id){
     });
   });
   document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(id); });
+  document.getElementById("cbBackProject").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("cbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("crumbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("toggleAllTurns").addEventListener("click",()=>{ const allC=[...reader.querySelectorAll(".turn")].every(t=>t.classList.contains("collapsed")); reader.querySelectorAll(".turn").forEach(t=>t.classList.toggle("collapsed",!allC)); });
