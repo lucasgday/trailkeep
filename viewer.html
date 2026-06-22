@@ -134,6 +134,11 @@
   .ph-review-btn{font:inherit;font-size:11.5px;cursor:pointer;padding:4px 8px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);opacity:0;transition:.12s}
   .ph-conv:hover .ph-review-btn,.ph-review-btn:focus-visible,.ph-conv.done .ph-review-btn{opacity:1}
   .ph-review-btn:hover{background:var(--tool-bg);color:var(--ink)}
+  .ph-review-empty{display:flex;flex-direction:column;gap:12px}
+  .ph-review-kicker{display:inline-flex;align-items:center;width:max-content;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .ph-review-empty h3{margin:0;font-size:14px;color:var(--ink)}
+  .ph-review-empty p{margin:0;color:var(--ink-soft);font-size:13px;line-height:1.5;max-width:720px}
+  .ph-review-actions{display:flex;gap:8px;flex-wrap:wrap}
   .an-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
   .an-card h3{margin:0 0 14px;font-size:14px;color:var(--ink);font-weight:700}
   .an-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -528,7 +533,7 @@ const state = {
   types: { user:true, assistant:true, tool:true },
   query: "", hideDone:true, hideArchived:true, collapseAll:false,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
-  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, projectFocus:null, projectHomeName:null,
+  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, projectReviews:null, projectFocus:null, projectHomeName:null,
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
 };
 
@@ -554,6 +559,10 @@ const I18N = {
     ph_metadata_updated:"Metadata updated", ph_view_activity:"View activity", ph_hide_activity:"Hide activity",
     ph_repo:"Repo", ph_repo_none:"no repo", ph_show_reviewed:"Show reviewed", ph_show_archived:"Show archived", ph_mark_reviewed:"Mark reviewed", ph_unmark_reviewed:"Unmark",
     ph_conv_active:"active", ph_conv_archived:"archived", ph_conv_reviewed:"reviewed",
+    ph_review_title:"Project review", ph_review_badge:"optional agent layer", ph_review_empty_t:"No project review yet",
+    ph_review_empty_p:"Use your coding agent to create an incremental local `_project_reviews.json` sidecar. trailkeep itself stays offline and only reads the result.",
+    ph_review_missing_p:"A review sidecar is loaded, but this project does not have a review entry yet.",
+    ph_copy_review_setup:"Copy agent setup prompt", ph_copy_project_review:"Copy project review prompt",
     filters:"Filters", show_blocks:"Show blocks", you:"You", assistant:"Agent", tools:"Tools",
     view:"View", hide_done:"Hide marked conversations", hide_archived:"Hide archived",
     collapse_turns:"Collapse all turns", group_by:"Group by:", by_tool:"Tool", by_project:"Project",
@@ -608,6 +617,10 @@ const I18N = {
     ph_metadata_updated:"Metadata actualizada", ph_view_activity:"Ver actividad", ph_hide_activity:"Ocultar actividad",
     ph_repo:"Repo", ph_repo_none:"sin repo", ph_show_reviewed:"Mostrar revisadas", ph_show_archived:"Mostrar archivadas", ph_mark_reviewed:"Marcar revisada", ph_unmark_reviewed:"Desmarcar",
     ph_conv_active:"activas", ph_conv_archived:"archivadas", ph_conv_reviewed:"revisadas",
+    ph_review_title:"Review del proyecto", ph_review_badge:"capa opcional con agente", ph_review_empty_t:"Todavía no hay review del proyecto",
+    ph_review_empty_p:"Usá tu coding agent para crear un sidecar local e incremental `_project_reviews.json`. trailkeep sigue offline y solo lee el resultado.",
+    ph_review_missing_p:"Hay un sidecar de reviews cargado, pero este proyecto todavía no tiene entrada.",
+    ph_copy_review_setup:"Copiar prompt de setup del agente", ph_copy_project_review:"Copiar prompt de review",
     filters:"Filtros", show_blocks:"Mostrar bloques", you:"Tú", assistant:"Agente", tools:"Herramientas",
     view:"Vista", hide_done:"Ocultar conversaciones marcadas", hide_archived:"Ocultar archivadas",
     collapse_turns:"Colapsar todos los turnos", group_by:"Agrupar por:", by_tool:"Herramienta", by_project:"Proyecto",
@@ -924,6 +937,21 @@ async function handleFiles(fileList){
       if(doc&&doc.generated&&(!state.projectMetaGenerated || doc.generated>state.projectMetaGenerated)) state.projectMetaGenerated=doc.generated;
     }catch(e){}
   }
+  // Optional agent-generated review sidecar. The viewer only reads it; project
+  // review generation belongs to the user's coding agent.
+  state.projectReviews=null;
+  const reviews={version:1,projects:{}};
+  let reviewFiles=0;
+  for(const f of Array.from(fileList).filter(f=>/_project_reviews\.json$/i.test(f.name))){
+    try{
+      reviewFiles++;
+      const doc=JSON.parse(await f.text());
+      if(doc&&doc.projects) Object.assign(reviews.projects, doc.projects);
+      if(doc&&doc.version) reviews.version=doc.version;
+      if(doc&&doc.updated_at) reviews.updated_at=doc.updated_at;
+    }catch(e){}
+  }
+  if(reviewFiles) state.projectReviews=reviews;
   if(!files.length){ document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`; return; }
   document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("reading")} ${files.length} ${t("sessions_word")}…</div>`;
   state.sessions=[]; state.projects=new Map(); state.sources=new Map();
@@ -1198,6 +1226,130 @@ function projectConversationCounts(sessions){
   }
   return {active, archived, reviewed};
 }
+function projectReviewEntry(name){
+  const root=state.projectReviews && state.projectReviews.projects;
+  return root ? root[name] : null;
+}
+function projectReviewSetupPrompt(){
+  return `Set up a local coding-agent skill and automation for trailkeep project reviews.
+
+Goal:
+- Create a coding-agent skill that reads my trailkeep backups and maintains a cumulative local sidecar named _project_reviews.json.
+- The trailkeep viewer must not call models or make network requests; it will only read that sidecar.
+
+Privacy and data handling:
+- trailkeep itself stays local and zero-network.
+- This generative layer runs inside my coding agent. If the agent uses a remote LLM provider, selected project context may be sent to that provider.
+- Send only the minimum context needed for the requested review.
+- Do not send secrets, API keys, tokens, credentials, private .env files, or unrelated repo data.
+- Do not upload or transmit my full backup folder blindly.
+- Ask me before enabling any recurring automation that sends project context to a remote provider.
+- Write outputs only to local sidecars, especially _project_reviews.json.
+
+Source precedence:
+- First look for explicit planning files in the repo: ROADMAP.md, BACKLOG.md, TODO.md, docs/product-progress.md, docs/project-progress.md, docs/agent-handoff.md, docs/design-patterns.md, docs/design.md, design.md, AGENTS.md, or equivalents.
+- For next step, roadmap, and tasks, those files are the source of truth.
+- For design system, design.md/docs/design.md/docs/design-patterns.md and real component files are the source of truth.
+- Use trailkeep conversations as supporting evidence for recent decisions, completed work, blockers, and undocumented context.
+- If conversations contradict roadmap/backlog/design docs, record an open question; do not silently override the source of truth.
+
+Incremental automation:
+- Daily project pulse: next_step, tasks, open_questions, roadmap_status, and suggested_next_prompt.
+- Daily design pulse: design-system changes, components, visual rules, and UI decisions only when there is new evidence.
+- Daily global synthesis: priorities and projects needing attention from compact reviews, not full conversations.
+- Do not re-read everything by default. Detect changed projects with hashes/checkpoints, reviewed session ids, metadata, git commit, and deltas.
+- Use previous summary + new/changed conversations. If the delta is insufficient or confidence is low, set needs_deep_review or needs_deep_design_review instead of reading the whole project automatically.
+- Preserve stable task ids unless there is clear evidence to close, split, or update them.
+
+Model tiers:
+- If my agent supports model selection per subtask, use tiers: cheap/fast for classification and mini-summaries, default for incremental review, strong for deep review/design synthesis.
+- If it cannot route models, keep tier_intent in metadata and report model_routing: unavailable.
+
+Expected sidecar:
+{
+  "version": 1,
+  "updated_at": "ISO timestamp",
+  "projects": {
+    "project-name": {
+      "summary": "",
+      "standing_context": "",
+      "next_step": "",
+      "roadmap_status": "",
+      "open_questions": [],
+      "tasks": [],
+      "suggested_next_prompt": "",
+      "design_system": {
+        "summary": "",
+        "components": [],
+        "rules": [],
+        "needs_deep_design_review": false
+      },
+      "checkpoints": {
+        "last_reviewed_activity": "",
+        "last_reviewed_backup_run": "",
+        "last_reviewed_git_commit": "",
+        "reviewed_sessions": {}
+      }
+    }
+  }
+}
+
+Do not modify or delete trailkeep markdowns. Do not commit private backups or sidecars.`;
+}
+function projectReviewPrompt(name, sessions, meta, ledger){
+  const recent=sessions.slice(0,8).map(s=>`- ${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.title} · id:${s.id}`).join("\n");
+  const stack=(meta.stack&&meta.stack.length) ? meta.stack.join(", ") : t("ph_stack_none");
+  const git=meta.git&&meta.git.branch ? `${meta.git.branch}${meta.git.last_commit_date?` · ${meta.git.last_commit_date}`:""}${meta.git.dirty?` · ${t("pj_dirty")}`:""}` : t("ph_git_none");
+  const repo=meta.repo_url||t("ph_repo_none");
+  const path=meta.virtual ? t("ph_virtual") : (meta.path||t("ph_no_path"));
+  const activity=ledger ? [
+    ledger.user_messages!=null ? `- prompts: ${ledger.user_messages}` : "",
+    ledger.tool_calls!=null ? `- tool calls: ${ledger.tool_calls}` : "",
+    ledger.files_modified!=null ? `- files modified: ${ledger.files_modified}` : "",
+  ].filter(Boolean).join("\n") : "- no ledger stats";
+  return `Update the incremental trailkeep review for this project.
+
+Project: ${name}
+
+Known facts:
+- path: ${path}
+- repo: ${repo}
+- git: ${git}
+- stack: ${stack}
+- status: ${projectStatusLabel(meta.status)||"-"}
+- conversations: ${sessions.length}
+
+Activity:
+${activity}
+
+Recent backed-up conversations:
+${recent}
+
+Instructions:
+- First inspect the local repo if it exists.
+- If ROADMAP.md, BACKLOG.md, TODO.md, docs/product-progress.md, docs/project-progress.md, docs/agent-handoff.md, docs/design-patterns.md, docs/design.md, design.md, AGENTS.md, or equivalents exist, treat those files as the source of truth.
+- Use these conversations as supporting evidence for recent decisions, completed work, and blockers.
+- Do not re-read everything if unnecessary: compare against _project_reviews.json and process only deltas.
+- Update or create this project's entry in _project_reviews.json.
+- Preserve stable task ids unless there is clear evidence.
+- If there are contradictions, add them to open_questions.
+- If context is insufficient, set needs_deep_review or needs_deep_design_review instead of inventing.
+
+Return/write only the updated JSON entry for this project, compatible with the _project_reviews.json sidecar.`;
+}
+function projectReviewEmptyCard(name){
+  const hasSidecar=!!state.projectReviews;
+  const body=hasSidecar ? t("ph_review_missing_p") : t("ph_review_empty_p");
+  return `<div class="an-card ph-review-empty">
+    <span class="ph-review-kicker">${t("ph_review_badge")}</span>
+    <h3>${t("ph_review_empty_t")}</h3>
+    <p>${escapeHtml(body)}</p>
+    <div class="ph-review-actions">
+      <button class="mini" id="phCopyReviewSetup">${t("ph_copy_review_setup")}</button>
+      <button class="mini" id="phCopyProjectReview">${t("ph_copy_project_review")}</button>
+    </div>
+  </div>`;
+}
 function openProjectHome(name){
   state.projectHomeName=name;
   showView("projectHome");
@@ -1256,6 +1408,7 @@ function renderProjectHome(name){
       </span>
     </div>`;
   }).join("") : `<div class="log-empty">${t("no_results")}</div>`;
+  const reviewCard=projectReviewEntry(name) ? "" : projectReviewEmptyCard(name);
   host.innerHTML=`
     <div class="ph-toolbar">
       <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
@@ -1280,6 +1433,7 @@ function renderProjectHome(name){
         ${projectFact(t("ph_metadata_updated"), escapeHtml(metaDate||"-"))}
       </div>
     </div>
+    ${reviewCard}
     <div class="an-card">
       <h3>${t("ph_activity")}</h3>
       <div class="lg-grid">${statRows.map(([n,l])=>`<div class="an-stat"><div class="num">${fmtNum(n)}</div><div class="lbl">${l}</div></div>`).join("")}</div>
@@ -1300,6 +1454,10 @@ function renderProjectHome(name){
     PJ.showHidden=true;
     showProjects();
   });
+  const copyReviewSetup=host.querySelector("#phCopyReviewSetup");
+  if(copyReviewSetup) copyReviewSetup.addEventListener("click",e=>copyText(projectReviewSetupPrompt(), e.currentTarget));
+  const copyProjectReview=host.querySelector("#phCopyProjectReview");
+  if(copyProjectReview) copyProjectReview.addEventListener("click",e=>copyText(projectReviewPrompt(name, sessions, m, lg), e.currentTarget));
   host.querySelector("#phShowReviewed").addEventListener("click",()=>{ PH.showReviewed=!PH.showReviewed; renderProjectHome(name); });
   host.querySelector("#phShowArchived").addEventListener("click",()=>{ PH.showArchived=!PH.showArchived; renderProjectHome(name); });
   host.querySelectorAll("[data-stop]").forEach(a=>a.addEventListener("click",e=>e.stopPropagation()));

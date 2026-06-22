@@ -162,6 +162,21 @@ conversaciones (están gitignoreadas a propósito) y no mandes mis datos a
 ningún lado.
 ```
 
+### Opcional: reviews de proyecto con tu agente
+
+trailkeep no llama modelos. La siguiente capa es una skill para tu propio coding
+agent: lee contexto nuevo o cambiado por proyecto, prioriza primero los docs del
+repo (`ROADMAP.md`, `BACKLOG.md`, `TODO.md`, `docs/product-progress.md`,
+`docs/design.md`, `design.md`, `AGENTS.md` o equivalentes), y escribe un sidecar
+local `_project_reviews.json`.
+
+Ese sidecar es acumulativo: el pulso diario de proyecto, el pulso diario de
+design system y la síntesis global de prioridades actualizan por defecto solo
+proyectos con cambios. Si tu agente usa un LLM provider remoto, esa
+automatización opcional puede enviarle el contexto seleccionado del proyecto a
+ese provider; los scripts de backup y el viewer de trailkeep siguen siendo
+locales y cero red.
+
 ¿Preferís hacerlo a mano? Seguí los pasos de abajo.
 
 **1. Conseguí el código** — cloná el repo (o descargá el ZIP desde el botón verde
@@ -273,8 +288,10 @@ conversaciones nuevas aportó cada fuente.
 ## Roadmap
 
 Mirá [ROADMAP.md](ROADMAP.md) para ver hacia dónde va — resúmenes por
-conversación, vista por proyecto, un `AGENTS.md` recomendado a partir de tu propio
-historial, soporte Linux. Todo lo planeado sigue siendo local.
+conversación, reviews de proyecto con tu agente, un `AGENTS.md` recomendado a
+partir de tu propio historial, soporte Windows. El backup y el viewer siguen
+siendo locales; las capas opcionales con IA corren con el modelo/provider que
+configures en tu propio agente.
 
 ---
 

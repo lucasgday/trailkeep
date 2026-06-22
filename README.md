@@ -158,6 +158,20 @@ my conversations (they're gitignored on purpose), and don't send my data
 anywhere.
 ```
 
+### Optional: project review automation with your agent
+
+trailkeep itself does not call models. The next layer is a coding-agent skill you
+can install into your own agent: it reads new or changed project context, follows
+repo planning docs first (`ROADMAP.md`, `BACKLOG.md`, `TODO.md`,
+`docs/product-progress.md`, `docs/design.md`, `design.md`, `AGENTS.md`, or
+equivalents), and writes a local `_project_reviews.json` sidecar.
+
+That sidecar is cumulative: daily project pulse, daily design-system pulse, and
+global priority synthesis update only changed projects by default. If your agent
+uses a remote LLM provider, that optional automation may send the selected
+project context to that provider; trailkeep's backup scripts and viewer remain
+local and zero-network.
+
 Prefer to do it by hand? Follow the steps below.
 
 **1. Get the code** — clone it (or download the ZIP from the green **Code**
@@ -270,8 +284,9 @@ source contributed.
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for where it's headed — per-conversation summaries,
-per-project overviews, a recommended `AGENTS.md` from your own history, Linux
-support. Everything planned stays local.
+agent-powered project reviews, a recommended `AGENTS.md` from your own history,
+Windows support. The backup and viewer stay local; optional AI layers run through
+the model/provider you configure in your own agent.
 
 ---
 
