@@ -40,8 +40,9 @@
   .an-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
   .an-head h2{margin:0;font-size:20px;color:var(--ink)}
   .an-grid{display:flex;flex-direction:column;gap:24px;max-width:920px;margin:0 auto}
+  #projectsView{padding-top:0}
   .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:16px;max-width:960px;margin:0 auto}
-  .pj-sticky{position:sticky;top:0;z-index:9;background:rgba(250,250,246,.96);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);margin:-24px -28px 18px;padding:24px 28px 12px}
+  .pj-sticky{position:sticky;top:0;z-index:9;background:rgba(250,250,246,.96);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);margin:0 -28px 24px;padding:24px 28px 18px}
   .pj-sticky .an-head,.pj-toolbar{max-width:960px;margin-left:auto;margin-right:auto}
   .pj-toolbar{display:flex;flex-direction:column;gap:9px}
   .pj-tbrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -61,6 +62,7 @@
   .proj-card:hover{border-color:var(--line-strong);box-shadow:0 4px 14px rgba(0,0,0,.06)}
   .pj-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .pj-name{font-weight:700;font-size:15px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .pj-status-line{display:flex;align-items:center;gap:6px;flex:0 0 auto}
   .pj-status{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;flex:0 0 auto}
   .pj-status.pj-active{background:#e3f1ee;color:#1a8f7f}
   .pj-status.pj-inactive{background:var(--paper);color:var(--ink-soft);border:1px solid var(--line)}
@@ -70,40 +72,46 @@
   .pj-pill.pj-git{font-family:var(--mono);font-size:10.5px}
   .pj-pill.pj-stack{background:#eef2f0;color:var(--ink);border-color:#dde6e2;font-weight:600}
   .pj-pill.pj-deployed{background:#eaf3ff;color:#2c6bbd;border-color:#d4e6fb;font-weight:600}
+  a.pj-pill{text-decoration:none}
+  a.pj-pill:hover{filter:brightness(.96);border-color:var(--line-strong)}
   .pj-pill.pj-muted{opacity:.55}
   .pj-foot{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--ink-soft);margin-top:auto;flex-wrap:wrap}
   .pj-foot .pj-count b{color:var(--ink);font-variant-numeric:tabular-nums}
   .pj-foot .pj-src{display:flex;gap:4px;flex-wrap:wrap}
   .pj-foot .pj-date{margin-left:auto}
   .ph-wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .ph-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .ph-head{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px}
   .ph-title{min-width:0}
   .ph-title h2{margin:0 0 10px;font-size:24px;color:var(--ink);overflow-wrap:anywhere}
   .ph-sub{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--ink-soft);font-size:12px}
-  .ph-side{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
   .ph-top-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;color:var(--ink-soft);font-size:11.5px;min-width:132px}
   .ph-top-meta b{font-size:13px;color:var(--ink);font-weight:650}
   .ph-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
   .ph-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr);gap:16px}
   .ph-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .ph-head .ph-facts{grid-column:1/-1}
   .ph-fact{padding:10px 12px;border-radius:10px;background:var(--paper);min-width:0}
   .ph-fact .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:700;margin-bottom:4px}
   .ph-fact .val{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ph-fact .val.wrap{white-space:normal;overflow-wrap:anywhere}
   .ph-mono{font-family:var(--mono);font-size:11.5px}
   .ph-convs{display:flex;flex-direction:column;gap:8px}
-  .ph-conv{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:var(--ink)}
+  .ph-conv-controls{display:flex;gap:6px;flex-wrap:wrap}
+  .ph-filter{font:inherit;font-size:11.5px;cursor:pointer;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink-soft)}
+  .ph-filter.on{background:var(--spine);color:#fff;border-color:var(--spine)}
+  .ph-conv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:var(--ink)}
   .ph-conv:hover{border-color:var(--line-strong);background:var(--paper)}
   .ph-conv.done{opacity:.54}
   .ph-conv.done .ph-conv-title{text-decoration:line-through}
-  .ph-conv-review{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent;margin:1px 0 0}
-  .ph-conv-review:hover{border-color:var(--claude)}
-  .ph-conv-review:checked{background:var(--claude);border-color:var(--claude)}
-  .ph-conv-review:checked::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
   .ph-conv-main{min-width:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer}
   .ph-conv-title{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ph-conv-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:4px;font-size:11.5px;color:var(--ink-soft)}
+  .ph-conv-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}
   .ph-conv-turns{font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ph-review-btn{font:inherit;font-size:11.5px;cursor:pointer;padding:4px 8px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);opacity:0;transition:.12s}
+  .ph-conv:hover .ph-review-btn,.ph-review-btn:focus-visible,.ph-conv.done .ph-review-btn{opacity:1}
+  .ph-review-btn:hover{background:var(--tool-bg);color:var(--ink)}
   .an-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
   .an-card h3{margin:0 0 14px;font-size:14px;color:var(--ink);font-weight:700}
   .an-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -169,6 +177,7 @@
   .btn.ghost{background:transparent;border-color:#2c534f;color:#cfe0dc}
   .btn.ghost:hover{background:#0c2422}
   .btn.sm{padding:6px 10px;font-size:12px}
+  button:disabled{cursor:not-allowed;opacity:.48}
 
   .shell{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:0;min-width:0;width:100%;max-width:100vw}
   .sidebar{background:linear-gradient(180deg,var(--spine),var(--spine-2));color:#DCE7E4;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid #0a201e}
@@ -362,11 +371,13 @@
     .sidebar{position:fixed;inset:auto 0 0 0;top:92px;max-height:64vh;z-index:20;display:none}
     .sidebar.open{display:flex}
     .doc{padding:20px 16px 100px}
-    .pj-sticky{top:0;margin:-24px -28px 16px;padding:20px 28px 10px}
+    .pj-sticky{top:0;margin:0 -28px 20px;padding:20px 28px 14px}
     .ph-head{grid-template-columns:1fr}
-    .ph-side,.ph-top-meta{align-items:flex-start}
+    .ph-top-meta{align-items:flex-start}
     .ph-actions{justify-content:flex-start}
     .ph-grid,.ph-facts{grid-template-columns:1fr}
+    .ph-toolbar{align-items:flex-start;flex-direction:column}
+    .ph-review-btn{opacity:1}
     .turn-body,.turn[data-type="tool"] .turn-body{padding-left:0;margin-left:0}
     .turn-head{grid-template-columns:24px 56px 1fr auto}
     .menu-toggle{display:inline-flex !important}
@@ -506,6 +517,7 @@ const I18N = {
     ph_path:"Path", ph_git:"Git", ph_stack:"Stack", ph_deploy:"Deploy", ph_sources:"Sources",
     ph_status:"Status", ph_last_activity:"Last activity", ph_virtual:"virtual project", ph_no_path:"no path", ph_git_none:"no git", ph_stack_none:"not detected", ph_deployed_yes:"yes", ph_deployed_no:"no",
     ph_metadata_updated:"Metadata updated", ph_view_activity:"View activity", ph_hide_activity:"Hide activity",
+    ph_repo:"Repo", ph_repo_none:"no repo", ph_show_reviewed:"Show reviewed", ph_show_archived:"Show archived", ph_mark_reviewed:"Mark reviewed", ph_unmark_reviewed:"Unmark",
     filters:"Filters", show_blocks:"Show blocks", you:"You", assistant:"Agent", tools:"Tools",
     view:"View", hide_done:"Hide marked conversations", hide_archived:"Hide archived",
     collapse_turns:"Collapse all turns", group_by:"Group by:", by_tool:"Tool", by_project:"Project",
@@ -557,6 +569,7 @@ const I18N = {
     ph_path:"Ruta", ph_git:"Git", ph_stack:"Stack", ph_deploy:"Deploy", ph_sources:"Fuentes",
     ph_status:"Estado", ph_last_activity:"Última actividad", ph_virtual:"proyecto virtual", ph_no_path:"sin ruta", ph_git_none:"sin git", ph_stack_none:"no detectado", ph_deployed_yes:"sí", ph_deployed_no:"no",
     ph_metadata_updated:"Metadata actualizada", ph_view_activity:"Ver actividad", ph_hide_activity:"Ocultar actividad",
+    ph_repo:"Repo", ph_repo_none:"sin repo", ph_show_reviewed:"Mostrar revisadas", ph_show_archived:"Mostrar archivadas", ph_mark_reviewed:"Marcar revisada", ph_unmark_reviewed:"Desmarcar",
     filters:"Filtros", show_blocks:"Mostrar bloques", you:"Tú", assistant:"Agente", tools:"Herramientas",
     view:"Vista", hide_done:"Ocultar conversaciones marcadas", hide_archived:"Ocultar archivadas",
     collapse_turns:"Colapsar todos los turnos", group_by:"Agrupar por:", by_tool:"Herramienta", by_project:"Proyecto",
@@ -915,7 +928,7 @@ function srcColor(f){ return SRC_COLORS[f]||"#888"; }
 // ---------- ANALYTICS ----------
 const AN={ gran:"month", srcOn:{}, metric:"conv", tokMode:"total" };  // metric: 'conv'|'turns'; tokMode: 'total'|'base'
 const PJ={ sort:"recent", status:"all", source:"all" };  // projects dashboard view prefs
-const PH={ showActivity:false };  // project home view prefs
+const PH={ showArchived:false, showReviewed:false };  // project home view prefs
 
 // weight of a session per the active metric: 1 conversation, or its turn count
 function sesPeso(s){ return AN.metric==="turns" ? (s.turns?s.turns.length:0) : 1; }
@@ -1000,6 +1013,7 @@ function renderProjGrid(all){
   if(!rows.length){ grid.innerHTML=`<div class="an-card">${t("pj_none_match")}</div>`; return; }
   grid.innerHTML=rows.map(cardProject).join("");
   grid.querySelectorAll(".proj-card").forEach(c=>c.addEventListener("click",()=>openProjectHome(c.dataset.proj)));
+  grid.querySelectorAll("[data-stop]").forEach(a=>a.addEventListener("click",e=>e.stopPropagation()));
 }
 function cardProject(p){
   const m=p.meta||{};
@@ -1010,13 +1024,12 @@ function cardProject(p){
   if(g&&g.branch) gitPill=`<span class="pj-pill pj-git">⎇ ${escapeHtml(g.branch)}${g.last_commit_date?` · ${escapeHtml(g.last_commit_date)}`:""}${g.dirty?` · ${t("pj_dirty")}`:""}</span>`;
   else if(m.exists!==false && m.path) gitPill=`<span class="pj-pill pj-muted">${t("pj_nogit")}</span>`;
   const stackPills=(m.stack||[]).map(s=>`<span class="pj-pill pj-stack">${escapeHtml(s)}</span>`).join("");
-  const deployed=m.deployed?`<span class="pj-pill pj-deployed">${t("pj_deployed")}</span>`:"";
   const srcMini=[...p.sources].map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
   const lastRaw=(m.last_activity||p.last||"");
   const lastDate=lastRaw?escapeHtml(formatDate(lastRaw.slice(0,10),false)):"";
   return `<div class="proj-card" data-proj="${escapeHtml(p.name)}">
-    <div class="pj-head"><span class="pj-name">${escapeHtml(p.name)}</span>${statusPill}</div>
-    <div class="pj-meta">${gitPill}${stackPills}${deployed}</div>
+    <div class="pj-head"><span class="pj-name">${escapeHtml(p.name)}</span><span class="pj-status-line">${statusPill}${deployLink(m)}</span></div>
+    <div class="pj-meta">${gitPill}${stackPills}</div>
     <div class="pj-foot"><span class="pj-count"><b>${p.count}</b> ${t("pj_sessions")}</span><span class="pj-src">${srcMini}</span><span class="pj-date">${lastDate}</span></div>
   </div>`;
 }
@@ -1045,6 +1058,29 @@ function projectLedgerStats(name){
 function projectFact(label, value, wrap){
   return `<div class="ph-fact"><div class="lbl">${escapeHtml(label)}</div><div class="val${wrap?" wrap":""}">${value}</div></div>`;
 }
+function safeExternalUrl(url){
+  url=String(url||"").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
+function externalPill(url, label, cls){
+  const safe=safeExternalUrl(url);
+  if(!safe) return "";
+  return `<a class="${cls}" href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer" data-stop>${escapeHtml(label)}</a>`;
+}
+function deployLink(meta){
+  if(!meta || !meta.deployed) return "";
+  return externalPill(meta.deploy_url, t("pj_deployed"), "pj-pill pj-deployed") || `<span class="pj-pill pj-deployed">${t("pj_deployed")}</span>`;
+}
+function repoLink(meta){
+  if(!meta || !meta.repo_url) return "";
+  return externalPill(meta.repo_url, t("ph_repo"), "pj-pill pj-stack");
+}
+function projectSessionVisible(s){
+  if(!PH.showArchived && s.archivada) return false;
+  if(!PH.showReviewed && prog(s.id).done) return false;
+  if(!matchesQuery(s)) return false;
+  return true;
+}
 function openProjectHome(name){
   state.projectHomeName=name;
   showView("projectHome");
@@ -1060,7 +1096,8 @@ function renderProjectHome(name){
   const srcs=new Set([...(m.sources||[]), ...sessions.map(s=>s.fuente)]);
   const st=m.status||"";
   const statusPill = st ? `<span class="pj-status pj-${st}">${escapeHtml(projectStatusLabel(st))}</span>` : "";
-  const deployedPill = m.deployed ? `<span class="pj-pill pj-deployed">${t("pj_deployed")}</span>` : "";
+  const deployedPill = deployLink(m);
+  const repoPill = repoLink(m);
   const srcMini=[...srcs].sort().map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
   const lastRaw=m.last_activity||sessions[0].fecha||"";
   const lastDate=lastRaw?formatDate(lastRaw,true):"";
@@ -1071,6 +1108,8 @@ function renderProjectHome(name){
     : escapeHtml(t("ph_git_none"));
   const stackValue=(m.stack&&m.stack.length) ? m.stack.map(s=>`<span class="pj-pill pj-stack">${escapeHtml(s)}</span>`).join(" ") : escapeHtml(t("ph_stack_none"));
   const pathValue=m.virtual ? escapeHtml(t("ph_virtual")) : escapeHtml(m.path||t("ph_no_path"));
+  const repoSafe=safeExternalUrl(m.repo_url);
+  const repoValue=repoSafe ? `<a href="${escapeHtml(repoSafe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(m.repo_url)}</a>` : escapeHtml(t("ph_repo_none"));
   const turnCount=sessions.reduce((n,s)=>n+(s.turns?s.turns.length:0),0);
   const statRows=[
     [sessions.length,t("n_conversations")],
@@ -1084,65 +1123,61 @@ function renderProjectHome(name){
     if(lg.build_runs!=null) statRows.push([lg.build_runs,t("lg_builds")]);
     if(lg.errors!=null) statRows.push([lg.errors,t("lg_errors")]);
   }
-  const visibleSessions=sessions.filter(sessionVisible);
+  const visibleSessions=sessions.filter(projectSessionVisible);
   const convs=visibleSessions.length ? visibleSessions.map(s=>{
     const pr=prog(s.id);
     return `<div class="ph-conv${pr.done?" done":""}">
-      <input type="checkbox" class="ph-conv-review" data-review="${escapeHtml(s.id)}" aria-label="${t("mark_reviewed")}" ${pr.done?"checked":""}>
       <button class="ph-conv-main" data-session="${escapeHtml(s.id)}">
         <span class="ph-conv-title">${escapeHtml(s.title)}</span>
         <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
       </button>
-      <span class="ph-conv-turns">${s.turns.length} ${t("n_turns")}</span>
+      <span class="ph-conv-actions">
+        <span class="ph-conv-turns">${s.turns.length} ${t("n_turns")}</span>
+        <button class="ph-review-btn" data-review-action="${escapeHtml(s.id)}">${pr.done?t("ph_unmark_reviewed"):t("ph_mark_reviewed")}</button>
+      </span>
     </div>`;
   }).join("") : `<div class="log-empty">${t("no_results")}</div>`;
-  const activityBody=PH.showActivity
-    ? `<div class="lg-grid">${statRows.map(([n,l])=>`<div class="an-stat"><div class="num">${fmtNum(n)}</div><div class="lbl">${l}</div></div>`).join("")}</div>`
-    : "";
   host.innerHTML=`
+    <div class="ph-toolbar">
+      <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
+      <button class="btn-log" id="phCopy" disabled>${t("ph_copy_brief")}</button>
+    </div>
     <div class="ph-head">
       <div class="ph-title">
         <h2>${escapeHtml(name)}</h2>
-        <div class="ph-sub">${statusPill}${deployedPill}${srcMini}</div>
+        <div class="ph-sub">${statusPill}${deployedPill}${repoPill}${srcMini}</div>
       </div>
-      <div class="ph-side">
-        <div class="ph-top-meta"><span>${t("ph_last_activity")}</span><b>${escapeHtml(lastDate||"-")}</b></div>
-        <div class="ph-actions">
-          <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
-          <button class="btn-log" id="phFocus">${t("ph_focus_list")}</button>
-          <button class="btn-log" id="phCopy">${t("ph_copy_brief")}</button>
-        </div>
-      </div>
-    </div>
-    <div class="ph-grid">
-      <div class="an-card">
-        <h3>${t("ph_facts")}</h3>
-        <div class="ph-facts">
-          ${projectFact(t("ph_path"), pathValue, true)}
-          ${projectFact(t("ph_git"), gitValue, true)}
-          ${projectFact(t("ph_stack"), stackValue, true)}
-          ${projectFact(t("ph_metadata_updated"), escapeHtml(metaDate||"-"))}
-        </div>
-      </div>
-      <div class="an-card">
-        <div class="an-card-head">
-          <h3>${t("ph_activity")}</h3>
-          <button class="mini" id="phToggleActivity">${t(PH.showActivity?"ph_hide_activity":"ph_view_activity")}</button>
-        </div>
-        ${activityBody}
+      <div class="ph-top-meta"><span>${t("ph_last_activity")}</span><b>${escapeHtml(lastDate||"-")}</b></div>
+      <div class="ph-facts">
+        ${projectFact(t("ph_path"), pathValue, true)}
+        ${projectFact(t("ph_repo"), repoValue, true)}
+        ${projectFact(t("ph_git"), gitValue, true)}
+        ${projectFact(t("ph_stack"), stackValue, true)}
+        ${projectFact(t("ph_metadata_updated"), escapeHtml(metaDate||"-"))}
       </div>
     </div>
     <div class="an-card">
-      <h3>${t("ph_conversations")}</h3>
+      <h3>${t("ph_activity")}</h3>
+      <div class="lg-grid">${statRows.map(([n,l])=>`<div class="an-stat"><div class="num">${fmtNum(n)}</div><div class="lbl">${l}</div></div>`).join("")}</div>
+    </div>
+    <div class="an-card">
+      <div class="an-card-head">
+        <h3>${t("ph_conversations")}</h3>
+        <div class="ph-conv-controls">
+          <button class="ph-filter${PH.showReviewed?" on":""}" id="phShowReviewed">${t("ph_show_reviewed")}</button>
+          <button class="ph-filter${PH.showArchived?" on":""}" id="phShowArchived">${t("ph_show_archived")}</button>
+        </div>
+      </div>
       <div class="ph-convs">${convs}</div>
     </div>`;
   host.querySelector("#phBack").addEventListener("click",showProjects);
-  host.querySelector("#phFocus").addEventListener("click",()=>openProjectInList(name));
-  host.querySelector("#phCopy").addEventListener("click",e=>copyText(projectHomeText(name,sessions,m,lg), e.target));
-  host.querySelector("#phToggleActivity").addEventListener("click",()=>{ PH.showActivity=!PH.showActivity; renderProjectHome(name); });
-  host.querySelectorAll("[data-review]").forEach(ch=>ch.addEventListener("change",e=>{
-    const pr=prog(e.target.dataset.review);
-    pr.done=e.target.checked;
+  host.querySelector("#phShowReviewed").addEventListener("click",()=>{ PH.showReviewed=!PH.showReviewed; renderProjectHome(name); });
+  host.querySelector("#phShowArchived").addEventListener("click",()=>{ PH.showArchived=!PH.showArchived; renderProjectHome(name); });
+  host.querySelectorAll("[data-stop]").forEach(a=>a.addEventListener("click",e=>e.stopPropagation()));
+  host.querySelectorAll("[data-review-action]").forEach(btn=>btn.addEventListener("click",e=>{
+    const id=e.currentTarget.dataset.reviewAction;
+    const pr=prog(id);
+    pr.done=!pr.done;
     saveProgress();
     renderSidebar();
     renderGlobalCount();

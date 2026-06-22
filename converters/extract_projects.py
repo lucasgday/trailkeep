@@ -139,8 +139,38 @@ def git_info(path):
     last = g("log", "-1", "--format=%cs\t%s")
     date, _, msg = last.partition("\t")
     dirty = bool(g("status", "--porcelain"))
+    remote = g("config", "--get", "remote.origin.url")
     return {"branch": branch or None, "last_commit_date": date or None,
-            "last_commit_msg": (msg[:120] or None), "dirty": dirty}
+            "last_commit_msg": (msg[:120] or None), "dirty": dirty,
+            "repo_url": normalize_repo_url(remote)}
+
+
+def normalize_http_url(value):
+    value = (value or "").strip().strip('"').strip("'")
+    if not value:
+        return None
+    if value.startswith(("http://", "https://")):
+        return value[:-4] if value.endswith(".git") else value.rstrip("/")
+    if re.match(r"^[A-Za-z0-9.-]+\.[A-Za-z]{2,}(/.*)?$", value):
+        return "https://" + value.strip("/")
+    return None
+
+
+def normalize_repo_url(remote):
+    remote = (remote or "").strip()
+    if not remote:
+        return None
+    direct = normalize_http_url(remote)
+    if direct:
+        return direct
+    m = re.match(r"git@([^:]+):(.+)$", remote)
+    if not m:
+        m = re.match(r"ssh://git@([^/]+)/(.+)$", remote)
+    if not m:
+        return None
+    host, repo = m.group(1), m.group(2)
+    repo = repo[:-4] if repo.endswith(".git") else repo
+    return f"https://{host}/{repo.strip('/')}"
 
 
 def detect_stack(path):
@@ -153,6 +183,49 @@ def detect_stack(path):
 
 def is_deployed(path):
     return any(os.path.exists(os.path.join(path, h)) for h in DEPLOY_HINTS)
+
+
+def detect_deploy_url(path):
+    pkg = os.path.join(path, "package.json")
+    if os.path.exists(pkg):
+        try:
+            url = normalize_http_url(json.load(open(pkg)).get("homepage"))
+            if url:
+                return url
+        except Exception:
+            pass
+    vercel = os.path.join(path, "vercel.json")
+    if os.path.exists(vercel):
+        try:
+            data = json.load(open(vercel))
+            for key in ("alias", "aliases", "domains"):
+                vals = data.get(key)
+                if isinstance(vals, str):
+                    vals = [vals]
+                if isinstance(vals, list):
+                    for val in vals:
+                        url = normalize_http_url(str(val))
+                        if url:
+                            return url
+        except Exception:
+            pass
+    fly = os.path.join(path, "fly.toml")
+    if os.path.exists(fly):
+        try:
+            m = re.search(r'(?m)^\s*app\s*=\s*["\']([^"\']+)["\']', open(fly, errors="ignore").read())
+            if m:
+                return f"https://{m.group(1)}.fly.dev"
+        except Exception:
+            pass
+    wrangler = os.path.join(path, "wrangler.toml")
+    if os.path.exists(wrangler):
+        try:
+            m = re.search(r'https://[^\s"\']+', open(wrangler, errors="ignore").read())
+            if m:
+                return normalize_http_url(m.group(0).rstrip(","))
+        except Exception:
+            pass
+    return None
 
 
 def main():
@@ -196,13 +269,15 @@ def main():
                 "path": None, "exists": None, "status": status, "virtual": True,
                 "last_activity": last, "sources": sorted(p["sources"]),
                 "git": None, "stack": [], "deployed": False,
+                "repo_url": None, "deploy_url": None,
             }
             continue
         # the most-used cwd wins (handles a project opened from a few paths)
         path = max(p["paths"].items(), key=lambda kv: kv[1])[0]
         exists = os.path.isdir(path)
         git = git_info(path) if exists else None
-        deployed = is_deployed(path) if exists else False
+        deploy_url = detect_deploy_url(path) if exists else None
+        deployed = (is_deployed(path) or bool(deploy_url)) if exists else False
         # status: active if touched in the last month or deployed, else inactive;
         # gone if the directory no longer exists.
         status = "gone" if not exists else "inactive"
@@ -221,6 +296,8 @@ def main():
             "last_activity": last, "sources": sorted(p["sources"]),
             "git": git, "stack": detect_stack(path) if exists else [],
             "deployed": deployed,
+            "repo_url": (git or {}).get("repo_url"),
+            "deploy_url": deploy_url,
         }
 
     doc = {"generated": datetime.datetime.now().astimezone().isoformat(), "projects": out}
