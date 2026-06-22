@@ -598,7 +598,7 @@ def aggregate(sessions):
         "tokens": tok,
         "tokens_by_model": models,
         "tools": dict(sorted(tools.items(), key=lambda kv: -kv[1])),
-        "projects": proj_list[:12],
+        "projects": proj_list,
         "first_activity": first,
         "last_activity": last,
     }
