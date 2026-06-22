@@ -38,7 +38,9 @@
   .an-head h2{margin:0;font-size:20px;color:var(--ink)}
   .an-grid{display:flex;flex-direction:column;gap:24px;max-width:920px;margin:0 auto}
   .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:16px;max-width:960px;margin:0 auto}
-  .pj-toolbar{max-width:960px;margin:0 auto 18px;display:flex;flex-direction:column;gap:9px}
+  .pj-sticky{position:sticky;top:0;z-index:9;background:rgba(250,250,246,.96);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);margin:-24px -28px 18px;padding:24px 28px 12px}
+  .pj-sticky .an-head,.pj-toolbar{max-width:960px;margin-left:auto;margin-right:auto}
+  .pj-toolbar{display:flex;flex-direction:column;gap:9px}
   .pj-tbrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .pj-tblabel{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);flex:0 0 auto}
   .pj-chips{display:flex;gap:6px;flex-wrap:wrap}
@@ -48,7 +50,10 @@
   .pj-chip-n{font-size:10.5px;font-variant-numeric:tabular-nums;opacity:.7}
   .pj-chip.on .pj-chip-n{opacity:.85}
   .pj-tbsort{margin-left:auto;display:flex;align-items:center;gap:7px}
-  .pj-select{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+  .pj-sort-chip{border-radius:7px}
+  .pj-src-chip{border-color:color-mix(in srgb,var(--src,#888) 52%,var(--line));color:var(--ink)}
+  .pj-src-chip:hover{border-color:var(--src,#888)}
+  .pj-src-chip.on{background:var(--src,#888);border-color:var(--src,#888);color:#fff}
   .proj-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:10px;min-height:104px}
   .proj-card:hover{border-color:var(--line-strong);box-shadow:0 4px 14px rgba(0,0,0,.06)}
   .pj-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -68,10 +73,13 @@
   .pj-foot .pj-src{display:flex;gap:4px;flex-wrap:wrap}
   .pj-foot .pj-date{margin-left:auto}
   .ph-wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-  .ph-head{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+  .ph-head{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px}
   .ph-title{min-width:0}
   .ph-title h2{margin:0 0 10px;font-size:24px;color:var(--ink);overflow-wrap:anywhere}
   .ph-sub{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--ink-soft);font-size:12px}
+  .ph-side{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+  .ph-top-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;color:var(--ink-soft);font-size:11.5px;min-width:132px}
+  .ph-top-meta b{font-size:13px;color:var(--ink);font-weight:650}
   .ph-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
   .ph-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr);gap:16px}
   .ph-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -81,8 +89,15 @@
   .ph-fact .val.wrap{white-space:normal;overflow-wrap:anywhere}
   .ph-mono{font-family:var(--mono);font-size:11.5px}
   .ph-convs{display:flex;flex-direction:column;gap:8px}
-  .ph-conv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:var(--ink)}
+  .ph-conv{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:var(--ink)}
   .ph-conv:hover{border-color:var(--line-strong);background:var(--paper)}
+  .ph-conv.done{opacity:.54}
+  .ph-conv.done .ph-conv-title{text-decoration:line-through}
+  .ph-conv-review{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent;margin:1px 0 0}
+  .ph-conv-review:hover{border-color:var(--claude)}
+  .ph-conv-review:checked{background:var(--claude);border-color:var(--claude)}
+  .ph-conv-review:checked::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ph-conv-main{min-width:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer}
   .ph-conv-title{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ph-conv-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:4px;font-size:11.5px;color:var(--ink-soft)}
   .ph-conv-turns{font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -276,11 +291,11 @@
   .sess .meta{display:flex;gap:7px;flex-wrap:wrap;font-size:10px;color:#6f928c;margin-top:3px}
   .sess .badge-arch{background:#c79a4a;color:#241402;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700}
   .sess .src-mini,.pj-foot .src-mini,.ph-sub .src-mini,.ph-fact .src-mini,.ph-conv-meta .src-mini{padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700}
-  .src-mini.src-claude-code{background:#2f8f82;color:#04211d}
-  .src-mini.src-codex{background:#8b7fd4;color:#150f2e}
-  .src-mini.src-cowork{background:#d49a52;color:#241402}
-  .src-mini.src-opencode{background:#5b9bd8;color:#04162e}
-  .src-mini.src-cursor{background:#d87093;color:#2e0414}
+  .src-mini.src-claude-code{background:#2f8f82;color:#fff}
+  .src-mini.src-codex{background:#8b7fd4;color:#fff}
+  .src-mini.src-cowork{background:#d49a52;color:#fff}
+  .src-mini.src-opencode{background:#5b9bd8;color:#fff}
+  .src-mini.src-cursor{background:#d87093;color:#fff}
 
   .empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:40px;color:var(--ink-soft)}
   .empty .big{font-family:var(--display);font-size:28px;color:var(--ink);margin:0}
@@ -294,12 +309,14 @@
   .doc-head .crumbs{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-soft)}
   .crumbs .pill{background:var(--panel);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
   .crumbs .pill b{color:var(--ink);font-weight:600}
+  .crumbs .pill.project-link{font:inherit;color:var(--ink-soft);cursor:pointer}
+  .crumbs .pill.project-link:hover{background:var(--tool-bg);border-color:var(--line-strong);color:var(--ink)}
   .crumbs .src-pill{border:none;font-weight:700}
-  .crumbs .src-pill.src-claude-code{background:#2f8f82;color:#04211d}
-  .crumbs .src-pill.src-codex{background:#8b7fd4;color:#150f2e}
-  .crumbs .src-pill.src-cowork{background:#d49a52;color:#241402}
-  .crumbs .src-pill.src-opencode{background:#5b9bd8;color:#04162e}
-  .crumbs .src-pill.src-cursor{background:#d87093;color:#2e0414}
+  .crumbs .src-pill.src-claude-code{background:#2f8f82;color:#fff}
+  .crumbs .src-pill.src-codex{background:#8b7fd4;color:#fff}
+  .crumbs .src-pill.src-cowork{background:#d49a52;color:#fff}
+  .crumbs .src-pill.src-opencode{background:#5b9bd8;color:#fff}
+  .crumbs .src-pill.src-cursor{background:#d87093;color:#fff}
   .doc-actions{display:flex;gap:8px;margin-top:12px}
   .mini{font:inherit;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-soft)}
   .mini:hover{background:var(--tool-bg)}
@@ -347,12 +364,13 @@
   .countbar{position:sticky;top:0;z-index:5;background:rgba(250,250,246,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:9px 38px;font-size:12px;color:var(--ink-soft);display:flex;gap:12px;align-items:center}
   .countbar .cb-title{font-weight:650;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .countbar .cb-src{font-size:9px;flex:0 0 auto;border:none;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em}
-  .countbar .cb-src.src-claude-code{background:#2f8f82;color:#04211d}
-  .countbar .cb-src.src-codex{background:#8b7fd4;color:#150f2e}
-  .countbar .cb-src.src-cowork{background:#d49a52;color:#241402}
-  .countbar .cb-src.src-opencode{background:#5b9bd8;color:#04162e}
-  .countbar .cb-src.src-cursor{background:#d87093;color:#2e0414}
-  .countbar .cb-proj{font-size:11.5px;color:var(--ink-soft);flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .countbar .cb-src.src-claude-code{background:#2f8f82;color:#fff}
+  .countbar .cb-src.src-codex{background:#8b7fd4;color:#fff}
+  .countbar .cb-src.src-cowork{background:#d49a52;color:#fff}
+  .countbar .cb-src.src-opencode{background:#5b9bd8;color:#fff}
+  .countbar .cb-src.src-cursor{background:#d87093;color:#fff}
+  .countbar .cb-proj{font:inherit;font-size:11.5px;color:var(--ink-soft);flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent;border:0;cursor:pointer;padding:2px 6px;border-radius:6px}
+  .countbar .cb-proj:hover{background:var(--tool-bg);color:var(--ink)}
   .countbar .cb-counts{display:flex;gap:14px;align-items:center;margin-left:auto;flex:0 0 auto}
   .countbar .n{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
@@ -375,7 +393,9 @@
     .sidebar{position:fixed;inset:auto 0 0 0;top:92px;max-height:64vh;z-index:20;display:none}
     .sidebar.open{display:flex}
     .doc{padding:20px 16px 100px}
-    .ph-head{flex-direction:column}
+    .pj-sticky{top:0;margin:-24px -28px 16px;padding:20px 28px 10px}
+    .ph-head{grid-template-columns:1fr}
+    .ph-side,.ph-top-meta{align-items:flex-start}
     .ph-actions{justify-content:flex-start}
     .ph-grid,.ph-facts{grid-template-columns:1fr}
     .turn-body,.turn[data-type="tool"] .turn-body{padding-left:0;margin-left:0}
@@ -490,11 +510,13 @@
     </section>
 
     <section class="analytics" id="projectsView" style="display:none">
-      <div class="an-head">
-        <h2 id="projects-title">Projects</h2>
-        <button class="btn-log" id="btnCloseProjects">← back to the list</button>
+      <div class="pj-sticky">
+        <div class="an-head">
+          <h2 id="projects-title">Projects</h2>
+          <button class="btn-log" id="btnCloseProjects">← back to the list</button>
+        </div>
+        <div class="pj-toolbar" id="pjToolbar"></div>
       </div>
-      <div class="pj-toolbar" id="pjToolbar"></div>
       <div class="proj-grid" id="projGrid"></div>
     </section>
 
@@ -508,11 +530,11 @@
 const STORE_KEY = "buildlog_progress_v2";
 const state = {
   sessions: [], projects: new Map(), sources: new Map(),
-  activeId: null,
+  activeId: null, defaultSessionId: null,
   types: { user:true, assistant:true, tool:true },
   query: "", hideDone:true, hideArchived:true, collapseAll:false,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
-  lang:"en", ledger:null, projectMeta:{}, projectFocus:null,
+  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, projectFocus:null, projectHomeName:null,
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
 };
 
@@ -530,10 +552,11 @@ const I18N = {
     projects_title:"Projects", pj_active:"active", pj_inactive:"inactive", pj_gone:"folder gone", pj_deployed:"deployed", pj_nogit:"no git", pj_dirty:"uncommitted changes", pj_sessions:"conversations", pj_last:"last", pj_empty:"No project metadata yet — run a backup to generate it.", pj_clear:"Show all projects",
     pj_status:"Status", pj_source:"Source", pj_sort:"Sort", pj_f_all:"All", pj_none_match:"No projects match these filters.",
     pj_sort_recent:"Recent activity", pj_sort_name:"Name (A–Z)", pj_sort_count:"Most conversations",
-    ph_back_projects:"← projects", ph_focus_list:"Open in list", ph_copy_brief:"Copy brief",
+    ph_back_projects:"← projects", ph_focus_list:"Open in list", ph_copy_brief:"Copy context",
     ph_facts:"Project facts", ph_activity:"Activity", ph_conversations:"Conversations",
     ph_path:"Path", ph_git:"Git", ph_stack:"Stack", ph_deploy:"Deploy", ph_sources:"Sources",
     ph_status:"Status", ph_last_activity:"Last activity", ph_virtual:"virtual project", ph_no_path:"no path", ph_git_none:"no git", ph_stack_none:"not detected", ph_deployed_yes:"yes", ph_deployed_no:"no",
+    ph_metadata_updated:"Metadata updated", ph_view_activity:"View activity", ph_hide_activity:"Hide activity",
     demo_title:"You're looking at a live demo", demo_b1:"This page is loaded with sample data so you can see how trailkeep works. None of it is real.", demo_b2:"trailkeep is local & offline — your real conversations never leave your machine, and this demo uploads nothing. Install it to keep and browse your own AI coding history — private and yours.", demo_accept:"View the demo →", demo_cta:"Get it on GitHub",
     demo_bn:"sample data — nothing is uploaded.", demo_bn_agent:"Set up with your agent", demo_bn_cta:"Install trailkeep to back up your own →",
     demo_install_t:"Install it with your coding agent",
@@ -584,10 +607,11 @@ const I18N = {
     projects_title:"Proyectos", pj_active:"activo", pj_inactive:"inactivo", pj_gone:"carpeta ausente", pj_deployed:"deployado", pj_nogit:"sin git", pj_dirty:"cambios sin commitear", pj_sessions:"conversaciones", pj_last:"último", pj_empty:"Sin metadata de proyectos todavía — corré un backup para generarla.", pj_clear:"Ver todos los proyectos",
     pj_status:"Estado", pj_source:"Fuente", pj_sort:"Ordenar", pj_f_all:"Todos", pj_none_match:"Ningún proyecto coincide con estos filtros.",
     pj_sort_recent:"Actividad reciente", pj_sort_name:"Nombre (A–Z)", pj_sort_count:"Más conversaciones",
-    ph_back_projects:"← proyectos", ph_focus_list:"Abrir en lista", ph_copy_brief:"Copiar brief",
+    ph_back_projects:"← proyectos", ph_focus_list:"Abrir en lista", ph_copy_brief:"Copiar contexto",
     ph_facts:"Datos del proyecto", ph_activity:"Actividad", ph_conversations:"Conversaciones",
     ph_path:"Ruta", ph_git:"Git", ph_stack:"Stack", ph_deploy:"Deploy", ph_sources:"Fuentes",
     ph_status:"Estado", ph_last_activity:"Última actividad", ph_virtual:"proyecto virtual", ph_no_path:"sin ruta", ph_git_none:"sin git", ph_stack_none:"no detectado", ph_deployed_yes:"sí", ph_deployed_no:"no",
+    ph_metadata_updated:"Metadata actualizada", ph_view_activity:"Ver actividad", ph_hide_activity:"Ocultar actividad",
     demo_title:"Estás viendo una demo en vivo", demo_b1:"Esta página está cargada con datos de ejemplo para que veas cómo funciona trailkeep. Nada de esto es real.", demo_b2:"trailkeep es local y offline — tus conversaciones reales nunca salen de tu máquina, y esta demo no sube nada. Instalalo para guardar y explorar tu propio historial de coding con IA — privado y tuyo.", demo_accept:"Ver la demo →", demo_cta:"Obtenelo en GitHub",
     demo_bn:"datos de ejemplo — no se sube nada.", demo_bn_agent:"Configurar con tu agente", demo_bn_cta:"Instalá trailkeep para respaldar lo tuyo →",
     demo_install_t:"Instalalo con tu agente de coding",
@@ -642,6 +666,8 @@ function setLang(l){
   renderBackupStamp(); renderGlobalCount(); renderRunLog();
   if(state.sessions.length){ renderSidebar(); if(state.activeId) openSession(state.activeId); }
   if(document.getElementById("analytics").style.display==="block") renderAnalytics();
+  if(document.getElementById("projectsView").style.display==="block") renderProjects();
+  if(document.getElementById("projectHomeView").style.display==="block" && state.projectHomeName) renderProjectHome(state.projectHomeName);
   const lb=document.getElementById("btnLang"); if(lb) lb.textContent = l==="en" ? "🌐 ES" : "🌐 EN";
 }
 function applyStaticI18n(){
@@ -870,9 +896,13 @@ async function handleFiles(fileList){
   }
   if(Object.keys(ledgerSources).length) state.ledger=aggregateLedger({sources:ledgerSources});
   // collect the project-metadata sidecar (git/stack/status per project)
-  state.projectMeta={};
+  state.projectMeta={}; state.projectMetaGenerated=null;
   for(const f of Array.from(fileList).filter(f=>/_projects\.json$/i.test(f.name))){
-    try{ const doc=JSON.parse(await f.text()); if(doc&&doc.projects) Object.assign(state.projectMeta, doc.projects); }catch(e){}
+    try{
+      const doc=JSON.parse(await f.text());
+      if(doc&&doc.projects) Object.assign(state.projectMeta, doc.projects);
+      if(doc&&doc.generated&&(!state.projectMetaGenerated || doc.generated>state.projectMetaGenerated)) state.projectMetaGenerated=doc.generated;
+    }catch(e){}
   }
   if(!files.length){ document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`; return; }
   document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("reading")} ${files.length} ${t("sessions_word")}…</div>`;
@@ -913,6 +943,8 @@ async function handleFiles(fileList){
     .filter(s=>!s.archivada && !prog(s.id).done)
     .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const primera=elegibles[0]||state.sessions[0];
+  state.defaultSessionId=primera ? primera.id : null;
+  state.activeId=null;
   if(primera){
     // expandir el grupo que la contiene para que se vea seleccionada en la lista
     const key=state.groupMode==="project" ? "proj:"+primera.project : "src:"+primera.fuente;
@@ -923,7 +955,7 @@ async function handleFiles(fileList){
   renderGlobalCount();
   renderRunLog();
   setStickyOffsets();
-  if(primera) openSession(primera.id);
+  showProjects();
 }
 
 /* ---------- sidebar ---------- */
@@ -946,6 +978,7 @@ function srcColor(f){ return SRC_COLORS[f]||"#888"; }
 // ---------- ANALYTICS ----------
 const AN={ gran:"month", srcOn:{}, metric:"conv", tokMode:"total" };  // metric: 'conv'|'turns'; tokMode: 'total'|'base'
 const PJ={ sort:"recent", status:"all", source:"all" };  // projects dashboard view prefs
+const PH={ showActivity:false };  // project home view prefs
 
 // weight of a session per the active metric: 1 conversation, or its turn count
 function sesPeso(s){ return AN.metric==="turns" ? (s.turns?s.turns.length:0) : 1; }
@@ -961,7 +994,10 @@ function showView(which){
   const ph=document.getElementById("projectHomeView"); if(ph) ph.style.display = which==="projectHome" ? "block" : "none";
 }
 function showProjects(){ showView("projects"); renderProjects(); }
-function hideProjects(){ showView("reader"); }
+function hideProjects(){
+  if(!state.activeId && state.defaultSessionId) openSession(state.defaultSessionId);
+  else showView("reader");
+}
 
 // Project dashboard: per-project conversation counts (from the markdown) joined
 // with _projects.json (git / stack / status), one card each, newest first.
@@ -996,15 +1032,17 @@ function renderProjToolbar(all){
   const sortOpts=[["recent",t("pj_sort_recent")],["name",t("pj_sort_name")],["count",t("pj_sort_count")]];
   const statusChips=["all","active","inactive","gone"].filter(s=>s==="all"||statusCounts[s])
     .map(s=>`<button class="pj-chip${PJ.status===s?" on":""}" data-status="${s}">${s==="all"?t("pj_f_all"):t(s==="active"?"pj_active":s==="gone"?"pj_gone":"pj_inactive")} <span class="pj-chip-n">${statusCounts[s]}</span></button>`).join("");
+  const sortChips=sortOpts
+    .map(([v,l])=>`<button class="pj-chip pj-sort-chip${PJ.sort===v?" on":""}" data-sort="${v}">${l}</button>`).join("");
   const srcChips=["all",...Object.keys(srcCounts).sort()]
-    .map(s=>`<button class="pj-chip${PJ.source===s?" on":""}" data-source="${escapeHtml(s)}">${s==="all"?t("pj_f_all"):escapeHtml(niceSource(s))} <span class="pj-chip-n">${s==="all"?all.length:srcCounts[s]}</span></button>`).join("");
+    .map(s=>`<button class="pj-chip${s==="all"?"":" pj-src-chip"}${PJ.source===s?" on":""}" data-source="${escapeHtml(s)}"${s==="all"?"":` style="--src:${srcColor(s)}"`}>${s==="all"?t("pj_f_all"):escapeHtml(niceSource(s))} <span class="pj-chip-n">${s==="all"?all.length:srcCounts[s]}</span></button>`).join("");
   tb.innerHTML=`
     <div class="pj-tbrow">
       <span class="pj-tblabel">${t("pj_status")}</span>
       <div class="pj-chips">${statusChips}</div>
       <span class="pj-tbsort">
-        <label class="pj-tblabel" for="pjSort">${t("pj_sort")}</label>
-        <select id="pjSort" class="pj-select">${sortOpts.map(([v,l])=>`<option value="${v}"${PJ.sort===v?" selected":""}>${l}</option>`).join("")}</select>
+        <span class="pj-tblabel">${t("pj_sort")}</span>
+        <span class="pj-chips">${sortChips}</span>
       </span>
     </div>
     <div class="pj-tbrow">
@@ -1013,7 +1051,7 @@ function renderProjToolbar(all){
     </div>`;
   tb.querySelectorAll("[data-status]").forEach(b=>b.addEventListener("click",()=>{ PJ.status=b.dataset.status; renderProjects(); }));
   tb.querySelectorAll("[data-source]").forEach(b=>b.addEventListener("click",()=>{ PJ.source=b.dataset.source; renderProjects(); }));
-  tb.querySelector("#pjSort").addEventListener("change",e=>{ PJ.sort=e.target.value; renderProjGrid(all); });
+  tb.querySelectorAll("[data-sort]").forEach(b=>b.addEventListener("click",()=>{ PJ.sort=b.dataset.sort; renderProjects(); }));
 }
 function renderProjGrid(all){
   const grid=document.getElementById("projGrid");
@@ -1070,6 +1108,7 @@ function projectFact(label, value, wrap){
   return `<div class="ph-fact"><div class="lbl">${escapeHtml(label)}</div><div class="val${wrap?" wrap":""}">${value}</div></div>`;
 }
 function openProjectHome(name){
+  state.projectHomeName=name;
   showView("projectHome");
   renderProjectHome(name);
   document.getElementById("sidebar").classList.remove("open");
@@ -1083,16 +1122,17 @@ function renderProjectHome(name){
   const srcs=new Set([...(m.sources||[]), ...sessions.map(s=>s.fuente)]);
   const st=m.status||"";
   const statusPill = st ? `<span class="pj-status pj-${st}">${escapeHtml(projectStatusLabel(st))}</span>` : "";
+  const deployedPill = m.deployed ? `<span class="pj-pill pj-deployed">${t("pj_deployed")}</span>` : "";
   const srcMini=[...srcs].sort().map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
   const lastRaw=m.last_activity||sessions[0].fecha||"";
   const lastDate=lastRaw?formatDate(lastRaw,true):"";
+  const metaDate=state.projectMetaGenerated ? formatDate(state.projectMetaGenerated,true) : "";
   const g=m.git||null;
   const gitValue=(g&&g.branch)
     ? `<span class="ph-mono">${escapeHtml(g.branch)}${g.last_commit_date?` · ${escapeHtml(g.last_commit_date)}`:""}${g.dirty?` · ${t("pj_dirty")}`:""}</span>${g.last_commit_msg?`<br>${escapeHtml(g.last_commit_msg)}`:""}`
     : escapeHtml(t("ph_git_none"));
   const stackValue=(m.stack&&m.stack.length) ? m.stack.map(s=>`<span class="pj-pill pj-stack">${escapeHtml(s)}</span>`).join(" ") : escapeHtml(t("ph_stack_none"));
   const pathValue=m.virtual ? escapeHtml(t("ph_virtual")) : escapeHtml(m.path||t("ph_no_path"));
-  const deployedValue=m.deployed ? escapeHtml(t("ph_deployed_yes")) : escapeHtml(t("ph_deployed_no"));
   const turnCount=sessions.reduce((n,s)=>n+(s.turns?s.turns.length:0),0);
   const statRows=[
     [sessions.length,t("n_conversations")],
@@ -1100,47 +1140,58 @@ function renderProjectHome(name){
   ];
   if(lg){
     if(lg.user_messages!=null) statRows.push([lg.user_messages,t("lg_prompts")]);
-    if(lg.tool_calls!=null) statRows.push([fmtNum(lg.tool_calls),t("lg_tool_calls")]);
+    if(lg.tool_calls!=null) statRows.push([lg.tool_calls,t("lg_tool_calls")]);
     if(lg.files_modified!=null) statRows.push([lg.files_modified,t("lg_files")]);
     if(lg.test_runs!=null) statRows.push([lg.test_runs,t("lg_tests")]);
     if(lg.build_runs!=null) statRows.push([lg.build_runs,t("lg_builds")]);
     if(lg.errors!=null) statRows.push([lg.errors,t("lg_errors")]);
   }
-  const convs=sessions.map(s=>`<button class="ph-conv" data-session="${escapeHtml(s.id)}">
-    <span>
-      <span class="ph-conv-title">${escapeHtml(s.title)}</span>
-      <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
-    </span>
-    <span class="ph-conv-turns">${s.turns.length} ${t("n_turns")}</span>
-  </button>`).join("");
+  const visibleSessions=sessions.filter(sessionVisible);
+  const convs=visibleSessions.length ? visibleSessions.map(s=>{
+    const pr=prog(s.id);
+    return `<div class="ph-conv${pr.done?" done":""}">
+      <input type="checkbox" class="ph-conv-review" data-review="${escapeHtml(s.id)}" aria-label="${t("mark_reviewed")}" ${pr.done?"checked":""}>
+      <button class="ph-conv-main" data-session="${escapeHtml(s.id)}">
+        <span class="ph-conv-title">${escapeHtml(s.title)}</span>
+        <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
+      </button>
+      <span class="ph-conv-turns">${s.turns.length} ${t("n_turns")}</span>
+    </div>`;
+  }).join("") : `<div class="log-empty">${t("no_results")}</div>`;
+  const activityBody=PH.showActivity
+    ? `<div class="lg-grid">${statRows.map(([n,l])=>`<div class="an-stat"><div class="num">${fmtNum(n)}</div><div class="lbl">${l}</div></div>`).join("")}</div>`
+    : "";
   host.innerHTML=`
     <div class="ph-head">
       <div class="ph-title">
         <h2>${escapeHtml(name)}</h2>
-        <div class="ph-sub">${statusPill}<span>${escapeHtml(lastDate)}</span><span>${srcMini}</span></div>
+        <div class="ph-sub">${statusPill}${deployedPill}${srcMini}</div>
       </div>
-      <div class="ph-actions">
-        <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
-        <button class="btn-log" id="phFocus">${t("ph_focus_list")}</button>
-        <button class="btn-log" id="phCopy">${t("ph_copy_brief")}</button>
+      <div class="ph-side">
+        <div class="ph-top-meta"><span>${t("ph_last_activity")}</span><b>${escapeHtml(lastDate||"-")}</b></div>
+        <div class="ph-actions">
+          <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
+          <button class="btn-log" id="phFocus">${t("ph_focus_list")}</button>
+          <button class="btn-log" id="phCopy">${t("ph_copy_brief")}</button>
+        </div>
       </div>
     </div>
     <div class="ph-grid">
       <div class="an-card">
         <h3>${t("ph_facts")}</h3>
         <div class="ph-facts">
-          ${projectFact(t("ph_status"), escapeHtml(projectStatusLabel(st)||"-"))}
-          ${projectFact(t("ph_last_activity"), escapeHtml(lastDate||"-"))}
           ${projectFact(t("ph_path"), pathValue, true)}
           ${projectFact(t("ph_git"), gitValue, true)}
           ${projectFact(t("ph_stack"), stackValue, true)}
-          ${projectFact(t("ph_deploy"), deployedValue)}
-          ${projectFact(t("ph_sources"), srcMini || "-", true)}
+          ${projectFact(t("ph_metadata_updated"), escapeHtml(metaDate||"-"))}
         </div>
       </div>
       <div class="an-card">
-        <h3>${t("ph_activity")}</h3>
-        <div class="lg-grid">${statRows.map(([n,l])=>`<div class="an-stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join("")}</div>
+        <div class="an-card-head">
+          <h3>${t("ph_activity")}</h3>
+          <button class="mini" id="phToggleActivity">${t(PH.showActivity?"ph_hide_activity":"ph_view_activity")}</button>
+        </div>
+        ${activityBody}
       </div>
     </div>
     <div class="an-card">
@@ -1150,6 +1201,15 @@ function renderProjectHome(name){
   host.querySelector("#phBack").addEventListener("click",showProjects);
   host.querySelector("#phFocus").addEventListener("click",()=>openProjectInList(name));
   host.querySelector("#phCopy").addEventListener("click",e=>copyText(projectHomeText(name,sessions,m,lg), e.target));
+  host.querySelector("#phToggleActivity").addEventListener("click",()=>{ PH.showActivity=!PH.showActivity; renderProjectHome(name); });
+  host.querySelectorAll("[data-review]").forEach(ch=>ch.addEventListener("change",e=>{
+    const pr=prog(e.target.dataset.review);
+    pr.done=e.target.checked;
+    saveProgress();
+    renderSidebar();
+    renderGlobalCount();
+    renderProjectHome(name);
+  }));
   host.querySelectorAll("[data-session]").forEach(b=>b.addEventListener("click",()=>openSession(b.dataset.session)));
 }
 function projectHomeText(name, sessions, meta, ledger){
@@ -1443,7 +1503,7 @@ function fmtNum(n){
   n=+n||0;
   if(n>=1e9) return (n/1e9).toFixed(n>=1e10?0:1)+"B";
   if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1)+"M";
-  if(n>=1e3) return (n/1e3).toFixed(n>=1e4?0:1)+"k";
+  if(n>1e4) return (n/1e3).toFixed(n>=1e5?0:1)+"k";
   return String(n);
 }
 
@@ -1690,7 +1750,7 @@ function openSession(id){
     <div class="countbar">
       <span class="cb-title" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>
       <span class="src-pill src-${escapeHtml(s.fuente)} cb-src">${escapeHtml(niceSource(s.fuente))}</span>
-      <span class="cb-proj" title="${escapeHtml(s.project)}">${escapeHtml(s.project)}</span>
+      <button class="cb-proj" id="cbProjectHome" aria-label="${t("projects_title")}: ${escapeHtml(s.project)}">${escapeHtml(s.project)}</button>
       <span class="cb-counts">
         <button class="cb-count${state.types.user?'':' off'}" data-type="user" title="${t("show_blocks")}"><span class="n">${counts.user}</span> ${t("you").toLowerCase()}</button>
         <button class="cb-count${state.types.assistant?'':' off'}" data-type="assistant" title="${t("show_blocks")}"><span class="n">${counts.assistant}</span> ${escapeHtml(niceSource(s.fuente).toLowerCase())}</button>
@@ -1703,7 +1763,7 @@ function openSession(id){
         <h1>${escapeHtml(s.title)}</h1>
         <div class="crumbs">
           <span class="pill src-pill src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>
-          <span class="pill">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></span>
+          <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></button>
           <span class="pill"><b>${escapeHtml(formatDate(s.fecha,true))}</b></span>
           <span class="pill"><b>${s.turns.length}</b> ${t("n_turns")}</span>
         </div>
@@ -1730,6 +1790,8 @@ function openSession(id){
     });
   });
   document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(id); });
+  document.getElementById("cbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
+  document.getElementById("crumbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("toggleAllTurns").addEventListener("click",()=>{ const allC=[...reader.querySelectorAll(".turn")].every(t=>t.classList.contains("collapsed")); reader.querySelectorAll(".turn").forEach(t=>t.classList.toggle("collapsed",!allC)); });
   document.getElementById("copyConv").addEventListener("click",e=>{
     const srcName = niceSource(s.fuente);
@@ -1879,13 +1941,13 @@ setLang(detectLang());
     }
   }};
   // Sample project metadata (the real backup computes this from your project dirs).
-  const DEMO_PROJECTS = { "projects": {
+  const DEMO_PROJECTS = { "generated":"2026-06-15T12:00:00-03:00", "projects": {
     "todo-app":       {"path":"/Users/dev/code/todo-app","exists":true,"status":"active","last_activity":"2026-06-12T18:40:00","sources":["claude-code","cowork"],"git":{"branch":"main","last_commit_date":"2026-06-12","last_commit_msg":"Persist the dark-mode toggle","dirty":true},"stack":["node","typescript"],"deployed":true},
     "marketing-site": {"path":"/Users/dev/code/marketing-site","exists":true,"status":"active","last_activity":"2026-06-10T15:25:00","sources":["cowork"],"git":{"branch":"main","last_commit_date":"2026-06-10","last_commit_msg":"Add export-to-PDF button","dirty":false},"stack":["node"],"deployed":true},
     "blog-astro":     {"path":"/Users/dev/code/blog-astro","exists":true,"status":"active","last_activity":"2026-06-09T11:02:00","sources":["claude-code","cursor"],"git":{"branch":"main","last_commit_date":"2026-06-08","last_commit_msg":"Keyset pagination for the feed","dirty":false},"stack":["node","typescript"],"deployed":true},
     "api-server":     {"path":"/Users/dev/code/api-server","exists":true,"status":"active","last_activity":"2026-06-06T09:14:00","sources":["claude-code","codex"],"git":{"branch":"fix/socket-reconnect","last_commit_date":"2026-06-05","last_commit_msg":"Exponential backoff on websocket reconnect","dirty":false},"stack":["python"],"deployed":false},
     "data-pipeline":  {"path":"/Users/dev/code/data-pipeline","exists":true,"status":"active","last_activity":"2026-06-04T17:40:00","sources":["codex","opencode"],"git":{"branch":"main","last_commit_date":"2026-06-03","last_commit_msg":"Deterministic candidate recency","dirty":false},"stack":["python","docker"],"deployed":false},
-    "portfolio-site": {"path":"/Users/dev/code/portfolio-site","exists":true,"status":"inactive","last_activity":"2026-05-02T10:30:00","sources":["claude-code","cursor"],"git":{"branch":"main","last_commit_date":"2026-05-01","last_commit_msg":"Dark mode persists across reloads","dirty":false},"stack":["node"],"deployed":true},
+    "portfolio-site": {"path":"/Users/dev/code/portfolio-site","exists":true,"status":"active","last_activity":"2026-05-02T10:30:00","sources":["claude-code","cursor"],"git":{"branch":"main","last_commit_date":"2026-05-01","last_commit_msg":"Dark mode persists across reloads","dirty":false},"stack":["node"],"deployed":true},
     "ml-notebook":    {"path":"/Users/dev/code/ml-notebook","exists":true,"status":"inactive","last_activity":"2026-04-20T13:00:00","sources":["opencode"],"git":null,"stack":["python"],"deployed":false},
     "cli-tool":       {"path":"/Users/dev/code/cli-tool","exists":true,"status":"inactive","last_activity":"2026-04-15T09:00:00","sources":["codex"],"git":{"branch":"main","last_commit_date":"2026-04-14","last_commit_msg":"Add --json output flag","dirty":false},"stack":["rust"],"deployed":false}
   }};
@@ -1903,6 +1965,7 @@ setLang(detectLang());
     const view = params.get("view") || "";   // sin param: respeta defaults del viewer
     if(view === "source"){
       setGroupMode("source"); state.collapsedSources = {}; renderSidebar();
+      if(state.defaultSessionId) openSession(state.defaultSessionId);
     } else if(view === "analytics"){
       showAnalytics();
     } else if(view === "corridas"){
