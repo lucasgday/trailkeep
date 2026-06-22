@@ -10,8 +10,16 @@ something that isn't here).
 
 - **Per-conversation summaries.** A short summary at the top of each conversation
   so you can skim instead of re-reading every reply.
-- **Per-project overview.** A project "home": stack, activity, a rolled-up
-  summary, and what's still pending across its conversations.
+- **Per-project review layer.** Project home should grow into a local review
+  workflow: a copyable review prompt per project, a local tasks/to-do sidecar per
+  project, a global to-do view across projects, and optional prompts such as
+  "build this project's design system" from its own conversation history.
+- **Project visibility controls.** Hide/archive whole projects, keep that state in
+  the progress export/import flow, and offer a drawer to recover hidden or
+  archived projects without losing their conversations.
+- **Deployment link coverage.** Keep expanding optional `deploy_url` detection from
+  safe local sources such as project config files or locally cached deployment
+  metadata.
 - **Recommended `AGENTS.md` / `CLAUDE.md`.** Derived from your own conversations —
   your style, preferences and recurring asks — so you stop re-explaining them in
   every repo. Per-project and global.
