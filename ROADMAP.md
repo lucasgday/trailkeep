@@ -1,6 +1,6 @@
 # Roadmap
 
-Where agentlog is headed. These are **directions, not promises** — and they all
+Where trailkeep is headed. These are **directions, not promises** — and they all
 keep the core rule: everything stays local, nothing is uploaded.
 
 Feedback and PRs very welcome — open an issue if you'd use one of these (or want

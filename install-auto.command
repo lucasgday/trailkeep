@@ -11,7 +11,7 @@
 cd "$(dirname "$0")" || exit 1
 BASE="$(pwd)"
 SCRIPT="$BASE/update-backup.sh"
-LABEL="com.agentlog.backup"
+LABEL="com.trailkeep.backup"
 OS="$(uname -s)"
 
 # ---------- pick the time (default 12:00) ----------
@@ -98,7 +98,7 @@ else
   fi
   MARKER="# $LABEL"
   CRONLINE="$MIN $HOUR * * * /bin/bash \"$SCRIPT\" \"$BASE\" >> \"$BASE/.sync-state/cron.log\" 2>&1  $MARKER"
-  # replace any previous agentlog line, then add the new one
+  # replace any previous trailkeep line, then add the new one
   ( crontab -l 2>/dev/null | grep -vF "$MARKER"; echo "$CRONLINE" ) | crontab -
   echo "✓ Installed (cron). The backup will run every day at $HHMM."
   echo "  Note: unlike macOS, cron does NOT catch up missed runs while the machine is off."

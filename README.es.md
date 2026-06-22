@@ -1,10 +1,12 @@
-# agentlog
+# trailkeep
 
-**Tu historial de coding con IA, self-hosted.**
+**Guardá tu historial de coding con IA — privado, navegable y tuyo.**
 
 **🇪🇸 Español · 🇬🇧 [English](README.md)**
 
-Respaldo local + visor de tus conversaciones con herramientas de IA-coding.
+Un lugar local para tus conversaciones con tus herramientas de coding con IA — la
+que uses. Guardá las decisiones y el contexto que tu código no registra,
+encontralo después y retomá donde quedaste. Nada sale de tu máquina.
 
 Este proyecto lee dónde cada herramienta guarda sus sesiones en tu disco, las
 convierte a Markdown legible con metadata estándar, y te da un visor HTML
@@ -13,18 +15,20 @@ standalone para navegarlas, agruparlas, filtrarlas y ver analíticas de tu uso.
 Todo corre **localmente en tu Mac**. Nada se sube a ningún lado. La interfaz del
 visor es **bilingüe (inglés / español)** con un selector de idioma.
 
-**▶ [Probá la demo en vivo](https://lucasgday.github.io/agentlog/)** — el visor
+**▶ [Probá la demo en vivo](https://lucasgday.github.io/trailkeep/)** — el visor
 corriendo en tu navegador con datos de ejemplo, para ver cómo funciona. **No sube
 nada.**
 
-![agentlog — lista de conversaciones, analytics, historial, UI bilingüe](docs/hero.gif)
+![trailkeep — lista de conversaciones, analytics, historial, UI bilingüe](docs/hero.gif)
 
 ---
 
 ## Por qué
 
-**Por defecto, tus herramientas de IA no conservan tu historial para siempre — y
-rara vez te enterás cuando lo perdés.**
+**Tus chats de coding con IA guardan las decisiones y el *por qué* de cómo hiciste
+las cosas — contexto que tu código no registra. Pero vive encerrado en el formato
+de cada herramienta, difícil de releer, y tus herramientas no lo conservan para
+siempre:**
 
 - **Claude Code** limpia transcripts viejos pasado un tiempo (por defecto, según
   la última actividad). Es **configurable**: subiendo `cleanupPeriodDays` en
@@ -38,7 +42,7 @@ rara vez te enterás cuando lo perdés.**
   base de datos, ese historial se va **sin aviso** y sin papelera.
 
 > **Nota honesta:** si usás *solo* Claude Code y subís `cleanupPeriodDays`, gran
-> parte del borrado automático deja de ser un problema. Aun así, agentlog sigue
+> parte del borrado automático deja de ser un problema. Aun así, trailkeep sigue
 > aportando lo que un setting de retención no te da (ver abajo).
 
 Lo que este proyecto te da, más allá de la retención de cada herramienta:
@@ -46,16 +50,15 @@ Lo que este proyecto te da, más allá de la retención de cada herramienta:
 - **Una copia durable y aparte.** Acumulativa: una vez respaldada, una
   conversación **nunca se borra de tu copia**, aunque la herramienta de origen la
   elimine, reinstales o migres de máquina.
-- **Un archivo único multi-herramienta.** Claude Code, Codex, Cowork, OpenCode y
-  Cursor juntos en un mismo lugar y formato, no cinco silos con sus propias
-  reglas.
+- **Funciona con las herramientas que uses.** Una o varias — Claude Code, Codex,
+  Cowork, OpenCode y Cursor — todas en un mismo lugar y formato.
 - **Algo navegable de verdad.** Markdown legible + un visor con búsqueda,
   agrupación, filtros, analytics y marcado de revisadas — no `.jsonl`/SQLite
   crudos.
 
-Esas conversaciones suelen guardar **decisiones de diseño, el porqué de cómo se
-hizo algo, y contexto que tu código no registra**. La idea es tenerlo a salvo y a
-mano.
+La idea: **tenerlo a salvo, navegable y tuyo** — para que meses después encuentres
+por qué hiciste algo, o retomes un hilo donde lo dejaste, en vez de perderlo en la
+ventana de retención de una herramienta.
 
 Y como son tus datos privados, **todo corre local**: los scripts solo leen tus
 archivos y escriben Markdown en tu disco, el visor es un HTML estático. No hay
@@ -65,7 +68,7 @@ servidor, ni nube, ni telemetría. (Ver [Privacidad](#privacidad).)
 
 ## Cómo se compara
 
-agentlog nació de la misma idea que **Paxel** (de YC) — sacarle sentido a tus
+trailkeep nació de la misma idea que **Paxel** (de YC) — sacarle sentido a tus
 sesiones de Claude Code / Codex / Cursor — pero con el default opuesto sobre tus
 datos. Paxel corre el análisis local pero **sube datos derivados** a YC (extractos
 de prompts, rutas de archivos, metadata de commits, narrativas) para armar un
@@ -74,10 +77,10 @@ anunciado, y bajaron la promo del lanzamiento por la polémica de privacidad
 ([audit](https://www.gate.com/news/detail/y-combinators-paxel-ai-tool-claims-local-analysis-but-security-audit-21668126),
 [cobertura](https://digg.com/ai/urogjb9u)).
 
-agentlog es **self-hosted y offline** — solo lee tus archivos locales y escribe
+trailkeep es **self-hosted y offline** — solo lee tus archivos locales y escribe
 Markdown local. Nada, ni crudo ni derivado, sale de tu máquina.
 
-| | agentlog | Paxel |
+| | trailkeep | Paxel |
 |---|---|---|
 | Datos que salen de tu máquina | **Ninguno** | Datos derivados subidos a YC |
 | Hosting | Self-hosted / offline | Nube (YC) |
@@ -140,11 +143,11 @@ mayoría de las distros Linux).
 ### Inicio rápido: que lo haga tu agente
 
 Como ya usás una herramienta de coding con IA, el camino más rápido es dejar que
-ella configure agentlog por vos. Cloná el repo (o pegá la URL) y pasale a tu
+ella configure trailkeep por vos. Cloná el repo (o pegá la URL) y pasale a tu
 agente (Claude Code, Codex, Cursor, …) este prompt:
 
 ```text
-Configurá agentlog en este repositorio. Es un backup + viewer local y offline
+Configurá trailkeep en este repositorio. Es un backup + viewer local y offline
 de conversaciones con herramientas de coding con IA. Por favor:
 1. Leé README.es.md y `./update-backup.sh --help` para entender las flags.
 2. `chmod +x update-backup.sh *.command`.
@@ -165,8 +168,8 @@ ningún lado.
 **Code** en GitHub y descomprimilo):
 
 ```bash
-git clone https://github.com/lucasgday/agentlog.git
-cd agentlog
+git clone https://github.com/lucasgday/trailkeep.git
+cd trailkeep
 ```
 
 **2. Dales permiso de ejecución a los scripts:**
@@ -303,7 +306,7 @@ toman sin cambios. Fijate en cualquiera de los `converters/convert_*.py` como
 referencia. También son bienvenidos reportes de bugs, mejoras al visor e ideas en
 general.
 
-¿Trabajás en agentlog con un agente de IA? Mirá [AGENTS.md](AGENTS.md) para las
+¿Trabajás en trailkeep con un agente de IA? Mirá [AGENTS.md](AGENTS.md) para las
 convenciones y la regla de oro: el visor hace **cero llamadas de red**.
 
 ---

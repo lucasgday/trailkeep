@@ -14,7 +14,7 @@ _backup-info.json
 _ledger.json
 _ledger-cache.json
 _projects.json
-agentlog-progress.json
+trailkeep-progress.json
 
 # Private notes (never published)
 *.private.md
@@ -24,3 +24,6 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Local Claude Code / preview settings
+.claude/

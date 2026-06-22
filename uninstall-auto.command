@@ -3,7 +3,7 @@
 # Removes the daily automatic backup (launchd on macOS, cron on Linux).
 # Double-click to uninstall.
 
-LABEL="com.agentlog.backup"
+LABEL="com.trailkeep.backup"
 OS="$(uname -s)"
 
 echo "== Uninstall automatic backup =="
@@ -24,7 +24,7 @@ else
     echo "✓ Uninstalled (cron). The backup no longer runs on its own."
     echo "  (You can still run it by hand: ./update-backup.sh)"
   else
-    echo "It wasn't installed (no agentlog cron entry found)."
+    echo "It wasn't installed (no trailkeep cron entry found)."
   fi
 fi
 echo ""

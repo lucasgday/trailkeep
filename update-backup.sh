@@ -108,7 +108,7 @@ fi
 # portable hasher (macOS has shasum; Linux usually sha1sum)
 if command -v shasum >/dev/null 2>&1; then HASHER="shasum"; else HASHER="sha1sum"; fi
 
-echo "== agentlog backup =="
+echo "== trailkeep backup =="
 echo "Base: $BASE"
 [ "$DRY" = "1" ] && echo "(dry-run: nothing will be written)"
 [ -n "$ONLY" ] && echo "(only: $ONLY)"
@@ -195,10 +195,10 @@ if [ -d "$HOME_CLAUDE/projects" ]; then
   fi
   # Evidence Ledger: deterministic metrics over the FULL corpus (not the
   # incremental delta), written as a sidecar the viewer reads. $0, no network.
-  # AGENTLOG_CLAUDE_RAW_EXTRA (optional, os.pathsep-joined): extra raw-archive
+  # TRAILKEEP_CLAUDE_RAW_EXTRA (optional, os.pathsep-joined): extra raw-archive
   # dirs of recovered .jsonl, so token data survives Claude pruning the originals.
   if [ "$DRY" != "1" ]; then
-    CLAUDE_RAW="$HOME_CLAUDE/projects${AGENTLOG_CLAUDE_RAW_EXTRA:+:$AGENTLOG_CLAUDE_RAW_EXTRA}"
+    CLAUDE_RAW="$HOME_CLAUDE/projects${TRAILKEEP_CLAUDE_RAW_EXTRA:+:$TRAILKEEP_CLAUDE_RAW_EXTRA}"
     python3 "$PY_LEDGER" "$CLAUDE_RAW" "$BASE/markdown-claude" claude-code || true
   fi
 else
@@ -456,9 +456,9 @@ PYEOF
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
 if [ "$HEALTH_WARN" -gt 0 ]; then BODY="$BODY · WARNING: $HEALTH_WARN source(s) need attention"; fi
 if command -v osascript >/dev/null 2>&1; then
-  osascript -e "display notification \"$BODY\" with title \"agentlog\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true
+  osascript -e "display notification \"$BODY\" with title \"trailkeep\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true
 elif command -v notify-send >/dev/null 2>&1; then
-  notify-send "agentlog — backup updated" "$BODY" >/dev/null 2>&1 || true
+  notify-send "trailkeep — backup updated" "$BODY" >/dev/null 2>&1 || true
 fi
 
 if [ "$HEALTH_WARN" -gt 0 ]; then

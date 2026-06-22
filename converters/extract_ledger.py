@@ -29,7 +29,7 @@ folder, next to the markdowns), validated by size:mtime — file-based sources
 CUMULATIVE + PORTABLE (AGENTS.md rule #3): a session stays in the ledger as long as
 its `.md` exists, even after the tool prunes the raw transcript. Token data, once
 computed from raw, is carried forward from the cache — so it persists in the data
-folder and travels with the markdowns. Recovered raw (AGENTLOG_CLAUDE_RAW_EXTRA, see
+folder and travels with the markdowns. Recovered raw (TRAILKEEP_CLAUDE_RAW_EXTRA, see
 below) only needs to be read ONCE to seed the tokens; after that the archive is
 optional. Nothing already measured is ever lost just because the raw went away.
 """

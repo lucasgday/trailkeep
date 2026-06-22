@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agentlog · Session viewer</title>
+<title>trailkeep · Session viewer</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F2A28'/%3E%3Cg stroke='%237FB7AE' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M9 11h14'/%3E%3Cpath d='M9 16h14'/%3E%3Cpath d='M9 21h9'/%3E%3C/g%3E%3C/svg%3E">
 <meta name="description" content="Local, private viewer for your AI coding conversations. Zero network calls.">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<link rel="canonical" href="https://github.com/lucasgday/agentlog">
+<link rel="canonical" href="https://github.com/lucasgday/trailkeep">
 
 <style>
   :root{
@@ -359,7 +359,7 @@
 <body>
   <header class="topbar">
     <button class="btn ghost menu-toggle" id="menuToggle" aria-label="Projects">☰</button>
-    <div class="brand"><span class="mark">agentlog</span><span class="sub" id="backupStamp">local viewer · 100% offline</span></div>
+    <div class="brand"><span class="mark">trailkeep</span><span class="sub" id="backupStamp">local viewer · 100% offline</span></div>
     <div class="grow"></div>
     <div class="global-count" id="globalCount"></div>
     <button class="btn ghost" id="btnLang" title="Language">🌐 EN</button>
@@ -411,7 +411,7 @@
         <button class="side-foot-btn" id="importBtn">⤒ Import</button>
         <input id="importFile" type="file" accept="application/json" hidden>
       </div>
-      <div class="side-repo"><a href="https://github.com/lucasgday/agentlog" target="_blank" rel="noopener noreferrer">★ agentlog on GitHub</a></div>
+      <div class="side-repo"><a href="https://github.com/lucasgday/trailkeep" target="_blank" rel="noopener noreferrer">★ trailkeep on GitHub</a></div>
     </aside>
 
     <main class="reader" id="reader">
@@ -468,7 +468,7 @@ const state = {
 /* ---------- i18n ---------- */
 const I18N = {
   en: {
-    doc_title:"agentlog · Session viewer",
+    doc_title:"trailkeep · Session viewer",
     sub_default:"local viewer · 100% offline",
     last_backup:"last backup",
     save_progress:"Export progress", export_short:"Export", load:"Import", open_folder:"Open folder",
@@ -518,7 +518,7 @@ const I18N = {
     metric_desc:{unique_tools:"Distinct tools used across all sessions (Bash, Edit, Read, MCP tools…).", tpp:"Average tool calls per prompt — how much the agent does per message you send.", tests:"Shell commands that ran tests (pytest, jest, go test, npm test…).", builds:"Shell commands that built the project (make, tsc, webpack, cargo build…).", errors:"API errors plus tool calls that returned an error or non-zero exit.", mcp:"Calls to MCP tools (Model Context Protocol servers / connectors)."},
   },
   es: {
-    doc_title:"agentlog · Visor de sesiones",
+    doc_title:"trailkeep · Visor de sesiones",
     sub_default:"visor local · 100% offline",
     last_backup:"último respaldo",
     save_progress:"Exportar progreso", export_short:"Exportar", load:"Importar", open_folder:"Abrir carpeta",
@@ -1755,7 +1755,7 @@ document.getElementById("menuToggle").addEventListener("click",()=>document.getE
 document.getElementById("exportBtn").addEventListener("click",()=>{
   const blob=new Blob([JSON.stringify(state.progress,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="agentlog-progress.json"; a.click();
+  a.download="trailkeep-progress.json"; a.click();
 });
 document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
 document.getElementById("importFile").addEventListener("change",async e=>{

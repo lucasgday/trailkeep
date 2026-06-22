@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Context for AI agents (and humans) working on **agentlog** — a local, self-hosted
+Context for AI agents (and humans) working on **trailkeep** — a local, self-hosted
 backup + viewer for your AI-coding-tool conversations (Claude Code, Codex, Cursor,
 OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only).
 
@@ -50,7 +50,7 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   from the cache, so token data persists in the data folder and travels with the
   markdowns even after the tool prunes the raw. Called from each source's block in
   `update-backup.sh`. The Claude scan reads multiple raw roots (os.pathsep-joined)
-  and dedups by session uuid; `AGENTLOG_CLAUDE_RAW_EXTRA` points at recovered-raw
+  and dedups by session uuid; `TRAILKEEP_CLAUDE_RAW_EXTRA` points at recovered-raw
   archive folders — read once to seed token data, optional thereafter.
 - `converters/extract_projects.py` — **Project metadata**: deterministic, $0,
   on-device. Reads each project's `cwd` from the raw, then its git branch / last

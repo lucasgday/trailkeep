@@ -1,10 +1,12 @@
-# agentlog
+# trailkeep
 
-**Your AI coding history, self-hosted.**
+**Keep your AI coding history — private, browsable, and yours.**
 
 **🇬🇧 English · 🇪🇸 [Español](README.es.md)**
 
-Local backup + viewer for your conversations with AI-coding tools.
+A local home for your conversations with your AI coding tools — whichever you
+use. Keep the decisions and context your code doesn't record, find any of it
+later, and pick up where you left off. Nothing ever leaves your machine.
 
 This project reads where each tool stores its sessions on your disk, converts
 them into readable Markdown with standard metadata, and gives you a standalone
@@ -13,18 +15,19 @@ HTML viewer to browse, group, filter and see analytics of your usage.
 Everything runs **locally on your Mac**. Nothing is uploaded anywhere. The viewer
 UI is **bilingual (English / Spanish)** with a language toggle.
 
-**▶ [Try the live demo](https://lucasgday.github.io/agentlog/)** — the viewer
+**▶ [Try the live demo](https://lucasgday.github.io/trailkeep/)** — the viewer
 running in your browser with sample data, so you can see how it works. It
 **uploads nothing**.
 
-![agentlog — conversation list, analytics, run history, bilingual UI](docs/hero.gif)
+![trailkeep — conversation list, analytics, run history, bilingual UI](docs/hero.gif)
 
 ---
 
 ## Why
 
-**By default, your AI tools don't keep your history forever — and you rarely
-notice when you lose it.**
+**Your AI coding chats hold the decisions and the *why* behind how you built
+things — context your code never records. But it lives locked in each tool's own
+format, hard to revisit, and your tools don't keep it forever:**
 
 - **Claude Code** cleans up old transcripts after a while (by default, based on
   last activity). It's **configurable**: raising `cleanupPeriodDays` in
@@ -37,7 +40,7 @@ notice when you lose it.**
   **without warning** and without a trash bin.
 
 > **Honest note:** if you use *only* Claude Code and raise `cleanupPeriodDays`,
-> much of the automatic deletion stops being a problem. Even so, agentlog still
+> much of the automatic deletion stops being a problem. Even so, trailkeep still
 > gives you what a retention setting doesn't (see below).
 
 What this project gives you, beyond each tool's retention:
@@ -45,14 +48,14 @@ What this project gives you, beyond each tool's retention:
 - **A durable, separate copy.** Cumulative: once backed up, a conversation is
   **never deleted from your copy**, even if the source tool removes it, you
   reinstall, or you migrate machines.
-- **A single multi-tool archive.** Claude Code, Codex, Cowork, OpenCode and
-  Cursor together in one place and format, not five silos with their own rules.
+- **Works with whichever tools you use.** One tool or several — Claude Code,
+  Codex, Cowork, OpenCode and Cursor — all in one place and format.
 - **Something actually browsable.** Readable Markdown + a viewer with search,
   grouping, filters, analytics and review-marking — not raw `.jsonl`/SQLite.
 
-Those conversations often hold **design decisions, the why behind how something
-was done, and context your code doesn't record**. The point is to keep it safe
-and at hand.
+The point: **keep it safe, browsable, and yours** — so months later you can find
+why you did something, or pick up a thread where you left off, instead of losing
+it to a tool's retention window.
 
 And since it's your private data, **everything runs locally**: the scripts only
 read your files and write Markdown to your disk, the viewer is a static HTML
@@ -62,7 +65,7 @@ file. No server, no cloud, no telemetry. (See [Privacy](#privacy).)
 
 ## How it compares
 
-agentlog grew out of the same idea as YC's **Paxel** — making sense of your
+trailkeep grew out of the same idea as YC's **Paxel** — making sense of your
 Claude Code / Codex / Cursor sessions — but with the opposite default on your
 data. Paxel runs its analysis locally yet **uploads derived data** to YC (prompt
 excerpts, file paths, commit metadata, narratives) to build an online profile; a
@@ -70,10 +73,10 @@ community security audit found it sending more than advertised, and the launch
 promo was pulled amid the privacy backlash ([audit](https://www.gate.com/news/detail/y-combinators-paxel-ai-tool-claims-local-analysis-but-security-audit-21668126),
 [coverage](https://digg.com/ai/urogjb9u)).
 
-agentlog is **self-hosted and offline** — it only reads your local files and
+trailkeep is **self-hosted and offline** — it only reads your local files and
 writes local Markdown. Nothing, raw or derived, leaves your machine.
 
-| | agentlog | Paxel |
+| | trailkeep | Paxel |
 |---|---|---|
 | Data leaving your machine | **None** | Derived data uploaded to YC |
 | Hosting | Self-hosted / offline | Cloud (YC) |
@@ -136,11 +139,11 @@ most Linux distros).
 ### Quick start: let your coding agent do it
 
 Since you already use an AI coding tool, the fastest path is to let it set
-agentlog up for you. Clone the repo (or paste the URL), then give your agent
+trailkeep up for you. Clone the repo (or paste the URL), then give your agent
 (Claude Code, Codex, Cursor, …) this prompt:
 
 ```text
-Set up agentlog in this repository for me. It's a local, offline backup +
+Set up trailkeep in this repository for me. It's a local, offline backup +
 viewer for AI-coding-tool conversations. Please:
 1. Read README.md and `./update-backup.sh --help` to understand the flags.
 2. `chmod +x update-backup.sh *.command`.
@@ -161,8 +164,8 @@ Prefer to do it by hand? Follow the steps below.
 button on GitHub and unzip it):
 
 ```bash
-git clone https://github.com/lucasgday/agentlog.git
-cd agentlog
+git clone https://github.com/lucasgday/trailkeep.git
+cd trailkeep
 ```
 
 **2. Make the scripts executable:**
@@ -299,7 +302,7 @@ Once the converter produces that format, the viewer and the rest of the flow
 pick it up without changes. Look at any of the `converters/convert_*.py` files as
 a reference. Bug reports, viewer improvements and ideas in general are welcome too.
 
-Working on agentlog with an AI agent? See [AGENTS.md](AGENTS.md) for the
+Working on trailkeep with an AI agent? See [AGENTS.md](AGENTS.md) for the
 conventions and the one hard rule: the viewer makes **zero network calls**.
 
 ---
