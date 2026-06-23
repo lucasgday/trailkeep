@@ -15,12 +15,20 @@ approves a wider deep-review scope. Never send secrets, API keys, tokens,
 credentials, private env files, unrelated repo data, or the full backup folder as
 an unscoped dump.
 
+This optional layer may check local project repos for remote freshness by
+running `git fetch` through the bundled repo-sync script. That can contact git
+remotes and update remote-tracking refs, but it must never run `git pull`, change
+the worktree, or write generated sidecars into project repos.
+
 If the recurring automation uses a remote or unproven-local provider, get user
 approval once during setup with the schedule, scope, provider, model/alias,
-local output files, and remote-context risk. Do not ask again on every daily run
-merely because the provider is remote; pause only when the gate requires
-approval for `requires_approval` / `possible_secret`, or when provider/model,
-scope, schedule, or output files materially change.
+local output files, repo remote-check behavior, and remote-context risk. Do not
+ask again on every daily run merely because the provider is remote or because
+repo freshness checks run; pause only when the gate requires approval for
+`requires_approval`, or when provider/model, scope, schedule, repo remote-check
+behavior, or output files materially change. `possible_secret` inputs with a
+`preprocessed_ref` are already redacted by trailkeep and should not trigger an
+approval prompt.
 
 ## Inputs
 
@@ -52,51 +60,103 @@ Recurring trailkeep review runs should use a dedicated coding-agent automation
 thread or subagent. Use the main/user-visible thread only for setup approval and
 intervention prompts.
 
+Resolve `review_gate_cmd` as
+`<trailkeep_repo>/scripts/run-project-review-agent-gates.sh`. Use this wrapper
+for every required gate. If this skill is installed outside the repo, pass
+`--skill-dir <skill_dir>` to the wrapper. Direct Python scripts are implementation
+details behind the wrapper.
+
 1. Read `<backup_dir>/_review_run_plan.json`.
 2. Read `<backup_dir>/_review_eval_report.json`.
-3. Before any model call, run the bundled gate:
+3. Before any model call, run the wrapper pre gate:
 
 ```sh
-python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir <backup_dir>
+<review_gate_cmd> --skill-dir <skill_dir> pre --backup-dir <backup_dir>
 ```
 
-Exit code `0` means model calls may proceed. Exit code `1` means planner evals
-or required files failed, including stale/mismatched plan/eval files or a
-missing/stale `backup_dir/log.json` latest backup run. Exit code `2` means user
-approval is required. In both nonzero cases, stop before model calls.
+Exit code `0` means model calls may proceed using `_review_effective_plan.json`;
+that effective plan may be partial if some projects were skipped pending
+approval. Exit code `1` means planner evals or required files failed, including
+stale/mismatched plan/eval files or a missing/stale `backup_dir/log.json` latest
+backup run. Exit code `2` means user approval is required because no safe
+project work remains. In both nonzero cases, stop before model calls.
 
-4. If approval is required, open or resume the coding-agent thread and ask the
+Do not reimplement the pre-model checks in prompts, reasoning, or ad hoc code.
+The gate is the executable source of truth for planner eval status,
+stale/mismatched plan/eval detection, latest-backup freshness, approval flags,
+partial safe-project effective plans, sanitized approval batches, and
+effective-plan generation.
+
+4. If the gate exits `0` with `partial: true`, continue only with projects in
+   `_review_effective_plan.json`, and surface the pending approval batch from
+   the gate output as a non-blocking intervention. Do not send skipped projects
+   or inputs to the model.
+   If the gate reports `auto_excluded_secret_inputs`, treat those as non-fatal
+   privacy exclusions. Do not recover them from raw markdown during this run.
+5. If the gate exits `2`, open or resume the coding-agent thread and ask the
    user once with the full approval batch from the gate output. Use only
    sanitized project names and input ids. Never print suspected secret values.
    Do not ask project-by-project. If this agent cannot open/resume a thread, use
    its closest supported user-intervention surface. Do not continue model calls
    until the user explicitly approves inputs, excludes inputs, or stops the run.
    Record that choice in `<backup_dir>/_review_gate_decisions.json`, scoped to
-   the current plan `generated_at` and input content hashes, then rerun the gate.
+   the current plan `generated_at` and input content hashes, then rerun the
+   wrapper pre gate.
    `needs_approval` is a transient pause; it is not a permanent blocker.
-5. After the gate exits `0`, use `<backup_dir>/_review_effective_plan.json` if
+6. After the gate exits `0`, use `<backup_dir>/_review_effective_plan.json` if
    present. It contains the selected context after approval/exclusion decisions.
    Excluded inputs must not be sent to the model.
-6. Use only the selected inputs from the effective plan, plus extra context
-   explicitly allowed by a deep-review flow.
-7. Default daily runs are incremental: use previous sidecars, repo
+   If a selected input has `possible_secret: true` and `preprocessed_ref`, read
+   that entry from `<backup_dir>/_review_preprocessed_inputs.json` and use the
+   redacted text as model context. Do not read or send the raw markdown for that
+   input unless the user explicitly asks for a raw deep-review rerun.
+7. Before model calls for local git repos, run the wrapper repo-sync check:
+
+```sh
+<review_gate_cmd> --skill-dir <skill_dir> repo-sync --backup-dir <backup_dir>
+```
+
+   It writes `_review_repo_sync.json`. It may run `git fetch` by default to check
+   remote-tracking refs, but must never pull, merge, rebase, checkout, commit, or
+   modify the worktree. If a project has `repo_may_be_stale: true`, reflect that
+   in the project review and set `needs_deep_review` or an open question before
+   treating the review as complete. If sync is uncertain, record the uncertainty
+   instead of pretending the repo is fresh.
+8. Use only the selected inputs from the effective plan, the repo-sync sidecar,
+   plus extra context explicitly allowed by a deep-review flow.
+9. Default daily runs are incremental: use previous sidecars, repo
    planning/design docs, and only new or changed conversations. Full raw
    conversation reads are allowed only for explicit bootstrap/deep-review modes,
    scoped to the project being reviewed unless the user approves a global
    full-archive pass.
-8. Write generated sidecars only at the root of `backup_dir`:
+10. For bootstrap and deep-review runs, checkpoint continuously. After each
+   conversation summary, atomically merge `_conversation_summaries.json` using a
+   temporary file in `backup_dir` and rename it into place. After each project
+   review, atomically merge `_project_reviews.json`. If usage/context/time or
+   provider limits stop the run, keep valid partial sidecars, record
+   `needs_attention` with pending counts in `_review_update_log.json`, and
+   resume next time from matching `content_hash` checkpoints. Never hold all
+   generated output only in memory until the finalizer.
+11. Write generated sidecars only at the root of `backup_dir`:
    `_conversation_summaries.json`, `_project_reviews.json`,
-   `_agent_profile.json`, and `_review_update_log.json`.
-9. After writing sidecars, run the bundled finalizer:
+   `_agent_profile.json`, `_review_repo_sync.json`, and
+   `_review_update_log.json`.
+12. After writing sidecars, run the wrapper finalizer:
 
 ```sh
-python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo <trailkeep_repo> --backup-dir <backup_dir>
+<review_gate_cmd> --skill-dir <skill_dir> finalize --backup-dir <backup_dir>
 ```
 
 The finalizer runs trailkeep's generated-output evals, writes
 `_review_generated_eval_report.json`, appends the review run to
 `_review_update_log.json`, validates the log, and exits nonzero if the run must
-not be considered `ok`.
+not be trusted. It may mark a passing run as `needs_attention` when generated
+evals have warnings or the concrete model used is unknown; that is a non-fatal
+warning state, not a failed run.
+
+Pass `--model-provider`, `--model-routing`, and `--model-used` when the agent
+knows them; otherwise the finalizer records unknown/unavailable values and may
+finish as `needs_attention`.
 
 The skill must not reimplement generated-output checks in prompts or ad hoc
 logic. Those checks live in
@@ -113,7 +173,12 @@ that repo runner and records the result in `_review_update_log.json`.
   the existing roadmap when present. If conversations reveal new legitimate work
   not present in the roadmap, add it as a pending/candidate task or open
   question with evidence; do not silently promote it above existing roadmap
-  priorities.
+  priorities. If repo planning docs are stale, duplicated, or contradictory,
+  record focused recommendations in `recommended_repo_doc_updates` with
+  `file`, `reason`, `action`, `confidence`, and
+  `requires_user_approval: true`. Never modify `ROADMAP.md`, `BACKLOG.md`,
+  `TODO.md`, `docs/design.md`, or equivalent repo docs automatically during
+  recurring runs.
 - Cumulative review means using previous sidecars and checkpoints as compact
   memory, sending only selected deltas to the model by default, preserving stable
   ids/notes, and escalating to broader review only for bootstrap, explicit
@@ -121,12 +186,13 @@ that repo runner and records the result in `_review_update_log.json`.
   evidence-backed stale checkpoints, or major metadata changes. Time passing
   alone is not a reason to reread the full project.
 - For each project: compare current sessions, repo docs, metadata, git state,
-  and deploy state against `_project_reviews.json` checkpoints; skip unchanged
-  projects; for small conversation-only changes, send the previous compact
-  review plus the new/changed conversation evidence only; run broader review or
-  set a deep-review flag only when deterministic change signals or low
-  confidence show the prior project summary may be stale; preserve task ids
-  unless evidence says to update, close, split, or replace them.
+  repo sync state, and deploy state against `_project_reviews.json` checkpoints;
+  skip unchanged projects; for small conversation-only changes, send the
+  previous compact review plus the new/changed conversation evidence only; run
+  broader review or set a deep-review flag only when deterministic change
+  signals, remote commits ahead of local, or low confidence show the prior
+  project summary may be stale; preserve task ids unless evidence says to
+  update, close, split, or replace them.
 - Keep runs token-efficient: use cheaper configured tiers for classification and
   summarization, and stronger tiers only for deep project review or
   design-system extraction.
@@ -138,9 +204,12 @@ that repo runner and records the result in `_review_update_log.json`.
   rereading the full project automatically.
 - `_agent_profile.json`: update recurring preferences, working style, repo
   conventions, and prompt patterns from compact project reviews.
+- Every updated `_project_reviews.json` project entry must include a non-empty
+  `suggested_next_prompt`. It should be a concrete, executable prompt for the
+  next coding-agent session for that project, not a placeholder.
 - `_review_update_log.json`: record the automation result, provider/routing
-  metadata when known, concrete `model_used`, affected projects, outputs, eval
-  report path, and errors.
+  metadata when known, concrete `model_used`, repo-sync summary, affected
+  projects, outputs, eval report path, warnings, and errors.
   Keep it as one global chronological log in `backup_dir`; do not create
   per-project review logs unless trailkeep later needs them for size or
   performance.

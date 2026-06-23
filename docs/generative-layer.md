@@ -14,6 +14,9 @@ Implemented in trailkeep:
   writes `_review_generated_eval_report.json`.
 - `skills/trailkeep-project-review/` contains the repo-versioned skill and its
   deterministic finalizer script.
+- `skills/trailkeep-project-review/scripts/check_repo_sync.py` checks local git
+  repos for remote freshness during the optional agent run and writes
+  `_review_repo_sync.json`.
 - The viewer reads optional `_conversation_summaries.json`,
   `_project_reviews.json`, `_agent_profile.json`, and `_review_update_log.json`.
 - The setup/manual prompt text is canonized in `docs/prompts.md`; the viewer
@@ -56,14 +59,15 @@ flowchart TD
   C --> D["write _review_run_plan.json + _review_eval_report.json"]
   D --> E["coding-agent automation or subagent"]
   E --> F["pre_model_gate.py"]
-  F -->|ok| G["model calls"]
-  F -->|approval needed| H["ask user once with approval batch"]
-  F -->|failed| I["write failed update log"]
-  H -->|approved or excluded| F
-  G --> J["write generated sidecars"]
-  J --> K["finalize_review_run.py"]
-  K --> L["eval_generated_reviews.py"]
-  L --> M["viewer renders Runs + Project Home + Tasks"]
+  F -->|ok or partial ok| G["check_repo_sync.py"]
+  G --> H["model calls"]
+  F -->|no safe work| I["ask user once with approval batch"]
+  F -->|failed| J["write failed update log"]
+  I -->|approved or excluded| F
+  H --> K["write generated sidecars"]
+  K --> L["finalize_review_run.py"]
+  L --> M["eval_generated_reviews.py"]
+  M --> N["viewer renders Runs + Project Home + Tasks"]
 ```
 
 Flow rules:
@@ -74,9 +78,22 @@ Flow rules:
 - The automation should run in a dedicated coding-agent automation thread or
   subagent. The main user-visible thread is only for setup, batch approvals, and
   failures that need intervention.
+- The automation should call
+  `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh` for all required
+  gates. Direct Python scripts are implementation details behind this wrapper.
 - `pre_model_gate.py` must pass before any model call. It rejects stale backup
-  logs, stale/mismatched plan/eval files, failed planner evals, and unresolved
-  approval flags.
+  logs, stale/mismatched plan/eval files and failed planner evals. With
+  unresolved approval flags, it either writes a partial safe
+  `_review_effective_plan.json` and exits `0`, or exits `2` when no safe project
+  work remains.
+- The automation must not reimplement the pre-model gate in prompts, memory, or
+  ad hoc logic. `pre_model_gate.py` is the executable source of truth for
+  planner eval status, stale plan/eval detection, latest-backup freshness,
+  approval batches, partial safe plans, `_review_gate_decisions.json`, and
+  `_review_effective_plan.json`.
+- `check_repo_sync.py` runs after the gate and before model calls. It may run
+  `git fetch` in local project repos to update remote-tracking refs, but never
+  `git pull` or working-tree-changing commands.
 - Approval is batched once per gate run, using sanitized project names and input
   ids. Never print suspected secret values.
 - The viewer only reads local sidecars. It does not call models, notify external
@@ -115,16 +132,29 @@ layer:
 - **Repo docs outrank conversations.** Roadmap/backlog/todo/design/agent docs in
   the project repo are source of truth. Conversation summaries provide recent
   evidence and unresolved context.
+- **Repo freshness is checked by default in the optional agent layer.** There is
+  no separate team mode. For any project with a local git repo and upstream, the
+  automation should run the repo-sync check before model calls. If nothing is
+  remote-ahead, it is just recorded as fresh. If remote commits are ahead of the
+  local checkout, mark `repo_may_be_stale` and use `needs_deep_review` or an
+  open question. Do not run `git pull` without explicit user approval.
 - **Outputs stay in the backup folder.** Generated sidecars are written only at
   `backup_dir` root, never into project repos, source-tool raw folders,
   `markdown-*` folders, or the trailkeep repo.
-- **Approval gates are executable.** The skill's `pre_model_gate.py` blocks model
-  calls when planner evals fail or when `requires_approval` /
-  `possible_secret` requires user approval.
+- **Approval gates are executable.** The skill's `pre_model_gate.py` blocks all
+  model calls when planner evals fail. When only some projects need approval,
+  it writes `_review_effective_plan.json` with safe projects only, records the
+  pending approval batch, and lets model calls proceed for that safe subset.
 - **Generated-output evals are executable.** The skill's finalizer runs
   `eval_generated_reviews.py`, writes `_review_generated_eval_report.json`,
   appends `_review_update_log.json`, and exits nonzero unless the run can be
-  treated as `ok`.
+  treated as `ok` or `needs_attention`.
+- **No check is only a prompt rule.** The agent should follow the written spec,
+  but enforcement comes from the wrapper command:
+  `scripts/run-project-review-agent-gates.sh pre` before model calls,
+  `scripts/run-project-review-agent-gates.sh repo-sync` before repo-context
+  review, and `scripts/run-project-review-agent-gates.sh finalize` after
+  sidecars are written.
 - **No global daily token cap by default.** Token estimates exist for visibility,
   approval, and routing, not to stop the whole daily run by volume.
 - **Opt-in remote-provider risk.** If the coding agent uses a remote LLM
@@ -133,9 +163,17 @@ layer:
 - **Remote-provider approval is setup-time, not daily.** Once the user approves
   recurring automation with a remote or unproven-local model provider, daily
   runs should not ask again merely because the provider is remote. Per-run
-  approval is required only when `_review_run_plan.json` sets
-  `requires_approval` / `possible_secret`, or when the recurring automation's
-  provider, model, scope, schedule, or output files materially change.
+  approval is required only when the gate reports unresolved
+  `requires_approval`, or when the recurring automation's provider, model,
+  scope, schedule, or output files materially change. `possible_secret` inputs
+  with `preprocessed_ref` are already redacted locally; missing redaction is
+  handled as an automatic exclusion with `needs_attention`, not an approval
+  prompt by default.
+- **Repo remote-check approval is setup-time, not daily.** Once the user approves
+  the recurring automation's non-destructive `git fetch` freshness checks, daily
+  runs should not ask again merely because they contact git remotes. Ask again
+  only if repo remote-check behavior materially changes or the automation would
+  pull/merge/rebase/checkout/commit.
 
 ## Output Location
 
@@ -144,17 +182,19 @@ Resolve `backup_dir` as the trailkeep backup folder that contains both:
 - `markdown-*` folders;
 - the `_review_run_plan.json` being consumed.
 
-Write all generated sidecars at the root of that `backup_dir`:
+Write all generated/runtime sidecars at the root of that `backup_dir`:
 
 - `<backup_dir>/_conversation_summaries.json`
 - `<backup_dir>/_project_reviews.json`
 - `<backup_dir>/_agent_profile.json`
 - `<backup_dir>/_review_update_log.json`
+- `<backup_dir>/_review_repo_sync.json`
 - optional drafts: `<backup_dir>/AGENTS.generated.md` and
   `<backup_dir>/CLAUDE.generated.md`
 
 Runtime gate sidecars may also be written at `backup_dir` root:
 
+- `<backup_dir>/_review_preprocessed_inputs.json`
 - `<backup_dir>/_review_gate_decisions.json`
 - `<backup_dir>/_review_effective_plan.json`
 
@@ -172,6 +212,9 @@ Generated sidecars are private user data and must not be committed.
 - This optional review layer is agent-powered and runs inside the user's coding
   agent. If that agent uses a remote model provider, selected project context may
   be sent to that provider as part of the review.
+- The optional agent layer may also contact git remotes through `git fetch` to
+  check whether local project repos are behind their upstreams. This is not part
+  of trailkeep's backup/update path.
 - If the agent cannot prove the model is local/on-device, treat it as remote.
 - Only send context selected by `_review_run_plan.json` unless the user approves
   a wider deep-review scope.
@@ -191,9 +234,13 @@ Generated sidecars are private user data and must not be committed.
   and the fact that selected context may be sent to the provider. Wait for
   approval once during setup.
 - After that setup approval, do not ask on every daily run merely because the
-  model provider is remote. Ask again only for per-run safety flags
-  (`requires_approval` / `possible_secret`) or material automation/provider
-  changes.
+  model provider is remote. Ask again only for unresolved `requires_approval`
+  flags or material automation/provider changes. `possible_secret` inputs should
+  use deterministic redaction first.
+- After setup approval for repo freshness checks, do not ask on every daily run
+  merely because `git fetch` may contact project remotes. The automation must
+  never run `git pull`, merge, rebase, checkout, commit, or otherwise change a
+  project worktree without explicit user approval.
 - Never print suspected secret values in approval prompts, logs, sidecars, or
   eval reports.
 
@@ -225,6 +272,11 @@ Suggested next steps should advance the existing roadmap when one is present.
 If conversations reveal new legitimate work that is not in the roadmap, add it
 as a pending/candidate task or open question with evidence. Do not silently
 promote it above the roadmap's existing priorities.
+Repo planning docs are source of truth, but generated review may recommend
+maintenance patches when they are stale, duplicated, or contradictory. Record
+those recommendations in `recommended_repo_doc_updates`; never modify
+`ROADMAP.md`, `BACKLOG.md`, `TODO.md`, `docs/design.md`, or equivalent repo docs
+automatically during recurring runs.
 
 Design-system review runs daily, but incrementally:
 
@@ -277,6 +329,9 @@ conversation.
 conversation summaries, and changed conversations. It is the strong project
 summary layer: repo planning/design docs are source of truth, and conversation
 summaries are recent evidence.
+Every project review entry must include a non-empty `suggested_next_prompt`.
+It should be a concrete prompt the user can copy to start the next coding-agent
+session for that project. Missing or placeholder prompts are eval failures.
 
 ```json
 {
@@ -288,9 +343,31 @@ summaries are recent evidence.
       "standing_context": "",
       "next_step": "",
       "roadmap_status": "",
+      "recommended_repo_doc_updates": [
+        {
+          "file": "ROADMAP.md",
+          "reason": "Planned still includes work already reflected in Done.",
+          "action": "Move completed items from Planned to Done and keep remaining priorities in the user's existing order.",
+          "confidence": "high",
+          "requires_user_approval": true
+        }
+      ],
       "open_questions": [],
       "tasks": [],
       "suggested_next_prompt": "",
+      "repo_may_be_stale": false,
+      "needs_deep_review": false,
+      "repo_sync": {
+        "checked_at": "",
+        "sync_status": "synced | behind_remote | ahead_remote | diverged | no_upstream | fetch_failed | not_git",
+        "upstream": "",
+        "local_ahead": 0,
+        "local_behind": 0,
+        "remote_ahead": 0,
+        "remote_behind": 0,
+        "repo_may_be_stale": false,
+        "sync_uncertain": false
+      },
       "design_system": {
         "summary": "",
         "components": [],
@@ -353,7 +430,7 @@ unless a real size or performance problem appears.
   "runs": [
     {
       "date": "ISO timestamp",
-      "status": "ok | needs_approval | failed",
+      "status": "ok | needs_attention | needs_approval | failed",
       "projects": ["project-name"],
       "conversation_summaries": 0,
       "tasks_added": 0,
@@ -363,9 +440,19 @@ unless a real size or performance problem appears.
       "model_provider": "",
       "model_used": "",
       "model_routing": "available | unavailable",
+      "warnings": [],
+      "repo_sync": {
+        "checked_at": "",
+        "network_attempted": false,
+        "projects_checked": 0,
+        "git_repos": 0,
+        "repo_may_be_stale": [],
+        "sync_uncertain": []
+      },
       "outputs": [
         "_conversation_summaries.json",
         "_project_reviews.json",
+        "_review_repo_sync.json",
         "_agent_profile.json"
       ],
       "errors": []
@@ -376,6 +463,69 @@ unless a real size or performance problem appears.
 
 The viewer renders this in Runs and filters the same global log in affected
 Project Homes.
+
+Use `needs_attention` when the run completed and generated sidecars are valid,
+but the user should inspect a non-fatal warning. Examples: generated-output
+evals passed with warnings, `model_used` is `"unknown"`, repo sync was
+uncertain, or optional sidecars were skipped intentionally. Do not use
+`needs_attention` for schema failures, privacy failures, corrupt sidecars, or
+other states where the generated output should not be trusted; those are
+`failed`.
+
+### Repo Sync
+
+`_review_repo_sync.json` is written by the optional coding-agent automation after
+`pre_model_gate.py` succeeds and before any model call. It is not written by the
+offline backup/update path.
+
+The check runs for local git repos by default. There is no separate team mode:
+when there are no remote changes, the sidecar simply records the repo as fresh.
+If a local repo has no upstream, the check records uncertainty instead of
+blocking the run.
+
+The script may run `git fetch --prune <remote>` to update remote-tracking refs.
+It must never run `git pull`, merge, rebase, checkout, commit, or otherwise
+change the project worktree without explicit user approval.
+
+```json
+{
+  "version": 1,
+  "checked_at": "ISO timestamp",
+  "network_attempted": true,
+  "fetch_enabled": true,
+  "projects": {
+    "project-name": {
+      "project": "project-name",
+      "path": "/local/repo/path",
+      "checked_at": "ISO timestamp",
+      "repo_sync_checked_at": "ISO timestamp",
+      "is_git": true,
+      "fetch_attempted": true,
+      "fetch_ok": true,
+      "sync_status": "synced | behind_remote | ahead_remote | diverged | no_upstream | fetch_failed | not_git",
+      "sync_uncertain": false,
+      "repo_may_be_stale": false,
+      "needs_deep_review": false,
+      "head": "abc1234",
+      "branch": "main",
+      "upstream": "origin/main",
+      "remote": "origin",
+      "local_ahead": 0,
+      "local_behind": 0,
+      "remote_ahead": 0,
+      "remote_behind": 0,
+      "remote_commit_subjects": [],
+      "errors": []
+    }
+  }
+}
+```
+
+`remote_ahead` means commits present in the upstream remote-tracking branch that
+are missing locally. If `remote_ahead > 0`, set `repo_may_be_stale: true` and
+reflect that in `_project_reviews.json` with either `repo_may_be_stale`,
+`needs_deep_review`, `repo_sync`, or an `open_question`. The generated-output
+eval runner fails if this stale state is ignored.
 
 ## Checkpoints
 
@@ -414,6 +564,16 @@ Recommended shape:
       "git_commit": "abc1234",
       "deploy_url": "https://example.com",
       "stack_hash": "sha256..."
+    },
+    "repo_sync": {
+      "checked_at": "2026-06-22T10:30:00-03:00",
+      "sync_status": "synced",
+      "head": "abc1234",
+      "upstream": "origin/main",
+      "remote_ahead": 0,
+      "remote_behind": 0,
+      "repo_may_be_stale": false,
+      "sync_uncertain": false
     }
   }
 }
@@ -431,6 +591,8 @@ Rules:
   only with evidence.
 - `last_reviewed_git_commit` is a hint, not the only source of truth; uncommitted
   work can still matter.
+- `repo_sync` records the freshness check used for the review. If
+  `remote_ahead > 0`, do not claim the local repo is fully current.
 - Update checkpoints only after the generated sidecars validate.
 
 ## Cumulative Review Model
@@ -453,20 +615,73 @@ instead of rereading the whole archive every day:
 - Run a broader/deep review only for bootstrap, explicit manual deep-review
   requests, deterministic broad/conflicting changes, low confidence,
   evidence-backed stale checkpoints, or major metadata changes such as stack,
-  repo URL, deploy URL, or git commit drift.
+  repo URL, deploy URL, git commit drift, or remote commits ahead of the local
+  checkout.
 
 Per project, the automation should:
 
-1. Compare current sessions, repo docs, metadata, git state, and deploy state
-   against `_project_reviews.json` checkpoints.
+1. Compare current sessions, repo docs, metadata, git state, repo-sync state,
+   and deploy state against `_project_reviews.json` checkpoints.
 2. If nothing changed, skip the project.
 3. If only small new conversations changed, send the previous compact project
    review plus the new/changed conversation summaries or conversations only.
-4. If repo docs, metadata, git state, design docs, or conversation evidence
-   changed heavily or conflict, or if the delta is insufficient to update with
+4. If repo docs, metadata, git state, repo-sync state, design docs, or
+   conversation evidence changed heavily or conflict, if the remote has commits
+   not present locally, or if the delta is insufficient to update with
    confidence, run a broader review or set the matching deep review flag.
 5. Preserve existing task ids unless evidence says to update, close, split, or
    replace them.
+
+## Resumable Bootstrap And Deep Review
+
+Bootstrap and deep-review runs can be large enough to hit coding-agent usage,
+context, time, or provider limits. The optional generative automation must be
+resumable and must not keep all generated state only in memory until the end.
+
+For bootstrap or deep-review modes:
+
+- After each conversation is summarized, atomically merge that entry into
+  `<backup_dir>/_conversation_summaries.json`: write a temporary file in
+  `backup_dir`, then rename it into place.
+- Each conversation summary checkpoint must include at least `content_hash`,
+  `reviewed_at`, `source`, and `project`. When the agent can observe it, also
+  include `model_used` or the closest available model alias.
+- After each project is reviewed, atomically merge that project's entry into
+  `<backup_dir>/_project_reviews.json`.
+- Preserve existing project tasks, task ids, notes, and prior conclusions unless
+  new evidence justifies changing them.
+- If a project review is incomplete because some selected conversations or docs
+  remain unprocessed, mark the project review with a clear partial state such as
+  `bootstrap_in_progress: true`, `partial: true`, or a `needs_attention` warning
+  with pending counts. Do not claim the project review is complete.
+- Append or update `<backup_dir>/_review_update_log.json` during long runs. If
+  the run stops because of usage, context, time, approval, or provider limits,
+  record `status: "needs_attention"` with a warning such as
+  `bootstrap incomplete; resume from checkpoints`.
+- Do not introduce a separate `partial` run status yet. Use `needs_attention`
+  for valid but incomplete generated sidecars.
+- The next run must read `_conversation_summaries.json` and
+  `_project_reviews.json`, skip conversations whose selected `content_hash`
+  already matches, and continue from pending inputs instead of resending the
+  whole archive.
+- The finalizer may accept valid partial sidecars, but the run must not be
+  logged as `ok` while selected work is incomplete. Use `needs_attention` and
+  include pending conversation/project counts when available.
+
+Recommended bootstrap loop:
+
+```text
+for project in _review_effective_plan.json:
+  for selected conversation in project:
+    if _conversation_summaries.json has matching content_hash:
+      skip
+    summarize conversation
+    atomic merge _conversation_summaries.json
+  update project review from repo docs + available conversation summaries
+  atomic merge _project_reviews.json
+  append/update _review_update_log.json as needs_attention or ok
+run finalizer
+```
 
 ## Planner Contract
 
@@ -475,37 +690,107 @@ It must include selected projects, selected repo docs, selected conversation ids
 selected summaries/sidecars, reasons, character counts, word counts, estimated
 input tokens, expected output tokens, intended model tier, remote-provider risk,
 approval flags, and local output files.
+When a project sets `requires_approval: true`, it must also include
+`approval_reasons`: sanitized reason objects with `code`, `message`, and
+`input_refs` that identify the flagged input by type/id/path/hash without
+including raw content or suspected secret values.
 
 Token estimates are deterministic. If no tokenizer is available, trailkeep uses
 the conservative fallback `ceil(characters / 4)`. There is no global daily token
 cap by default; estimates are for visibility and routing.
 
+### Preprocessed Inputs
+
+When the deterministic planner detects a possible secret inside a selected
+conversation or repo doc, it should keep the input useful by redacting only the
+suspected value, not by dropping the whole conversation. The redacted text lives
+in `<backup_dir>/_review_preprocessed_inputs.json` and the plan input references
+it with `preprocessed_ref`.
+
+Recommended shape:
+
+```json
+{
+  "version": 1,
+  "generated_at": "ISO timestamp",
+  "source_plan_generated_at": "ISO timestamp",
+  "inputs": {
+    "project\u001ftype\u001fid\u001fhash": {
+      "project": "project-name",
+      "type": "conversation",
+      "id_or_path": "session-id",
+      "path": "markdown-codex/project/session.md",
+      "title": "Conversation title",
+      "original_content_hash": "sha256...",
+      "redacted_content_hash": "sha256...",
+      "redaction_count": 1,
+      "redaction_types": ["credential_assignment"],
+      "text": "Markdown with [REDACTED_CREDENTIAL_ASSIGNMENT_1]"
+    }
+  }
+}
+```
+
+Rules:
+
+- This sidecar is deterministic, local, and generated before model calls.
+- It may contain large redacted text, but must not contain raw suspected secret
+  values.
+- If a plan input has `possible_secret: true` and `preprocessed_ref`, the agent
+  must use the preprocessed text for model context.
+- If a plan input has `possible_secret: true` without `preprocessed_ref`, the
+  gate should exclude that input automatically and log a `needs_attention`
+  warning such as `input excluded for possible secret`.
+- User approval is only needed if the user explicitly wants to include raw
+  marked context later.
+
 ## Flag Handling
 
-The planner marks flags. The coding-agent automation interprets them.
+The planner marks flags. The coding-agent automation interprets them through
+`pre_model_gate.py`.
 
-- `requires_approval: true`: stop before model calls and ask the user.
-- `possible_secret: true`: show which input is marked, do not print the secret,
-  then ask whether to exclude the input, approve it, or stop.
+- `possible_secret: true`: do not send suspected secret values to a model. The
+  deterministic planner should redact the suspected value locally and write the
+  sanitized text to `_review_preprocessed_inputs.json`. The selected input stays
+  in `_review_run_plan.json` with `preprocessed_ref`,
+  `preprocessed_content_hash`, and `redaction_count`; the effective plan should
+  keep that input, and the automation must read the preprocessed text instead of
+  the raw conversation or repo doc. If no `preprocessed_ref` exists, the gate
+  excludes that input automatically and records a non-fatal `needs_attention`
+  warning. Do not ask the user to approve suspected secrets by default.
+- `requires_approval: true`: if only some projects are flagged, skip those
+  projects from `_review_effective_plan.json`, record a `needs_approval` event,
+  and continue model calls for safe projects. If every selected project is
+  flagged, stop before model calls and ask the user. This is for sensitive
+  context that is not automatically redacted, not for ordinary
+  `possible_secret` findings with a preprocessed replacement.
 - `needs_deep_review: true`: use the deep project review mode and stronger model
   tier if available.
 - `needs_deep_design_review: true`: run design-system extraction.
+- `repo_may_be_stale: true` in `_review_repo_sync.json`: local repo is behind
+  its upstream remote-tracking branch. Do not treat local repo docs/code as fully
+  current; set `needs_deep_review` or create an `open_question` that explains
+  the review may be incomplete until the user pulls/rebases/merges intentionally.
+- `sync_uncertain: true` in `_review_repo_sync.json`: freshness could not be
+  verified. Record the uncertainty instead of assuming the repo is fresh.
 - both deep flags false: run the cheap/default incremental update over summaries
   and deltas.
 
-Batch all approval cases from one gate run into a single user intervention. Do
-not ask project-by-project.
+Batch all pending approval cases from one gate run into a single user
+intervention. Do not ask project-by-project. Partial safe work should not wait
+for that intervention.
 
 Suggested conversational approval prompt:
 
 ```text
-Trailkeep review paused.
+Trailkeep review needs your attention.
 
-The gate found inputs that need approval before any model call.
+The gate found inputs that need approval. Safe projects may have already
+continued; the inputs below were excluded from the effective plan.
 
 Flagged inputs:
 - Project: <project>
-  Reason: possible_secret or requires_approval
+  Reason: requires_approval
   Input: <type> <id_or_path>
 
 No secret content is shown. Review the full batch once.
@@ -516,12 +801,15 @@ Choose:
 3. Stop this run.
 ```
 
-When paused, append `_review_update_log.json` with `status: "needs_approval"`.
-The automation must surface this as a user-visible intervention in the coding
-agent, preferably by opening or resuming the automation's coding-agent thread
-and posting the sanitized approval batch there. If the agent cannot create or
-resume a thread, use its closest supported user-intervention surface. Do not
-continue model calls until the user explicitly chooses an option.
+When pending approval exists, append `_review_update_log.json` with
+`status: "needs_approval"`. If `_review_effective_plan.json` still contains safe
+projects, the automation may continue model calls for those projects only. The
+automation must surface the pending batch as a user-visible intervention in the
+coding agent, preferably by opening or resuming the automation's coding-agent
+thread and posting the sanitized approval batch there. If the agent cannot
+create or resume a thread, use its closest supported user-intervention surface.
+Do not send pending projects or inputs to a model until the user explicitly
+chooses an option.
 
 `needs_approval` is a transient pause, not a permanent blocker. To resolve it,
 the automation writes `_review_gate_decisions.json` with the user's approved or
@@ -570,26 +858,42 @@ Recommended daily sequence:
 2. Read `<backup_dir>/_review_run_plan.json`.
 3. Read `<backup_dir>/_review_eval_report.json`.
 4. Run
-   `python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir <backup_dir>`.
-5. If the gate exits nonzero, stop before model calls. Exit code `1` is a failed
+   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> pre --backup-dir <backup_dir>`.
+5. If the gate exits `0`, use `_review_effective_plan.json` for model context.
+   Exit `0` may be partial: if the payload has `partial: true` or
+   `pending_projects`, continue only with safe projects in the effective plan
+   and surface the pending approval batch as a non-blocking intervention. If
+   the gate exits nonzero, stop before model calls. Exit code `1` is a failed
    deterministic planner/preflight state, including stale or mismatched
    plan/eval files or a stale/missing `<backup_dir>/log.json` latest backup run;
-   exit code `2` requires user approval.
-   For exit code `2`, open or resume the coding-agent thread and post one
-   sanitized approval batch from the gate output.
-6. Summarize new or changed conversations.
-7. Update changed project reviews.
-8. Run the daily incremental design-system pulse only for changed design
+   exit code `2` means no safe work remains without user approval. For exit
+   code `2`, open or resume the coding-agent thread and post one sanitized
+   approval batch from the gate output.
+6. Run
+   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> repo-sync --backup-dir <backup_dir>`.
+   It may run `git fetch` for local git repos, but must not pull or modify
+   worktrees. Use `_review_repo_sync.json` as freshness evidence.
+7. Summarize new or changed conversations.
+8. Update changed project reviews, reflecting `repo_may_be_stale` or
+   `sync_uncertain` when present.
+9. Run the daily incremental design-system pulse only for changed design
    evidence; skip projects without UI/design changes.
-9. Update global agent profile from compact project reviews.
-10. Run
-   `python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo <trailkeep_repo> --backup-dir <backup_dir>`.
-11. Confirm `_review_update_log.json` and `_review_generated_eval_report.json`
+10. Update global agent profile from compact project reviews.
+11. Run
+   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir>`.
+12. Confirm `_review_update_log.json` and `_review_generated_eval_report.json`
     reflect the final status.
+
+The daily sequence must run the wrapper pre gate; do not replace it with prompt
+reasoning or hand-written checks. The gate owns stale plan/eval detection,
+latest-backup freshness, approval batching, `_review_gate_decisions.json`, and
+`_review_effective_plan.json`.
 
 If generated-output evals fail, do not mark the run `ok`. Append a failed
 update-log entry or update the current entry with `status: "failed"` and the
-eval failure names.
+eval failure names. If evals pass but contain warnings, or if the exact model
+cannot be observed and `model_used` is `"unknown"`, mark the run
+`needs_attention` with a `warnings` array instead of `ok`.
 
 ## Generated Output Evals
 
@@ -598,9 +902,9 @@ prompt:
 
 `converters/eval_generated_reviews.py`
 
-The skill finalizer wraps that runner:
+The wrapper finalizer wraps that runner:
 
-`skills/trailkeep-project-review/scripts/finalize_review_run.py`
+`scripts/run-project-review-agent-gates.sh finalize --backup-dir <backup_dir>`
 
 Do not duplicate generated-output checks inside the skill prompt or automation
 instructions. The executable checks live in
@@ -613,6 +917,7 @@ Inputs:
 - `<backup_dir>/_conversation_summaries.json`
 - `<backup_dir>/_project_reviews.json`
 - `<backup_dir>/_agent_profile.json`
+- optional `<backup_dir>/_review_repo_sync.json`
 - `<backup_dir>/_review_run_plan.json`
 - optional `<backup_dir>/_review_update_log.json`
 - Markdown backups for session ids and hashes
@@ -635,6 +940,10 @@ Minimum checks:
   in output.
 - `source_precedence`: if `ROADMAP.md` or equivalent repo docs contradict a
   conversation, repo docs win and an `open_question` is created.
+- `repo_sync_reflection`: if `_review_repo_sync.json` says a local repo is
+  behind its upstream, the generated project review must mark
+  `repo_may_be_stale`, `needs_deep_review`, copy repo-sync state, or create an
+  `open_question`.
 - `no_full_dump`: every run has an input manifest with selected files/session
   ids and reasons; no whole backup-folder archive or unscoped dump is used.
 - `token_estimate`: planned estimates are compared with processed input size or
@@ -644,7 +953,7 @@ Minimum checks:
 - `update_log`: a run with failures is not marked `ok`.
 
 The automation must run these evals after writing sidecars. If they fail, do not
-mark the run `ok`. Prefer the skill finalizer because it also writes
+mark the run `ok`. Prefer the wrapper finalizer because it also writes
 `_review_update_log.json` and reruns evals so the log itself is validated.
 
 ## Skill Packaging
@@ -662,17 +971,16 @@ such as `~/.codex/skills/trailkeep-project-review` or that agent's equivalent.
 The repo copy is the source of truth; the local agent copy is the installed
 runtime artifact.
 
-The bundled finalizer is the required deterministic post-write step:
+The wrapper is the required deterministic interface for agent gates:
 
 ```sh
-python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo <trailkeep_repo> --backup-dir <backup_dir>
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> pre --backup-dir <backup_dir>
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> repo-sync --backup-dir <backup_dir>
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir>
 ```
 
-The bundled pre-model gate is the required deterministic pre-call step:
-
-```sh
-python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir <backup_dir>
-```
+The Python scripts inside `skills/trailkeep-project-review/scripts/` are
+implementation details behind that wrapper.
 
 ## Manual Project Refresh
 
@@ -684,6 +992,7 @@ this spec.
 ## Product Boundary
 
 This design is optimized for a solo developer reviewing their own local coding
-history. Team workflows, shared approvals, shared provider policies, and
-multi-user notification surfaces are out of scope until there is explicit product
-need.
+history. Repo remote freshness checks are useful even for solo work and run by
+default in the optional agent layer when a project has a local git repo. Shared
+team workflows, shared approvals, shared provider policies, and multi-user
+notification surfaces are out of scope until there is explicit product need.

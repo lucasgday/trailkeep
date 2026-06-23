@@ -8,37 +8,32 @@ something that isn't here).
 
 ## Planned
 
-- **Generate the three-level memory.** The optional agent layer should write
-  `_conversation_summaries.json` per conversation, `_project_reviews.json` per
-  project, and `_agent_profile.json` for recurring global preferences/patterns.
-  Draft `AGENTS.generated.md` / `CLAUDE.generated.md` files can be produced in
-  the backup folder for review.
+- **Installable coding-agent automation.** Setup should actually install or link
+  the repo-versioned skill into the user's coding agent, schedule the
+  post-backup review, run the mandatory wrapper gates, call models only when
+  allowed, and write generated sidecars.
+- **Resumable generative memory updates.** The optional coding-agent automation
+  should actually update `_conversation_summaries.json`,
+  `_project_reviews.json`, `_agent_profile.json`, and optional
+  `AGENTS.generated.md` / `CLAUDE.generated.md` drafts in the backup folder.
+  Bootstrap and deep-review runs should checkpoint continuously: atomically
+  merge conversation summaries after each conversation, merge project reviews
+  after each project, log incomplete runs as `needs_attention`, and resume from
+  existing hashes/checkpoints instead of losing progress or re-reading the full
+  archive after usage/context limits.
 - **Global tasks/to-do view.** Aggregate project-review tasks across projects,
   keep stable task ids, and make the next useful project prompt copyable.
-- **Daily generative pulses.** Daily project pulse, daily design-system pulse and
-  daily global synthesis should update only changed projects by default, using
-  checkpoints instead of re-reading the full archive.
-- **Agent automation runtime.** Wire the repo-versioned project-review skill into
-  the user's coding agent so setup installs or links the skill into the agent's
-  local skill directory, consumes `_review_run_plan.json`, calls models only when
-  allowed, writes sidecars, and runs the bundled finalizer after each review.
-- **Generative eval fixtures.** Add local fixtures for generated outputs so the
-  skill can regression-test schema validity, incremental updates, source
-  precedence, privacy/secret leakage, task-id stability and actionable next
-  prompts.
-- **Prompt drift check.** Add a dev check that compares `docs/prompts.md` against
-  the offline prompt copies embedded in `viewer.html` and `docs/index.html`, so
-  canonical prompts do not silently drift.
-- **Unread generative review changes.** Show a discreet in-view banner when
-  `_review_update_log.json` has new generated updates the user has not reviewed
-  yet, using local/exportable progress state only. No system notifications, no
-  network calls.
-- **Deployment link coverage.** Keep expanding optional `deploy_url` detection from
-  safe local sources such as project config files, `.vercel/project.json`, or
-  locally cached deployment metadata.
-- **Recommended `AGENTS.md` / `CLAUDE.md`.** Derived from your own conversations —
-  your style, preferences and recurring asks — so you stop re-explaining them in
-  every repo. Per-project and global.
+- **Daily generative pulses in practice.** Daily project pulse, daily
+  design-system pulse and daily global synthesis should run through the
+  automation after the deterministic backup, updating only changed projects by
+  default.
+- **Repo planning-doc cleanup recommendations.** Generated project reviews
+  should detect stale, duplicated or contradictory roadmap/backlog/todo/design
+  docs, write `recommended_repo_doc_updates`, and let the user copy a focused
+  cleanup prompt. Recurring runs should never modify repo docs automatically.
+- **Broader deployment link coverage.** Keep expanding optional `deploy_url`
+  detection from additional safe local provider metadata beyond the config/text
+  hints already supported.
 
 ## Exploring
 
@@ -84,7 +79,34 @@ itself still makes no network calls and never uploads your backups.
   validates optional sidecars after the coding-agent automation writes them and
   emits `_review_generated_eval_report.json`; failing evals must not be logged
   as `ok`
+- **Generative eval fixtures** — `scripts/test-generated-review-evals.cjs`
+  runs local generated-output fixtures covering schema-valid output, privacy /
+  secret leakage, repo freshness reflection, task-id stability and repo-doc
+  source precedence
 - **Repo-versioned project-review skill** —
-  `skills/trailkeep-project-review/SKILL.md` plus a deterministic finalizer
-  script and pre-model gate define the runtime workflow a user's coding agent can
-  install or link locally
+  `skills/trailkeep-project-review/SKILL.md` plus deterministic gate/finalizer
+  scripts define the runtime workflow a user's coding agent can install or link
+  locally
+- **Agent review gates wrapper** — `scripts/run-project-review-agent-gates.sh`
+  is the single mandatory interface for the optional automation's pre-model
+  gate, repo-sync check and finalizer
+- **Prompt drift check** — `scripts/check-prompt-drift.cjs` compares
+  `docs/prompts.md` against the offline prompt copies embedded in `viewer.html`
+  and `docs/index.html`
+- **Unread generative review changes** — the viewer shows a local/exportable
+  progress banner when `_review_update_log.json` has generated updates the user
+  has not reviewed yet; the CTA opens Runs/Corridas without system
+  notifications or network calls
+- **Repo freshness check for optional reviews** —
+  `skills/trailkeep-project-review/scripts/check_repo_sync.py` checks local git
+  repos during the optional agent run, may run non-destructive `git fetch`, never
+  pulls or modifies worktrees, writes `_review_repo_sync.json`, and generated
+  evals fail if remote-ahead state is ignored
+- **Partial approval gate for generative reviews** —
+  `pre_model_gate.py` now writes a partial `_review_effective_plan.json` with
+  safe projects only, logs flagged projects as `needs_approval`, exits `0` when
+  safe work can proceed, and exits `2` only when no safe project work remains
+- **Deployment URL detection from local hints** — project metadata can detect
+  optional `deploy_url` values from safe local sources such as package
+  homepage, `vercel.json` aliases/domains, `.vercel/project.json`, Fly config,
+  Wrangler config and project-matching URLs in local docs/config files

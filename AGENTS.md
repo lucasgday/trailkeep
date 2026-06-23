@@ -68,7 +68,11 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   `_conversation_summaries.json` and `_project_reviews.json` when present, then
   writes `_review_run_plan.json` with selected inputs, token estimates, safety
   flags and expected local output sidecars for the optional coding-agent
-  review layer. No LLM, no network; the viewer only reads the sidecar.
+  review layer. When possible secrets are detected in selected conversations or
+  repo docs, it writes deterministic redacted text to
+  `_review_preprocessed_inputs.json` and points the plan at that sanitized input
+  instead of requiring raw-context approval by default. No LLM, no network; the
+  viewer only reads the sidecars.
 - `converters/eval_review_plan.py` — **Review plan evals**: deterministic, $0,
   on-device. Reads `_review_run_plan.json` and writes `_review_eval_report.json`
   with schema, manifest, no-full-dump, privacy, token-estimate,
@@ -82,13 +86,18 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   checks. Nonzero exit means the automation must not mark the run `ok`.
 - `skills/trailkeep-project-review/` — repo-versioned optional coding-agent
   skill. `SKILL.md` defines the runtime workflow;
-  `scripts/pre_model_gate.py` blocks model calls when planner evals fail or user
-  approval is required, reads `_review_gate_decisions.json` to resolve
+  `scripts/run-project-review-agent-gates.sh` is the mandatory wrapper the
+  optional automation should call for `pre`, `repo-sync`, and `finalize`;
+  `scripts/pre_model_gate.py` blocks model calls when planner evals fail,
+  writes partial safe `_review_effective_plan.json` files when only some
+  projects need approval, reads `_review_gate_decisions.json` to resolve
   approval/exclusion choices for the current plan, and writes
   `_review_effective_plan.json` as the selected context that model calls may
-  use; `scripts/finalize_review_run.py` runs generated-output evals, appends
-  `_review_update_log.json`, reruns evals so the log is validated, and exits
-  nonzero unless the generated review run can be treated as `ok`.
+  use; `scripts/check_repo_sync.py` runs the optional post-gate local git
+  freshness check and writes `_review_repo_sync.json`; `scripts/finalize_review_run.py`
+  runs generated-output evals, appends `_review_update_log.json`, reruns evals
+  so the log is validated, and exits nonzero unless the generated review run can
+  be treated as `ok`.
 - `viewer.html` — standalone, bilingual (EN/ES) viewer. Pure reader. No build
   step. It reads optional local generative sidecars when present:
   `_conversation_summaries.json` in conversation detail, `_project_reviews.json`
@@ -132,9 +141,11 @@ changes. See any existing converter as a reference.
 
 ## Verifying changes
 
-- Shell: `bash -n update-backup.sh *.command`
-- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
+- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
+- Prompt drift: `node scripts/check-prompt-drift.cjs`
 - Viewer Playwright QA (optional dev check, not used by backup):
   `node scripts/verify-viewer.cjs`
 - Visual: serve a folder of sample `.md` and open the viewer headless, or open

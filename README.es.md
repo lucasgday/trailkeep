@@ -193,29 +193,38 @@ Cada backup escribe un `_review_run_plan.json` local: proyectos seleccionados,
 docs del repo e ids de conversaciones seleccionados, por qué hace falta cada
 input, estimación de caracteres/palabras/tokens, tier de modelo esperado, riesgo
 de provider remoto y sidecars locales que debería escribir la capa opcional con
-agente. trailkeep también escribe `_review_eval_report.json` con checks
-determinísticos del plan: schema, cobertura del manifest, no dumpear toda la
-carpeta de backups, flags básicos de privacidad/secretos, sanity de estimación
-de tokens, precedencia de docs del repo, incrementalidad y scope de sidecars. El
-viewer muestra el resumen del plan por proyecto en Project Home.
+agente. Si el contexto seleccionado contiene un posible secreto, trailkeep
+escribe un `_review_preprocessed_inputs.json` local con solo el valor sospechado
+saneado, para poder usar la conversación sin mandar ese valor. trailkeep también
+escribe `_review_eval_report.json` con checks determinísticos del plan: schema,
+cobertura del manifest, no dumpear toda la carpeta de backups, flags básicos de
+privacidad/secretos, sanity de estimación de tokens, precedencia de docs del
+repo, incrementalidad y scope de sidecars. El viewer muestra el resumen del plan
+por proyecto en Project Home.
 
 El repo incluye una skill versionada en
 `skills/trailkeep-project-review/SKILL.md`. La automatización opcional del
 agente debería consumir el plan antes de cualquier llamada a modelo y correr el
-gate de la skill: `python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir
-<backup_dir>`. Solo el exit code `0` puede avanzar a llamadas de modelo. Si el
+wrapper gate: `scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir>
+pre --backup-dir <backup_dir>`. Solo el exit code `0` puede avanzar a llamadas
+de modelo, y el agente debe usar `_review_effective_plan.json` como contexto
+permitido. El exit `0` puede ser parcial: los proyectos marcados se saltean y
+quedan logueados como pendientes mientras los proyectos seguros continúan. El
+exit `2` significa que no queda trabajo seguro sin aprobación del usuario. Si el
 agente no puede rutear modelos por tarea pero sí puede elegir un modelo para la
 automatización, usar el tier `strong` por defecto. Si no puede elegir modelo en
 absoluto, seguir con el modelo disponible y escribir
 `model_routing: "unavailable"`. Después de escribir sidecars generativos, debería
-correr el finalizer de la skill:
-`python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo
-<trailkeep_repo> --backup-dir <backup_dir>`. Eso escribe
+correr el wrapper finalizer:
+`scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize
+--backup-dir <backup_dir>`. Eso escribe
 `_review_generated_eval_report.json`, agrega `_review_update_log.json`, y valida
 schema, integridad referencial, checkpoints, precedencia de docs del repo,
 privacidad/secretos, ids estables de tasks, actionability y estado del update
 log. Si el finalizer falla, la corrida de review del agente no debe marcarse
 como `ok`.
+Para desarrollo, `node scripts/test-generated-review-evals.cjs` corre fixtures
+locales que ejercitan esos evals de outputs generativos.
 
 Cuando esos sidecars opcionales existen, el viewer los lee localmente: los
 summaries aparecen dentro de cada conversación, las reviews aparecen en Project
@@ -371,6 +380,8 @@ general.
 
 ¿Trabajás en trailkeep con un agente de IA? Mirá [AGENTS.md](AGENTS.md) para las
 convenciones y la regla de oro: el visor hace **cero llamadas de red**.
+Para verificar que las copias canónicas de prompts sigan sincronizadas, corré:
+`node scripts/check-prompt-drift.cjs`.
 Para QA opcional del visor, instalá/cacheá Playwright Chromium y corré:
 `node scripts/verify-viewer.cjs`. Es solo un check de desarrollo; el backup no
 depende de eso.

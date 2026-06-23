@@ -187,27 +187,36 @@ provider; trailkeep's backup scripts and viewer remain local and zero-network.
 Every backup run writes a local `_review_run_plan.json`: selected projects,
 selected repo docs/conversation ids, why each input is needed, estimated
 chars/words/tokens, intended model tier, remote-provider risk, and the local
-sidecars the optional agent layer should write. trailkeep also writes
-`_review_eval_report.json` with deterministic checks for the plan: schema,
-manifest coverage, no full backup-folder dumps, basic privacy/secret flags,
-token-estimate sanity, repo-doc precedence, incrementality, and output sidecar
-scope. The viewer shows the per-project plan summary in Project Home.
+sidecars the optional agent layer should write. If selected context contains a
+possible secret, trailkeep writes a local `_review_preprocessed_inputs.json`
+with only the suspected value redacted, so the conversation can still be used
+without sending that value. trailkeep also writes `_review_eval_report.json`
+with deterministic checks for the plan: schema, manifest coverage, no full
+backup-folder dumps, basic privacy/secret flags, token-estimate sanity,
+repo-doc precedence, incrementality, and output sidecar scope. The viewer shows
+the per-project plan summary in Project Home.
 
 The repo includes a versioned skill at
 `skills/trailkeep-project-review/SKILL.md`. The optional agent automation should
-consume the plan before any model call and run the skill gate:
-`python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir <backup_dir>`.
-Only exit code `0` may proceed to model calls. If the agent cannot route models
-per task but can choose one automation model, use the `strong` tier by default.
-If it cannot choose a model at all, continue with the available model and write
-`model_routing: "unavailable"`. After writing generated sidecars, it should run
-the skill finalizer:
-`python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo
-<trailkeep_repo> --backup-dir <backup_dir>`. That writes
+consume the plan before any model call and run the wrapper gate:
+`scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> pre --backup-dir
+<backup_dir>`.
+Only exit code `0` may proceed to model calls, and the agent must use
+`_review_effective_plan.json` as the allowed context. Exit `0` can be partial:
+flagged projects are skipped and logged as pending while safe projects continue.
+Exit `2` means no safe project work remains without user approval. If the agent
+cannot route models per task but can choose one automation model, use the
+`strong` tier by default. If it cannot choose a model at all, continue with the
+available model and write `model_routing: "unavailable"`. After writing
+generated sidecars, it should run the wrapper finalizer:
+`scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize
+--backup-dir <backup_dir>`. That writes
 `_review_generated_eval_report.json`, appends `_review_update_log.json`, and
 validates schema, referential integrity, checkpoints, repo-doc precedence,
 privacy/secret leakage, stable task ids, actionability, and update-log status. A
 failing finalizer means the agent review run must not be marked `ok`.
+For development, `node scripts/test-generated-review-evals.cjs` runs local
+fixtures that exercise those generated-output evals.
 
 When those optional sidecars exist, the viewer reads them locally: conversation
 summaries appear inside each conversation, project reviews appear in Project
@@ -362,6 +371,8 @@ a reference. Bug reports, viewer improvements and ideas in general are welcome t
 
 Working on trailkeep with an AI agent? See [AGENTS.md](AGENTS.md) for the
 conventions and the one hard rule: the viewer makes **zero network calls**.
+To verify canonical prompt copies stayed in sync, run:
+`node scripts/check-prompt-drift.cjs`.
 For optional viewer QA, install/cache Playwright Chromium and run:
 `node scripts/verify-viewer.cjs`. This is a dev check only; the backup does not
 depend on it.
