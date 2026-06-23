@@ -111,6 +111,11 @@ def redact_secrets(text):
     return redacted, replacements
 
 
+def redact_metadata_value(value):
+    redacted, replacements = redact_secrets(str(value or ""))
+    return redacted, replacements
+
+
 def meta_value(body, *keys):
     for key in keys:
         m = re.search(rf"{re.escape(key)}\s*:\s*([^|]+?)\s*(?:\||$)", body)
@@ -280,36 +285,40 @@ def preprocessed_key(project, item):
 
 def add_preprocessed_input(preprocessed, project, item, text, metadata=None):
     redacted, replacements = redact_secrets(text)
-    if not replacements:
+    title, title_replacements = redact_metadata_value(item.get("title") or "")
+    if not replacements and not title_replacements:
         return item
     key = preprocessed_key(project, item)
     redacted_hash = content_hash(redacted)
-    redaction_types = sorted(set(r["type"] for r in replacements))
+    redaction_types = sorted(set(r["type"] for r in [*replacements, *title_replacements]))
+    redaction_count = len(replacements) + len(title_replacements)
     preprocessed["inputs"][key] = {
         "project": project,
         "type": item.get("type") or "",
         "id_or_path": item.get("id_or_path") or item.get("path") or "",
         "path": item.get("path") or "",
         "relative_path": item.get("relative_path") or "",
-        "title": item.get("title") or "",
+        "title": title,
         "source": (metadata or {}).get("source") or item.get("source") or "",
         "date": (metadata or {}).get("date") or item.get("date") or "",
         "original_content_hash": item.get("content_hash") or "",
         "redacted_content_hash": redacted_hash,
-        "redaction_count": len(replacements),
+        "redaction_count": redaction_count,
         "redaction_types": redaction_types,
         "text": redacted,
     }
     redacted_estimate = estimate(redacted)
     updated = dict(item)
     updated.update(redacted_estimate)
+    if "title" in updated:
+        updated["title"] = title
     updated.update({
         "possible_secret": True,
         "preprocessed": True,
         "preprocessed_ref": f"{PREPROCESSED_INPUTS_FILE}#{key}",
         "preprocessed_input_key": key,
         "preprocessed_content_hash": redacted_hash,
-        "redaction_count": len(replacements),
+        "redaction_count": redaction_count,
         "redaction_types": redaction_types,
         "source_chars": item.get("chars", 0),
         "source_words": item.get("words", 0),

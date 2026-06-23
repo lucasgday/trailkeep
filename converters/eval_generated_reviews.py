@@ -75,6 +75,25 @@ def result(name, failures=None, warnings=None, stats=None):
     }
 
 
+def iter_string_values(value):
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from iter_string_values(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from iter_string_values(child)
+    elif isinstance(value, str):
+        yield value
+
+
+def contains_secret_value(value):
+    for text in iter_string_values(value):
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(text):
+                return True
+    return False
+
+
 def content_hash(text):
     return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
 
@@ -453,15 +472,15 @@ def check_privacy(data):
         doc = data.get(name)
         if doc is None:
             continue
-        dumped = json.dumps(doc, ensure_ascii=False)
-        for pattern in SECRET_PATTERNS:
-            if pattern.search(dumped):
-                failures.append(f"{name} contains a secret-looking literal")
-                break
-        emails = EMAIL_PATTERN.findall(dumped)
+        values = list(iter_string_values(doc))
+        if contains_secret_value(doc):
+            failures.append(f"{name} contains a secret-looking literal")
+        emails = []
+        for text in values:
+            emails.extend(EMAIL_PATTERN.findall(text))
         if emails:
             warnings.append(f"{name} contains email-looking literal(s): {len(set(emails))}")
-        if ".env" in dumped and re.search(r"(?i)(token|secret|password|api[_-]?key)", dumped):
+        if any(".env" in text and re.search(r"(?i)(token|secret|password|api[_-]?key)", text) for text in values):
             failures.append(f"{name} appears to include .env secret context")
     return result("privacy", failures, warnings)
 

@@ -68,6 +68,25 @@ def result(name, failures=None, warnings=None, stats=None):
     }
 
 
+def iter_string_values(value):
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from iter_string_values(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from iter_string_values(child)
+    elif isinstance(value, str):
+        yield value
+
+
+def contains_secret_value(value):
+    for text in iter_string_values(value):
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(text):
+                return True
+    return False
+
+
 def is_nonnegative_int(value):
     return isinstance(value, int) and value >= 0
 
@@ -230,11 +249,8 @@ def check_no_full_dump(plan, backup_dir):
 def check_privacy(plan, backup_dir):
     failures = []
     warnings = []
-    dumped = json.dumps(plan, ensure_ascii=False)
-    for pattern in SECRET_PATTERNS:
-        if pattern.search(dumped):
-            failures.append("plan contains a secret-looking literal instead of only possible_secret flags")
-            break
+    if contains_secret_value(plan):
+        failures.append("plan contains a secret-looking literal instead of only possible_secret flags")
     for project in plan.get("projects") or []:
         inputs = project.get("selected_inputs") or []
         has_secret = any(bool(i.get("possible_secret")) for i in inputs)
@@ -257,11 +273,8 @@ def check_privacy(plan, backup_dir):
     preprocessed_path = os.path.join(backup_dir, str(plan.get("preprocessed_inputs_file") or PREPROCESSED_INPUTS_FILE))
     if os.path.exists(preprocessed_path):
         preprocessed = load_json(preprocessed_path, {})
-        dumped_preprocessed = json.dumps(preprocessed, ensure_ascii=False)
-        for pattern in SECRET_PATTERNS:
-            if pattern.search(dumped_preprocessed):
-                failures.append(f"{os.path.basename(preprocessed_path)} contains a secret-looking literal after redaction")
-                break
+        if contains_secret_value(preprocessed):
+            failures.append(f"{os.path.basename(preprocessed_path)} contains a secret-looking literal after redaction")
     return result("privacy_basic", failures, warnings)
 
 
