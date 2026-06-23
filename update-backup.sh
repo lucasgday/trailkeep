@@ -92,6 +92,8 @@ PY_CLAUDE="$SCRIPT_DIR/converters/convert_claude.py"
 PY_CODEX="$SCRIPT_DIR/converters/convert_codex.py"
 PY_LEDGER="$SCRIPT_DIR/converters/extract_ledger.py"
 PY_PROJECTS="$SCRIPT_DIR/converters/extract_projects.py"
+PY_REVIEW_PLAN="$SCRIPT_DIR/converters/plan_reviews.py"
+PY_REVIEW_EVAL="$SCRIPT_DIR/converters/eval_review_plan.py"
 
 # OS-aware source paths (macOS vs Linux/XDG). Claude Code (~/.claude) and Codex
 # (~/.codex) are the same on both; Cowork/Cursor/OpenCode differ.
@@ -454,6 +456,12 @@ hist = hist[:50]
 json.dump(hist, open(log_path, "w"), ensure_ascii=False, indent=2)
 json.dump(hist, open(public_log_path, "w"), ensure_ascii=False, indent=2)
 PYEOF
+
+# Review preflight: deterministic selected-context plan and evals for the
+# optional coding-agent layer. This runs after log.json is written so the
+# pre-model gate can verify the latest backup run before any model call.
+python3 "$PY_REVIEW_PLAN" "$BASE" || true
+python3 "$PY_REVIEW_EVAL" "$BASE" || true
 
 # desktop notification (macOS osascript, or Linux notify-send if present)
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi

@@ -14,6 +14,15 @@ _backup-info.json
 _ledger.json
 _ledger-cache.json
 _projects.json
+_conversation_summaries.json
+_project_reviews.json
+_agent_profile.json
+_review_run_plan.json
+_review_effective_plan.json
+_review_gate_decisions.json
+_review_eval_report.json
+_review_generated_eval_report.json
+_review_update_log.json
 log.json
 trailkeep-progress.json
 
