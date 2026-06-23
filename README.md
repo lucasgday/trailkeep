@@ -164,13 +164,56 @@ trailkeep itself does not call models. The next layer is a coding-agent skill yo
 can install into your own agent: it reads new or changed project context, follows
 repo planning docs first (`ROADMAP.md`, `BACKLOG.md`, `TODO.md`,
 `docs/product-progress.md`, `docs/design.md`, `design.md`, `AGENTS.md`, or
-equivalents), and writes a local `_project_reviews.json` sidecar.
+equivalents), and writes local sidecars in the backup folder.
 
-That sidecar is cumulative: daily project pulse, daily design-system pulse, and
-global priority synthesis update only changed projects by default. If your agent
-uses a remote LLM provider, that optional automation may send the selected
-project context to that provider; trailkeep's backup scripts and viewer remain
-local and zero-network.
+The stable contract for that optional layer lives in
+[`docs/generative-layer.md`](docs/generative-layer.md). The viewer's setup prompt
+is intentionally short and tells your coding agent to follow that spec.
+
+The output layers are cumulative: `_conversation_summaries.json` summarizes each
+conversation by session id, `_project_reviews.json` combines repo docs and
+conversation summaries by project, and `_agent_profile.json` captures recurring
+preferences/patterns across projects. The optional automation should also append
+`_review_update_log.json` so the viewer can show when generated sidecars changed.
+Optional drafts such as
+`AGENTS.generated.md` or `CLAUDE.generated.md` should be written to the backup
+folder, not directly into a repo unless you explicitly ask.
+
+Daily project pulse, daily design-system pulse, and global priority synthesis
+update only changed projects by default. If your agent uses a remote LLM
+provider, that optional automation may send the selected project context to that
+provider; trailkeep's backup scripts and viewer remain local and zero-network.
+
+Every backup run writes a local `_review_run_plan.json`: selected projects,
+selected repo docs/conversation ids, why each input is needed, estimated
+chars/words/tokens, intended model tier, remote-provider risk, and the local
+sidecars the optional agent layer should write. trailkeep also writes
+`_review_eval_report.json` with deterministic checks for the plan: schema,
+manifest coverage, no full backup-folder dumps, basic privacy/secret flags,
+token-estimate sanity, repo-doc precedence, incrementality, and output sidecar
+scope. The viewer shows the per-project plan summary in Project Home.
+
+The repo includes a versioned skill at
+`skills/trailkeep-project-review/SKILL.md`. The optional agent automation should
+consume the plan before any model call and run the skill gate:
+`python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir <backup_dir>`.
+Only exit code `0` may proceed to model calls. If the agent cannot route models
+per task but can choose one automation model, use the `strong` tier by default.
+If it cannot choose a model at all, continue with the available model and write
+`model_routing: "unavailable"`. After writing generated sidecars, it should run
+the skill finalizer:
+`python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo
+<trailkeep_repo> --backup-dir <backup_dir>`. That writes
+`_review_generated_eval_report.json`, appends `_review_update_log.json`, and
+validates schema, referential integrity, checkpoints, repo-doc precedence,
+privacy/secret leakage, stable task ids, actionability, and update-log status. A
+failing finalizer means the agent review run must not be marked `ok`.
+
+When those optional sidecars exist, the viewer reads them locally: conversation
+summaries appear inside each conversation, project reviews appear in Project
+Home, the global agent profile appears in Analytics with copy buttons for
+generated `AGENTS.md` / `CLAUDE.md` drafts, and `_review_update_log.json`
+appears in Runs plus the affected Project Homes.
 
 Prefer to do it by hand? Follow the steps below.
 
@@ -319,6 +362,9 @@ a reference. Bug reports, viewer improvements and ideas in general are welcome t
 
 Working on trailkeep with an AI agent? See [AGENTS.md](AGENTS.md) for the
 conventions and the one hard rule: the viewer makes **zero network calls**.
+For optional viewer QA, install/cache Playwright Chromium and run:
+`node scripts/verify-viewer.cjs`. This is a dev check only; the backup does not
+depend on it.
 
 ---
 

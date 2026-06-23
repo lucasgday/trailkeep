@@ -63,10 +63,42 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   Cowork runs in throwaway sandboxes with random Docker-style `cwd`s, so it folds
   into one **virtual** "cowork" project (no filesystem facts, never "gone"),
   matching the converter which tags every Cowork session `project: cowork`.
-- `viewer.html` — standalone, bilingual (EN/ES) viewer. Pure reader. No build step.
+- `converters/plan_reviews.py` — **Review preflight plan**: deterministic, $0,
+  on-device. Reads Markdown backups plus `_projects.json`,
+  `_conversation_summaries.json` and `_project_reviews.json` when present, then
+  writes `_review_run_plan.json` with selected inputs, token estimates, safety
+  flags and expected local output sidecars for the optional coding-agent
+  review layer. No LLM, no network; the viewer only reads the sidecar.
+- `converters/eval_review_plan.py` — **Review plan evals**: deterministic, $0,
+  on-device. Reads `_review_run_plan.json` and writes `_review_eval_report.json`
+  with schema, manifest, no-full-dump, privacy, token-estimate,
+  source-precedence, incrementality and output-scope checks. No LLM, no network.
+- `converters/eval_generated_reviews.py` — **Generated review evals**:
+  deterministic, $0, on-device. Runs after the optional coding-agent automation
+  writes `_conversation_summaries.json`, `_project_reviews.json`,
+  `_agent_profile.json`, and `_review_update_log.json`. Writes
+  `_review_generated_eval_report.json` with schema, referential-integrity,
+  checkpoint, task-id, privacy, source-precedence, actionability, and update-log
+  checks. Nonzero exit means the automation must not mark the run `ok`.
+- `skills/trailkeep-project-review/` — repo-versioned optional coding-agent
+  skill. `SKILL.md` defines the runtime workflow;
+  `scripts/pre_model_gate.py` blocks model calls when planner evals fail or user
+  approval is required, reads `_review_gate_decisions.json` to resolve
+  approval/exclusion choices for the current plan, and writes
+  `_review_effective_plan.json` as the selected context that model calls may
+  use; `scripts/finalize_review_run.py` runs generated-output evals, appends
+  `_review_update_log.json`, reruns evals so the log is validated, and exits
+  nonzero unless the generated review run can be treated as `ok`.
+- `viewer.html` — standalone, bilingual (EN/ES) viewer. Pure reader. No build
+  step. It reads optional local generative sidecars when present:
+  `_conversation_summaries.json` in conversation detail, `_project_reviews.json`
+  in Project Home, `_agent_profile.json` in Analytics, and
+  `_review_update_log.json` in Runs plus affected Project Homes. It never
+  generates those files and never calls a model.
 - `*.command` — double-click launchers (install/uninstall the launchd task; run).
 - `docs/` — `index.html` (the GitHub Pages live demo, sample data baked in),
-  screenshots, `hero.gif`.
+  screenshots, `hero.gif`, and `generative-layer.md` (the stable contract for
+  the optional coding-agent review layer).
 - `ROADMAP.md` — public roadmap. `ROADMAP.private.md` — maintainer-only strategy &
   full vision (gitignored via `*.private.md`; not in clones).
 
@@ -101,8 +133,10 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command`
-- Converters: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py`
+- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
+- Viewer Playwright QA (optional dev check, not used by backup):
+  `node scripts/verify-viewer.cjs`
 - Visual: serve a folder of sample `.md` and open the viewer headless, or open
   `viewer.html` and point it at a markdown folder. The viewer must render with no
   console errors and make no network requests.

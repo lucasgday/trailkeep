@@ -167,15 +167,61 @@ ningún lado.
 trailkeep no llama modelos. La siguiente capa es una skill para tu propio coding
 agent: lee contexto nuevo o cambiado por proyecto, prioriza primero los docs del
 repo (`ROADMAP.md`, `BACKLOG.md`, `TODO.md`, `docs/product-progress.md`,
-`docs/design.md`, `design.md`, `AGENTS.md` o equivalentes), y escribe un sidecar
-local `_project_reviews.json`.
+`docs/design.md`, `design.md`, `AGENTS.md` o equivalentes), y escribe sidecars
+locales en la carpeta del backup.
 
-Ese sidecar es acumulativo: el pulso diario de proyecto, el pulso diario de
-design system y la síntesis global de prioridades actualizan por defecto solo
-proyectos con cambios. Si tu agente usa un LLM provider remoto, esa
-automatización opcional puede enviarle el contexto seleccionado del proyecto a
-ese provider; los scripts de backup y el viewer de trailkeep siguen siendo
-locales y cero red.
+El contrato estable para esa capa opcional vive en
+[`docs/generative-layer.md`](docs/generative-layer.md). El prompt de setup del
+viewer es intencionalmente corto y le pide a tu coding agent que siga esa spec.
+
+Los outputs son acumulativos: `_conversation_summaries.json` resume cada
+conversación por session id, `_project_reviews.json` combina docs del repo y
+summaries por proyecto, y `_agent_profile.json` captura preferencias/patrones
+recurrentes entre proyectos. La automatización opcional también debería appendear
+`_review_update_log.json` para que el viewer muestre cuándo cambiaron sidecars
+generativos. Drafts opcionales como `AGENTS.generated.md` o
+`CLAUDE.generated.md` deberían escribirse en la carpeta del backup, no
+directamente en un repo salvo que lo pidas explícitamente.
+
+El pulso diario de proyecto, el pulso diario de design system y la síntesis
+global de prioridades actualizan por defecto solo proyectos con cambios. Si tu
+agente usa un LLM provider remoto, esa automatización opcional puede enviarle el
+contexto seleccionado del proyecto a ese provider; los scripts de backup y el
+viewer de trailkeep siguen siendo locales y cero red.
+
+Cada backup escribe un `_review_run_plan.json` local: proyectos seleccionados,
+docs del repo e ids de conversaciones seleccionados, por qué hace falta cada
+input, estimación de caracteres/palabras/tokens, tier de modelo esperado, riesgo
+de provider remoto y sidecars locales que debería escribir la capa opcional con
+agente. trailkeep también escribe `_review_eval_report.json` con checks
+determinísticos del plan: schema, cobertura del manifest, no dumpear toda la
+carpeta de backups, flags básicos de privacidad/secretos, sanity de estimación
+de tokens, precedencia de docs del repo, incrementalidad y scope de sidecars. El
+viewer muestra el resumen del plan por proyecto en Project Home.
+
+El repo incluye una skill versionada en
+`skills/trailkeep-project-review/SKILL.md`. La automatización opcional del
+agente debería consumir el plan antes de cualquier llamada a modelo y correr el
+gate de la skill: `python3 <skill_dir>/scripts/pre_model_gate.py --backup-dir
+<backup_dir>`. Solo el exit code `0` puede avanzar a llamadas de modelo. Si el
+agente no puede rutear modelos por tarea pero sí puede elegir un modelo para la
+automatización, usar el tier `strong` por defecto. Si no puede elegir modelo en
+absoluto, seguir con el modelo disponible y escribir
+`model_routing: "unavailable"`. Después de escribir sidecars generativos, debería
+correr el finalizer de la skill:
+`python3 <skill_dir>/scripts/finalize_review_run.py --trailkeep-repo
+<trailkeep_repo> --backup-dir <backup_dir>`. Eso escribe
+`_review_generated_eval_report.json`, agrega `_review_update_log.json`, y valida
+schema, integridad referencial, checkpoints, precedencia de docs del repo,
+privacidad/secretos, ids estables de tasks, actionability y estado del update
+log. Si el finalizer falla, la corrida de review del agente no debe marcarse
+como `ok`.
+
+Cuando esos sidecars opcionales existen, el viewer los lee localmente: los
+summaries aparecen dentro de cada conversación, las reviews aparecen en Project
+Home, el perfil global del agente aparece en Analytics con botones para copiar
+drafts generados de `AGENTS.md` / `CLAUDE.md`, y `_review_update_log.json`
+aparece en Corridas más los Project Homes afectados.
 
 ¿Preferís hacerlo a mano? Seguí los pasos de abajo.
 
@@ -325,6 +371,9 @@ general.
 
 ¿Trabajás en trailkeep con un agente de IA? Mirá [AGENTS.md](AGENTS.md) para las
 convenciones y la regla de oro: el visor hace **cero llamadas de red**.
+Para QA opcional del visor, instalá/cacheá Playwright Chromium y corré:
+`node scripts/verify-viewer.cjs`. Es solo un check de desarrollo; el backup no
+depende de eso.
 
 ---
 
