@@ -7,7 +7,7 @@ exits:
 - 0 when model calls may proceed;
 - 1 when deterministic planner evals failed, required files are invalid, or the
   latest backup run is stale;
-- 2 when user approval is required before model calls.
+- 2 when user approval is required and there is no safe project work to process.
 
 The output never includes raw selected input content.
 """
@@ -162,26 +162,62 @@ def failed_checks(report):
     return failures
 
 
+def approval_reason_keys(project_name, project):
+    keys = set()
+    for reason in project.get("approval_reasons") or []:
+        if not isinstance(reason, dict):
+            continue
+        for item in reason.get("input_refs") or []:
+            if isinstance(item, dict):
+                keys.add(input_key(project_name, item))
+    return keys
+
+
 def flagged_inputs(plan):
     rows = []
     for project in projects(plan):
         if not isinstance(project, dict):
             continue
         name = project.get("name") or "(unknown project)"
-        project_flagged = bool(project.get("requires_approval") or project.get("possible_secret"))
+        project_flagged = bool(project.get("requires_approval"))
+        selected = [item for item in (project.get("selected_inputs") or []) if isinstance(item, dict)]
+        reason_keys = approval_reason_keys(name, project)
+        reason_messages = [
+            str(reason.get("message") or "").strip()
+            for reason in (project.get("approval_reasons") or [])
+            if isinstance(reason, dict) and str(reason.get("message") or "").strip()
+        ]
         inputs = []
-        for item in project.get("selected_inputs") or []:
-            if not isinstance(item, dict):
-                continue
-            if item.get("possible_secret") or project_flagged:
+        for item in selected:
+            key = input_key(name, item)
+            should_include = (
+                item.get("requires_approval")
+                or key in reason_keys
+                or project_flagged
+            )
+            if should_include:
                 inputs.append({
-                    "key": input_key(name, item),
+                    "key": key,
                     "type": item.get("type") or "",
                     "id_or_path": item.get("id_or_path") or item.get("path") or "",
                     "content_hash": item.get("content_hash") or "",
                     "reason": item.get("reason") or "",
                     "possible_secret": bool(item.get("possible_secret")),
                 })
+        if project_flagged and not inputs:
+            item = {
+                "type": "project",
+                "id_or_path": name,
+                "content_hash": str(project.get("content_hash") or project.get("fingerprint") or ""),
+            }
+            inputs.append({
+                "key": input_key(name, item),
+                "type": "project",
+                "id_or_path": name,
+                "content_hash": item["content_hash"],
+                "reason": " ".join(reason_messages) or "project-level approval flag",
+                "possible_secret": bool(project.get("possible_secret")),
+            })
         if project_flagged or inputs:
             rows.append({
                 "project": name,
@@ -229,6 +265,36 @@ def flatten_flagged(flagged):
             row["key"] = key
             row["public_key"] = public_input_key(key)
             rows.append(row)
+    return rows
+
+
+def auto_excluded_secret_rows(plan):
+    rows = []
+    for project in projects(plan):
+        if not isinstance(project, dict):
+            continue
+        name = project.get("name") or "(unknown project)"
+        for item in project.get("selected_inputs") or []:
+            if not isinstance(item, dict):
+                continue
+            if not item.get("possible_secret"):
+                continue
+            if item.get("preprocessed_ref"):
+                continue
+            if item.get("requires_approval") or project.get("requires_approval"):
+                continue
+            key = input_key(name, item)
+            rows.append({
+                "key": key,
+                "public_key": public_input_key(key),
+                "project": name,
+                "type": item.get("type") or "",
+                "id_or_path": item.get("id_or_path") or item.get("path") or "",
+                "content_hash": item.get("content_hash") or "",
+                "reason": "input excluded for possible secret without preprocessed redaction",
+                "requires_approval": False,
+                "possible_secret": True,
+            })
     return rows
 
 
@@ -295,6 +361,14 @@ def public_decision_rows(rows):
     return result
 
 
+def project_level_exclusions(rows, excluded):
+    return {
+        row.get("project") or ""
+        for row in rows
+        if row.get("key") in excluded and row.get("type") == "project" and row.get("project")
+    }
+
+
 def decision_template(plan, unresolved):
     public_rows = public_decision_rows(unresolved)
     return {
@@ -311,13 +385,19 @@ def decision_template(plan, unresolved):
     }
 
 
-def write_effective_plan(backup_dir, plan, excluded):
+def write_effective_plan(backup_dir, plan, excluded, skipped_projects=None, pending_rows=None):
     effective = copy.deepcopy(plan)
+    skipped_projects = set(skipped_projects or set())
     excluded_public = []
+    kept_projects = []
+    skipped_public = []
     for project in effective.get("projects") or []:
         if not isinstance(project, dict):
             continue
         name = project.get("name") or ""
+        if name in skipped_projects:
+            skipped_public.append(name)
+            continue
         kept = []
         for item in project.get("selected_inputs") or []:
             key = input_key(name, item)
@@ -325,13 +405,26 @@ def write_effective_plan(backup_dir, plan, excluded):
                 excluded_public.append(public_input_key(key))
                 continue
             kept.append(item)
+        if not kept:
+            skipped_public.append(name)
+            continue
         project["selected_inputs"] = kept
+        kept_projects.append(project)
+    effective["projects"] = kept_projects
     effective["effective_plan"] = True
+    effective["partial"] = bool(skipped_public)
     effective["source_plan_generated_at"] = plan.get("generated_at")
     effective["gate_checked_at"] = now()
     effective["excluded_inputs"] = excluded_public
+    effective["skipped_projects"] = skipped_public
+    effective["pending_approval_inputs"] = public_decision_rows(pending_rows or [])
     write_json(sidecar_path(backup_dir, EFFECTIVE_PLAN_FILE), effective)
-    return excluded_public
+    return {
+        "excluded_inputs": excluded_public,
+        "skipped_projects": skipped_public,
+        "projects": project_names(effective),
+        "has_work": bool(projects(effective)),
+    }
 
 
 def append_update_log(backup_dir, run):
@@ -356,14 +449,19 @@ def maybe_log(args, status, plan, payload):
         "date": now(),
         "status": status,
         "title": "Trailkeep project review gate",
-        "projects": project_names(plan),
+        "projects": payload.get("log_projects") or payload.get("projects") or project_names(plan),
         "requires_approval": status == "needs_approval",
-        "possible_secret": bool(payload.get("flagged_inputs")),
+        "possible_secret": bool(payload.get("flagged_inputs") or payload.get("auto_excluded_secret_inputs")),
         "approval_inputs": payload.get("flagged_inputs") or [],
+        "auto_excluded_secret_inputs": payload.get("auto_excluded_secret_inputs") or [],
+        "pending_projects": payload.get("pending_projects") or [],
+        "safe_projects": payload.get("safe_projects") or [],
+        "partial": bool(payload.get("partial")),
         "model_provider": "",
         "model_used": "none",
         "model_routing": "",
         "outputs": [],
+        "warnings": payload.get("warnings") or [],
         "errors": payload.get("errors") or [],
     }
     append_update_log(args.backup_dir, run)
@@ -436,6 +534,12 @@ def main():
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
 
+    auto_secret_rows = auto_excluded_secret_rows(plan)
+    auto_secret_excluded = {row["key"] for row in auto_secret_rows}
+    auto_secret_warnings = [
+        f"{len(auto_secret_rows)} possible-secret input(s) excluded because no preprocessed redaction was available."
+    ] if auto_secret_rows else []
+
     flagged = flagged_inputs(plan)
     if flagged:
         approval = approval_resolution(args.backup_dir, plan, flagged)
@@ -449,42 +553,97 @@ def main():
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 1
         if not approval["unresolved"]:
-            excluded_public = write_effective_plan(args.backup_dir, plan, approval["excluded"])
+            effective_result = write_effective_plan(
+                args.backup_dir,
+                plan,
+                approval["excluded"] | auto_secret_excluded,
+                skipped_projects=project_level_exclusions(approval["flagged"], approval["excluded"]),
+            )
             payload = {
                 "status": "ok",
-                "projects": project_names(plan),
+                "projects": effective_result["projects"],
                 "backup_status": backup_status,
                 "preflight_status": preflight_status,
                 "effective_plan": EFFECTIVE_PLAN_FILE,
                 "approved_inputs": [public_input_key(key) for key in sorted(approval["approved"])],
-                "excluded_inputs": excluded_public,
+                "excluded_inputs": effective_result["excluded_inputs"],
+                "skipped_projects": effective_result["skipped_projects"],
+                "auto_excluded_secret_inputs": public_decision_rows(auto_secret_rows),
+                "warnings": auto_secret_warnings,
                 "message": "Approval is resolved. Model calls may proceed using the effective review plan.",
             }
+            if auto_secret_warnings:
+                maybe_log(args, "needs_attention", plan, payload)
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
+
+        pending_projects = sorted({row.get("project") or "" for row in approval["unresolved"] if row.get("project")})
+        skipped_projects = set(pending_projects) | project_level_exclusions(approval["flagged"], approval["excluded"])
+        effective_result = write_effective_plan(
+            args.backup_dir,
+            plan,
+            approval["excluded"] | auto_secret_excluded,
+            skipped_projects=skipped_projects,
+            pending_rows=approval["unresolved"],
+        )
+        if effective_result["has_work"]:
+            payload = {
+                "status": "ok",
+                "partial": True,
+                "projects": effective_result["projects"],
+                "safe_projects": effective_result["projects"],
+                "pending_projects": pending_projects,
+                "backup_status": backup_status,
+                "preflight_status": preflight_status,
+                "effective_plan": EFFECTIVE_PLAN_FILE,
+                "approved_inputs": [public_input_key(key) for key in sorted(approval["approved"])],
+                "excluded_inputs": effective_result["excluded_inputs"],
+                "skipped_projects": effective_result["skipped_projects"],
+                "auto_excluded_secret_inputs": public_decision_rows(auto_secret_rows),
+                "flagged_inputs": public_decision_rows(approval["unresolved"]),
+                "all_flagged_inputs": public_decision_rows(approval["flagged"]),
+                "unresolved_inputs": public_decision_rows(approval["unresolved"]),
+                "decision_file": DECISIONS_FILE,
+                "decision_template": decision_template(plan, approval["unresolved"]),
+                "warnings": [
+                    "Some projects were skipped pending approval; model calls may proceed for safe projects only."
+                ] + auto_secret_warnings,
+                "message": "Model calls may proceed for safe projects only. Pending projects were excluded from the effective review plan.",
+            }
+            maybe_log(args, "needs_approval", plan, {**payload, "log_projects": pending_projects})
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+
         payload = {
             "status": "needs_approval",
-            "projects": project_names(plan),
+            "projects": pending_projects,
+            "pending_projects": pending_projects,
             "flagged_inputs": public_decision_rows(approval["unresolved"]),
             "all_flagged_inputs": public_decision_rows(approval["flagged"]),
             "unresolved_inputs": public_decision_rows(approval["unresolved"]),
             "decision_file": DECISIONS_FILE,
             "decision_template": decision_template(plan, approval["unresolved"]),
-            "message": "Approval is required before any model call. No raw input content is shown.",
+            "message": "Approval is required before model calls because no safe project work remains. No raw input content is shown.",
         }
         maybe_log(args, "needs_approval", plan, payload)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 2
 
-    write_effective_plan(args.backup_dir, plan, set())
+    effective_result = write_effective_plan(args.backup_dir, plan, auto_secret_excluded)
     payload = {
         "status": "ok",
-        "projects": project_names(plan),
+        "projects": effective_result["projects"],
         "backup_status": backup_status,
         "preflight_status": preflight_status,
         "effective_plan": EFFECTIVE_PLAN_FILE,
+        "excluded_inputs": effective_result["excluded_inputs"],
+        "skipped_projects": effective_result["skipped_projects"],
+        "auto_excluded_secret_inputs": public_decision_rows(auto_secret_rows),
+        "warnings": auto_secret_warnings,
         "message": "Model calls may proceed using only selected inputs from the effective review plan.",
     }
+    if auto_secret_warnings:
+        maybe_log(args, "needs_attention", plan, payload)
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 

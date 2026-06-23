@@ -1,0 +1,6 @@
+{
+  "description": "Complete generated sidecars should pass every generated-review eval.",
+  "expectedExitCode": 0,
+  "expectedStatus": "pass",
+  "expectedFailureChecks": []
+}

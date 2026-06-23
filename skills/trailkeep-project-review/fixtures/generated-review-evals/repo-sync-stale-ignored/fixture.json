@@ -1,0 +1,31 @@
+{
+  "description": "Remote-ahead repo sync state must be reflected by the generated project review.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "repo_sync_reflection"
+  ],
+  "overrides": {
+    "_review_repo_sync.json": {
+      "network_attempted": true,
+      "fetch_enabled": true,
+      "projects": {
+        "demo-project": {
+          "sync_status": "behind_remote",
+          "repo_may_be_stale": true,
+          "remote_ahead": 2,
+          "local_behind": 2,
+          "remote_commit_subjects": [
+            "Update roadmap",
+            "Adjust settings tests"
+          ]
+        }
+      },
+      "summary": {
+        "repo_may_be_stale": [
+          "demo-project"
+        ]
+      }
+    }
+  }
+}

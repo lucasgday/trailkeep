@@ -1,0 +1,91 @@
+{
+  "description": "Remote-ahead repo sync state passes when the review explicitly reflects stale repo risk.",
+  "expectedExitCode": 0,
+  "expectedStatus": "pass",
+  "expectedFailureChecks": [],
+  "overrides": {
+    "_review_repo_sync.json": {
+      "network_attempted": true,
+      "fetch_enabled": true,
+      "projects": {
+        "demo-project": {
+          "sync_status": "behind_remote",
+          "repo_may_be_stale": true,
+          "remote_ahead": 2,
+          "local_behind": 2,
+          "remote_commit_subjects": [
+            "Update roadmap",
+            "Adjust settings tests"
+          ]
+        }
+      },
+      "summary": {
+        "repo_may_be_stale": [
+          "demo-project"
+        ]
+      }
+    },
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "repo_may_be_stale": true,
+          "needs_deep_review": true,
+          "open_questions": [
+            "Remote commits are ahead; fetch or merge before trusting the next project review."
+          ],
+          "repo_sync": {
+            "repo_may_be_stale": true,
+            "sync_status": "behind_remote",
+            "remote_ahead": 2
+          },
+          "checkpoints": {
+            "repo_sync": {
+              "repo_may_be_stale": true,
+              "sync_status": "behind_remote",
+              "checked_at": "2026-06-23T12:04:00Z"
+            }
+          }
+        }
+      }
+    },
+    "_review_update_log.json": {
+      "runs": [
+        {
+          "date": "2026-06-23T12:07:00Z",
+          "status": "needs_attention",
+          "title": "Fixture generated review",
+          "projects": [
+            "demo-project"
+          ],
+          "conversation_summaries": 1,
+          "tasks_total": 1,
+          "requires_approval": false,
+          "possible_secret": false,
+          "model_provider": "fixture",
+          "model_used": "fixture-model",
+          "model_routing": "available",
+          "outputs": [
+            "_conversation_summaries.json",
+            "_project_reviews.json",
+            "_agent_profile.json"
+          ],
+          "repo_sync": {
+            "checked_at": "2026-06-23T12:04:00Z",
+            "network_attempted": true,
+            "projects_checked": 1,
+            "git_repos": 1,
+            "repo_may_be_stale": [
+              "demo-project"
+            ],
+            "sync_uncertain": []
+          },
+          "eval_report": "_review_generated_eval_report.json",
+          "warnings": [
+            "demo-project has remote commits ahead; review may need a deeper refresh."
+          ],
+          "errors": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A generated project review containing a fake API token must fail privacy checks.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "privacy"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "summary": "Demo project accidentally included fake token sk-proj-abcdefghijklmnop123456 in generated output."
+        }
+      }
+    }
+  }
+}

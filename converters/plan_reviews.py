@@ -18,10 +18,12 @@ import sys
 
 PLAN_VERSION = 1
 ESTIMATOR = "chars_div_4"
+PREPROCESSED_INPUTS_FILE = "_review_preprocessed_inputs.json"
 OUTPUT_FILES = [
     "_conversation_summaries.json",
     "_project_reviews.json",
     "_agent_profile.json",
+    "_review_repo_sync.json",
     "_review_update_log.json",
 ]
 TRUTH_DOCS = [
@@ -52,11 +54,11 @@ MODEL_TIERS = {
     "global_synthesis": "strong",
 }
 SECRET_PATTERNS = [
-    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
-    re.compile(r"\bsk-proj-[A-Za-z0-9_-]{16,}\b"),
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^'\"\s]{8,}"),
-    re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+    ("openai_project_key", re.compile(r"\bsk-proj-[A-Za-z0-9_-]{16,}\b")),
+    ("openai_key", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b")),
+    ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("credential_assignment", re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^'\"\s]{8,}")),
+    ("email", re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")),
 ]
 
 
@@ -89,7 +91,24 @@ def content_hash(text):
 
 
 def possible_secret(text):
-    return any(p.search(text or "") for p in SECRET_PATTERNS)
+    return any(pattern.search(text or "") for _, pattern in SECRET_PATTERNS)
+
+
+def redact_secrets(text):
+    redacted = text or ""
+    replacements = []
+    for label, pattern in SECRET_PATTERNS:
+        def replace(match):
+            placeholder = f"[REDACTED_{label.upper()}_{len(replacements) + 1}]"
+            replacements.append({
+                "type": label,
+                "placeholder": placeholder,
+                "start": match.start(),
+                "end": match.end(),
+            })
+            return placeholder
+        redacted = pattern.sub(replace, redacted)
+    return redacted, replacements
 
 
 def meta_value(body, *keys):
@@ -155,6 +174,7 @@ def project_docs(project_meta):
             **e,
             "content_hash": content_hash(text),
             "possible_secret": possible_secret(text),
+            "_text": text,
         })
     return docs
 
@@ -225,7 +245,80 @@ def sum_estimate(inputs):
     }
 
 
-def plan_project(name, project_meta, sessions, review_entry, summaries, bootstrap):
+def approval_input_ref(item):
+    ref = {}
+    for key in ["type", "id_or_path", "relative_path", "path", "reason", "estimated_input_tokens", "content_hash", "possible_secret"]:
+        if key in item:
+            ref[key] = item[key]
+    return ref
+
+
+def approval_reasons(inputs):
+    secret_inputs = [approval_input_ref(i) for i in inputs if i.get("possible_secret")]
+    reasons = []
+    if secret_inputs:
+        reasons.append({
+            "code": "possible_secret",
+            "message": "Selected input may contain secrets, credentials, tokens, email addresses, or other sensitive values.",
+            "input_refs": secret_inputs,
+        })
+    return reasons
+
+
+def public_item(item):
+    return {k: v for k, v in item.items() if not k.startswith("_")}
+
+
+def preprocessed_key(project, item):
+    return "\x1f".join([
+        str(project or ""),
+        str(item.get("type") or ""),
+        str(item.get("id_or_path") or item.get("path") or ""),
+        str(item.get("content_hash") or ""),
+    ])
+
+
+def add_preprocessed_input(preprocessed, project, item, text, metadata=None):
+    redacted, replacements = redact_secrets(text)
+    if not replacements:
+        return item
+    key = preprocessed_key(project, item)
+    redacted_hash = content_hash(redacted)
+    redaction_types = sorted(set(r["type"] for r in replacements))
+    preprocessed["inputs"][key] = {
+        "project": project,
+        "type": item.get("type") or "",
+        "id_or_path": item.get("id_or_path") or item.get("path") or "",
+        "path": item.get("path") or "",
+        "relative_path": item.get("relative_path") or "",
+        "title": item.get("title") or "",
+        "source": (metadata or {}).get("source") or item.get("source") or "",
+        "date": (metadata or {}).get("date") or item.get("date") or "",
+        "original_content_hash": item.get("content_hash") or "",
+        "redacted_content_hash": redacted_hash,
+        "redaction_count": len(replacements),
+        "redaction_types": redaction_types,
+        "text": redacted,
+    }
+    redacted_estimate = estimate(redacted)
+    updated = dict(item)
+    updated.update(redacted_estimate)
+    updated.update({
+        "possible_secret": True,
+        "preprocessed": True,
+        "preprocessed_ref": f"{PREPROCESSED_INPUTS_FILE}#{key}",
+        "preprocessed_input_key": key,
+        "preprocessed_content_hash": redacted_hash,
+        "redaction_count": len(replacements),
+        "redaction_types": redaction_types,
+        "source_chars": item.get("chars", 0),
+        "source_words": item.get("words", 0),
+        "source_estimated_input_tokens": item.get("estimated_input_tokens", 0),
+    })
+    return updated
+
+
+def plan_project(name, project_meta, sessions, review_entry, summaries, bootstrap, preprocessed):
     reviewed = reviewed_sessions(review_entry)
     reviewed_docs = reviewed_repo_docs(review_entry)
     selected_sessions = []
@@ -240,10 +333,13 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
 
     inputs = []
     for d in docs:
-        inputs.append(d)
+        item = public_item(d)
+        if d.get("possible_secret"):
+            item = add_preprocessed_input(preprocessed, name, item, d.get("_text") or "")
+        inputs.append(item)
 
     for s in selected_sessions:
-        inputs.append({
+        item = {
             "type": "conversation",
             "id_or_path": s["id"],
             "path": s["path"],
@@ -252,7 +348,16 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
             **s["estimate"],
             "content_hash": s["hash"],
             "possible_secret": s["possible_secret"],
-        })
+        }
+        if s["possible_secret"]:
+            item = add_preprocessed_input(
+                preprocessed,
+                name,
+                item,
+                s["text"],
+                {"source": s.get("source") or "", "date": s.get("date") or ""},
+            )
+        inputs.append(item)
 
     summary_inputs = []
     conv_summaries = (summaries or {}).get("conversations") or {}
@@ -285,6 +390,12 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
     mode_key = "bootstrap_project" if bootstrap else "daily_project_update"
     model_tier = MODEL_TIERS.get(mode_key, "default")
     has_secret = any(i.get("possible_secret") for i in inputs)
+    unredacted_secret_inputs = [
+        i for i in inputs
+        if i.get("possible_secret") and not i.get("preprocessed_ref")
+    ]
+    requires_approval = bool(unredacted_secret_inputs)
+    approval_reason_list = approval_reasons(unredacted_secret_inputs)
     if bootstrap:
         reason = "missing project review entry; bootstrap required"
     elif selected_sessions and changed_docs:
@@ -308,10 +419,12 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
         "estimate": estimate_obj,
         "model_tier": model_tier,
         "remote_provider_possible": True,
-        "requires_approval": has_secret,
+        "requires_approval": requires_approval,
+        "approval_reasons": approval_reason_list,
         "needs_deep_review": bootstrap,
         "needs_deep_design_review": bootstrap or any(design_doc(d) for d in changed_docs),
         "possible_secret": has_secret,
+        "preprocessed_inputs_file": PREPROCESSED_INPUTS_FILE if has_secret else "",
         "output_files": OUTPUT_FILES,
     }
 
@@ -332,6 +445,13 @@ def main():
 
     all_names = sorted(set(project_meta) | set(sessions_by_project))
     bootstrap_mode = not bool(project_reviews)
+    generated_at = datetime.datetime.now().astimezone().isoformat()
+    preprocessed = {
+        "version": 1,
+        "generated_at": generated_at,
+        "source_plan_generated_at": generated_at,
+        "inputs": {},
+    }
     project_plans = []
     skipped = []
     for name in all_names:
@@ -342,6 +462,7 @@ def main():
             project_reviews.get(name),
             summaries_doc,
             bootstrap_mode or name not in project_reviews,
+            preprocessed,
         )
         if plan:
             project_plans.append(plan)
@@ -361,15 +482,20 @@ def main():
                 "estimated_input_tokens": item.get("estimated_input_tokens", 0),
                 "content_hash": item.get("content_hash"),
                 "possible_secret": bool(item.get("possible_secret")),
+                "preprocessed": bool(item.get("preprocessed")),
+                "preprocessed_ref": item.get("preprocessed_ref") or "",
+                "preprocessed_content_hash": item.get("preprocessed_content_hash") or "",
+                "redaction_count": item.get("redaction_count", 0),
             })
 
     totals = sum_estimate(input_manifest)
     doc = {
         "version": PLAN_VERSION,
-        "generated_at": datetime.datetime.now().astimezone().isoformat(),
+        "generated_at": generated_at,
         "mode": "bootstrap" if bootstrap_mode else "daily",
         "estimator": ESTIMATOR,
         "model_tiers": MODEL_TIERS,
+        "preprocessed_inputs_file": PREPROCESSED_INPUTS_FILE,
         "input_manifest": input_manifest,
         "output_files": OUTPUT_FILES,
         "projects": project_plans,
@@ -380,6 +506,7 @@ def main():
             "The optional coding-agent skill should read this plan before sending context to any model provider.",
         ],
     }
+    write_json(os.path.join(backup_dir, PREPROCESSED_INPUTS_FILE), preprocessed)
     out = os.path.join(backup_dir, "_review_run_plan.json")
     write_json(out, doc)
     approval = sum(1 for p in project_plans if p["requires_approval"])

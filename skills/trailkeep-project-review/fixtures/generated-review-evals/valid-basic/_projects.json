@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-23T12:00:00Z",
+  "projects": {
+    "demo-project": {
+      "path": "/tmp/demo-project",
+      "exists": true,
+      "status": "active",
+      "last_activity": "2026-06-01T12:00:00Z",
+      "sources": [
+        "codex"
+      ],
+      "stack": [
+        "node"
+      ],
+      "git": {
+        "branch": "main",
+        "last_commit": "abc1234"
+      },
+      "deployed": false,
+      "repo_url": "https://github.com/example/demo-project",
+      "deploy_url": null
+    }
+  }
+}

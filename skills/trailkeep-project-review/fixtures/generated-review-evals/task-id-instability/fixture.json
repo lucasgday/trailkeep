@@ -1,0 +1,35 @@
+{
+  "description": "Generated tasks must have stable, unique ids.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "task_stability"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "tasks": [
+            {
+              "id": "duplicate-task",
+              "status": "open",
+              "title": "Add settings panel regression test",
+              "source": "project_review"
+            },
+            {
+              "id": "duplicate-task",
+              "status": "open",
+              "title": "Document settings panel QA",
+              "source": "project_review"
+            },
+            {
+              "status": "open",
+              "title": "Missing stable id",
+              "source": "project_review"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

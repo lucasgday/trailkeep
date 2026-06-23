@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-23T12:00:00Z",
+  "estimator": "fixture",
+  "model_tiers": {
+    "daily_project_update": "default"
+  },
+  "input_manifest": [
+    {
+      "project": "demo-project",
+      "type": "conversation",
+      "id_or_path": "session-1",
+      "path": "markdown-codex/demo-project/session-1.md",
+      "reason": "fixture conversation delta",
+      "chars": 230,
+      "words": 36,
+      "estimated_input_tokens": 58,
+      "content_hash": "fixture-session-hash-1",
+      "possible_secret": false
+    },
+    {
+      "project": "demo-project",
+      "type": "repo_doc",
+      "id_or_path": "ROADMAP.md",
+      "relative_path": "ROADMAP.md",
+      "reason": "repo planning source of truth",
+      "chars": 340,
+      "words": 52,
+      "estimated_input_tokens": 86,
+      "content_hash": "fixture-roadmap-hash-1",
+      "possible_secret": false
+    }
+  ],
+  "projects": [
+    {
+      "name": "demo-project",
+      "mode": "daily_project_update",
+      "reason": "fixture project changed",
+      "status": "active",
+      "path": "/tmp/demo-project",
+      "selected_inputs": [
+        {
+          "type": "conversation",
+          "id_or_path": "session-1",
+          "path": "markdown-codex/demo-project/session-1.md",
+          "reason": "fixture conversation delta",
+          "chars": 230,
+          "words": 36,
+          "estimated_input_tokens": 58,
+          "content_hash": "fixture-session-hash-1",
+          "possible_secret": false
+        },
+        {
+          "type": "repo_doc",
+          "id_or_path": "ROADMAP.md",
+          "relative_path": "ROADMAP.md",
+          "reason": "repo planning source of truth",
+          "chars": 340,
+          "words": 52,
+          "estimated_input_tokens": 86,
+          "content_hash": "fixture-roadmap-hash-1",
+          "possible_secret": false
+        }
+      ],
+      "changed_inputs": {
+        "conversations": 1,
+        "repo_docs": 1
+      },
+      "estimate": {
+        "input_tokens": 144,
+        "overhead_tokens": 64,
+        "expected_output_tokens": 800,
+        "total_tokens": 1008
+      },
+      "model_tier": "default",
+      "remote_provider_possible": true,
+      "requires_approval": false,
+      "approval_reasons": [],
+      "needs_deep_review": false,
+      "needs_deep_design_review": false,
+      "possible_secret": false,
+      "output_files": [
+        "_conversation_summaries.json",
+        "_project_reviews.json",
+        "_agent_profile.json",
+        "_review_update_log.json"
+      ]
+    }
+  ]
+}

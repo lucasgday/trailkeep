@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-23T12:06:00Z",
+  "scope": "global",
+  "recurring_preferences": [
+    "Prefer incremental project updates over full archive reads."
+  ],
+  "working_style": [],
+  "repo_conventions": [],
+  "prompting_patterns": [],
+  "evidence": [
+    {
+      "project": "demo-project",
+      "source": "_project_reviews.json"
+    }
+  ],
+  "suggested_global_agents_md": "# Generated AGENTS draft\n\n- Prefer incremental project updates over full archive reads.\n",
+  "suggested_global_claude_md": "# Generated CLAUDE draft\n\n- Prefer incremental project updates over full archive reads.\n"
+}

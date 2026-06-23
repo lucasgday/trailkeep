@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-23T12:07:00Z",
+  "runs": [
+    {
+      "date": "2026-06-23T12:07:00Z",
+      "status": "ok",
+      "title": "Fixture generated review",
+      "projects": [
+        "demo-project"
+      ],
+      "conversation_summaries": 1,
+      "tasks_total": 1,
+      "requires_approval": false,
+      "possible_secret": false,
+      "model_provider": "fixture",
+      "model_used": "fixture-model",
+      "model_routing": "available",
+      "outputs": [
+        "_conversation_summaries.json",
+        "_project_reviews.json",
+        "_agent_profile.json"
+      ],
+      "repo_sync": {
+        "checked_at": "2026-06-23T12:04:00Z",
+        "network_attempted": false,
+        "projects_checked": 1,
+        "git_repos": 1,
+        "repo_may_be_stale": [],
+        "sync_uncertain": []
+      },
+      "eval_report": "_review_generated_eval_report.json",
+      "warnings": [],
+      "errors": []
+    }
+  ]
+}

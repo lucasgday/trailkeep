@@ -1,0 +1,18 @@
+{
+  "description": "Selected repo docs must be checkpointed so repo planning files remain source of truth.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "source_precedence"
+  ],
+  "deletePaths": {
+    "_project_reviews.json": [
+      [
+        "projects",
+        "demo-project",
+        "checkpoints",
+        "reviewed_repo_docs"
+      ]
+    ]
+  }
+}

@@ -24,6 +24,7 @@ PROJECT_REVIEWS_FILE = "_project_reviews.json"
 AGENT_PROFILE_FILE = "_agent_profile.json"
 UPDATE_LOG_FILE = "_review_update_log.json"
 PROJECTS_FILE = "_projects.json"
+REPO_SYNC_FILE = "_review_repo_sync.json"
 SECRET_PATTERNS = [
     re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
     re.compile(r"\bsk-proj-[A-Za-z0-9_-]{16,}\b"),
@@ -33,6 +34,7 @@ SECRET_PATTERNS = [
 ]
 EMAIL_PATTERN = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,80}$")
+RUN_STATUSES = {"ok", "needs_attention", "needs_approval", "failed"}
 ACTION_RE = re.compile(
     r"(?i)\b(add|build|create|design|fix|implement|inspect|review|run|test|"
     r"update|write|refactor|wire|document|summarize|extract|continue|"
@@ -133,6 +135,7 @@ def load_sidecars(backup_dir):
         AGENT_PROFILE_FILE,
         UPDATE_LOG_FILE,
         PROJECTS_FILE,
+        REPO_SYNC_FILE,
     ]
     data = {}
     errors = {}
@@ -277,6 +280,19 @@ def check_schema(data):
                 failures.append(f"project review {name}.open_questions must be a list")
             if "tasks" in entry and not isinstance(entry.get("tasks"), list):
                 failures.append(f"project review {name}.tasks must be a list")
+            if "recommended_repo_doc_updates" in entry:
+                updates = entry.get("recommended_repo_doc_updates")
+                if not isinstance(updates, list):
+                    failures.append(f"project review {name}.recommended_repo_doc_updates must be a list")
+                for idx, update in enumerate(as_list(updates)):
+                    if not isinstance(update, dict):
+                        failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}] must be an object")
+                        continue
+                    for key in ["file", "reason", "action", "confidence", "requires_user_approval"]:
+                        if key not in update:
+                            failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}] missing field: {key}")
+                    if update.get("requires_user_approval") is not True:
+                        failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}] must require user approval")
             if "design_system" in entry and not isinstance(entry.get("design_system"), dict):
                 failures.append(f"project review {name}.design_system must be an object")
             checkpoints = entry.get("checkpoints")
@@ -301,6 +317,17 @@ def check_schema(data):
             failures.append("_review_update_log.json version must be 1")
         if not isinstance(update_log.get("runs"), list):
             failures.append("_review_update_log.json runs must be a list")
+        for idx, run in enumerate(as_list(update_log.get("runs"))):
+            if not isinstance(run, dict):
+                failures.append(f"_review_update_log.json run {idx} must be an object")
+                continue
+            status = str(run.get("status") or "").strip().lower()
+            if status and status not in RUN_STATUSES:
+                failures.append(f"_review_update_log.json run {idx} has invalid status: {status}")
+            if "warnings" in run and not isinstance(run.get("warnings"), list):
+                failures.append(f"_review_update_log.json run {idx}.warnings must be a list")
+            if "eval_warnings" in run and not isinstance(run.get("eval_warnings"), list):
+                failures.append(f"_review_update_log.json run {idx}.eval_warnings must be a list")
 
     return result("schema", failures, warnings)
 
@@ -464,6 +491,41 @@ def check_source_precedence(data):
     return result("source_precedence", failures, warnings)
 
 
+def open_questions_mention_repo_stale(review):
+    text = " ".join(text_value(item) for item in as_list(as_dict(review).get("open_questions")))
+    return bool(re.search(r"(?i)\b(remote|fetch|upstream|stale|behind|sync|sincron)", text))
+
+
+def check_repo_sync_reflection(data):
+    failures = []
+    warnings = []
+    sync_doc = data.get(REPO_SYNC_FILE)
+    if not isinstance(sync_doc, dict):
+        return result("repo_sync_reflection", failures, warnings)
+    rows = as_dict(sync_doc.get("projects"))
+    reviews = as_dict(as_dict(data.get(PROJECT_REVIEWS_FILE)).get("projects"))
+    for project_name, row in rows.items():
+        if not isinstance(row, dict):
+            continue
+        review = as_dict(reviews.get(project_name))
+        if row.get("repo_may_be_stale"):
+            repo_sync = as_dict(review.get("repo_sync"))
+            checkpoints = as_dict(review.get("checkpoints"))
+            checkpoint_sync = as_dict(checkpoints.get("repo_sync"))
+            reflected = (
+                bool(review.get("repo_may_be_stale"))
+                or bool(review.get("needs_deep_review"))
+                or bool(repo_sync.get("repo_may_be_stale"))
+                or bool(checkpoint_sync.get("repo_may_be_stale"))
+                or open_questions_mention_repo_stale(review)
+            )
+            if not reflected:
+                failures.append(f"{project_name} has remote commits ahead but review did not mark repo_may_be_stale, needs_deep_review, repo_sync, or an open question")
+        if row.get("sync_uncertain") and project_name in reviews and not open_questions_mention_repo_stale(review):
+            warnings.append(f"{project_name} repo sync was uncertain but review has no open question about repo freshness")
+    return result("repo_sync_reflection", failures, warnings)
+
+
 def check_actionability(data):
     failures = []
     warnings = []
@@ -502,12 +564,19 @@ def check_update_log(data, prior_failed):
     if latest:
         status = str(as_dict(latest).get("status") or "").lower()
         errors = as_list(as_dict(latest).get("errors"))
-        if status in ("ok", "pass", "passed", "success", "completed") and errors:
-            failures.append("latest update log run is ok but contains errors")
-        if status in ("ok", "pass", "passed", "success", "completed") and prior_failed:
-            failures.append("latest update log run is ok but generated-output evals failed")
-        if status in ("ok", "pass", "passed", "success", "completed") and not as_dict(latest).get("model_used"):
-            warnings.append("latest update log run does not record model_used")
+        run_warnings = as_list(as_dict(latest).get("warnings"))
+        model_used = str(as_dict(latest).get("model_used") or "").strip().lower()
+        successful = status in ("ok", "needs_attention")
+        if successful and errors:
+            failures.append("latest update log run is successful but contains errors")
+        if successful and prior_failed:
+            failures.append("latest update log run is successful but generated-output evals failed")
+        if status == "ok" and run_warnings:
+            failures.append("latest update log run is ok but contains warnings; use needs_attention")
+        if status == "needs_attention" and not run_warnings:
+            warnings.append("latest update log run needs_attention but does not include warnings")
+        if successful and model_used in ("", "unknown"):
+            warnings.append("latest update log run does not record a concrete model_used")
         if not status:
             failures.append("latest update log run missing status")
     elif not has_work:
@@ -525,6 +594,7 @@ def run_checks(data, errors, sessions, session_by_key):
         check_task_stability(data),
         check_privacy(data),
         check_source_precedence(data),
+        check_repo_sync_reflection(data),
         check_actionability(data),
     ]
     prior_failed = any(c["status"] == "fail" for c in base_checks)

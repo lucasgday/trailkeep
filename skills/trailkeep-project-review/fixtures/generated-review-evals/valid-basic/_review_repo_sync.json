@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "checked_at": "2026-06-23T12:04:00Z",
+  "source": "fixture",
+  "network_attempted": false,
+  "fetch_enabled": false,
+  "projects": {
+    "demo-project": {
+      "project": "demo-project",
+      "path": "/tmp/demo-project",
+      "is_git": true,
+      "sync_status": "synced",
+      "repo_may_be_stale": false,
+      "sync_uncertain": false,
+      "remote_ahead": 0,
+      "local_ahead": 0,
+      "local_behind": 0,
+      "remote_behind": 0,
+      "errors": []
+    }
+  },
+  "summary": {
+    "projects_checked": 1,
+    "git_repos": 1,
+    "repo_may_be_stale": [],
+    "sync_uncertain": []
+  },
+  "notes": []
+}

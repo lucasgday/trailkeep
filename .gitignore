@@ -18,13 +18,20 @@ _conversation_summaries.json
 _project_reviews.json
 _agent_profile.json
 _review_run_plan.json
+_review_preprocessed_inputs.json
 _review_effective_plan.json
 _review_gate_decisions.json
+_review_repo_sync.json
 _review_eval_report.json
 _review_generated_eval_report.json
 _review_update_log.json
 log.json
 trailkeep-progress.json
+
+# Versioned generated-review eval fixtures intentionally include fake sidecars.
+!skills/trailkeep-project-review/fixtures/
+!skills/trailkeep-project-review/fixtures/generated-review-evals/
+!skills/trailkeep-project-review/fixtures/generated-review-evals/**
 
 # Private notes (never published)
 *.private.md

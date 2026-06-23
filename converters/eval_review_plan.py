@@ -18,6 +18,7 @@ import sys
 REPORT_VERSION = 1
 PLAN_FILE = "_review_run_plan.json"
 REPORT_FILE = "_review_eval_report.json"
+PREPROCESSED_INPUTS_FILE = "_review_preprocessed_inputs.json"
 ALLOWED_INPUT_TYPES = {
     "repo_doc",
     "conversation",
@@ -29,6 +30,7 @@ ALLOWED_OUTPUT_FILES = {
     "_conversation_summaries.json",
     "_project_reviews.json",
     "_agent_profile.json",
+    "_review_repo_sync.json",
     "_review_update_log.json",
 }
 SECRET_PATTERNS = [
@@ -36,6 +38,7 @@ SECRET_PATTERNS = [
     re.compile(r"\bsk-proj-[A-Za-z0-9_-]{16,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^'\"\s]{8,}"),
+    re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
 ]
 
 
@@ -151,6 +154,18 @@ def check_schema(plan):
             failures.append(f"{prefix}.mode has no matching model_tiers entry")
         if project.get("model_tier") != (plan.get("model_tiers") or {}).get(project.get("mode")):
             failures.append(f"{prefix}.model_tier does not match model_tiers")
+        if project.get("requires_approval"):
+            reasons = project.get("approval_reasons")
+            if not isinstance(reasons, list) or not reasons:
+                failures.append(f"{prefix}.approval_reasons must explain why approval is required")
+            for ridx, reason in enumerate(reasons or []):
+                if not isinstance(reason, dict):
+                    failures.append(f"{prefix}.approval_reasons[{ridx}] must be an object")
+                    continue
+                if not reason.get("code"):
+                    failures.append(f"{prefix}.approval_reasons[{ridx}] missing code")
+                if not isinstance(reason.get("input_refs"), list):
+                    failures.append(f"{prefix}.approval_reasons[{ridx}].input_refs must be a list")
 
     for project, item in iter_project_inputs(plan):
         prefix = f"{project.get('name')}:input"
@@ -212,8 +227,9 @@ def check_no_full_dump(plan, backup_dir):
     return result("no_full_dump", failures, warnings)
 
 
-def check_privacy(plan):
+def check_privacy(plan, backup_dir):
     failures = []
+    warnings = []
     dumped = json.dumps(plan, ensure_ascii=False)
     for pattern in SECRET_PATTERNS:
         if pattern.search(dumped):
@@ -222,11 +238,31 @@ def check_privacy(plan):
     for project in plan.get("projects") or []:
         inputs = project.get("selected_inputs") or []
         has_secret = any(bool(i.get("possible_secret")) for i in inputs)
+        unhandled = [
+            i for i in inputs
+            if i.get("possible_secret") and not i.get("preprocessed_ref") and not i.get("requires_approval")
+        ]
         if has_secret and not project.get("possible_secret"):
             failures.append(f"{project.get('name')} has secret input but possible_secret=false")
-        if has_secret and not project.get("requires_approval"):
-            failures.append(f"{project.get('name')} has secret input but requires_approval=false")
-    return result("privacy_basic", failures)
+        if unhandled and not project.get("requires_approval"):
+            warnings.append(f"{project.get('name')} has secret input without preprocessed_ref; gate must auto-exclude it")
+        if project.get("requires_approval") and not project.get("approval_reasons"):
+            failures.append(f"{project.get('name')} has secret input but approval_reasons is empty")
+        for item in inputs:
+            if item.get("preprocessed_ref") and not item.get("preprocessed_content_hash"):
+                failures.append(f"{project.get('name')} preprocessed input missing preprocessed_content_hash")
+            if item.get("preprocessed_ref") and not item.get("redaction_count"):
+                failures.append(f"{project.get('name')} preprocessed input missing redaction_count")
+
+    preprocessed_path = os.path.join(backup_dir, str(plan.get("preprocessed_inputs_file") or PREPROCESSED_INPUTS_FILE))
+    if os.path.exists(preprocessed_path):
+        preprocessed = load_json(preprocessed_path, {})
+        dumped_preprocessed = json.dumps(preprocessed, ensure_ascii=False)
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(dumped_preprocessed):
+                failures.append(f"{os.path.basename(preprocessed_path)} contains a secret-looking literal after redaction")
+                break
+    return result("privacy_basic", failures, warnings)
 
 
 def check_token_estimates(plan):
@@ -309,7 +345,7 @@ def run_checks(plan, backup_dir):
         check_schema(plan),
         check_input_manifest(plan),
         check_no_full_dump(plan, backup_dir),
-        check_privacy(plan),
+        check_privacy(plan, backup_dir),
         check_token_estimates(plan),
         check_source_precedence(plan),
         check_incrementality(plan),

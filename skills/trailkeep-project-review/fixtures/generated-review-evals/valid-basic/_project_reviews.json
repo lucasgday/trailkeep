@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-23T12:06:00Z",
+  "projects": {
+    "demo-project": {
+      "summary": "Demo project tracks the settings-panel workflow and its follow-up test.",
+      "standing_context": "ROADMAP.md is treated as the source of truth; conversations provide recent implementation evidence.",
+      "next_step": "Add the settings panel regression test and update the roadmap note.",
+      "roadmap_status": "ROADMAP.md remains current and points to finishing settings-panel QA.",
+      "open_questions": [],
+      "tasks": [
+        {
+          "id": "demo-project-settings-test",
+          "status": "open",
+          "title": "Add settings panel regression test",
+          "source": "project_review"
+        }
+      ],
+      "suggested_next_prompt": "Open demo-project, inspect the settings panel flow, add one focused regression test, run the relevant test command, and update the trailkeep review sidecar with the result.",
+      "repo_may_be_stale": false,
+      "needs_deep_review": false,
+      "repo_sync": {
+        "repo_may_be_stale": false,
+        "sync_status": "synced"
+      },
+      "design_system": {
+        "summary": "Small utilitarian interface with restrained controls.",
+        "components": [],
+        "rules": []
+      },
+      "checkpoints": {
+        "reviewed_sessions": {
+          "session-1": {
+            "content_hash": "fixture-session-hash-1",
+            "reviewed_at": "2026-06-23T12:05:00Z"
+          }
+        },
+        "reviewed_repo_docs": {
+          "ROADMAP.md": {
+            "content_hash": "fixture-roadmap-hash-1",
+            "reviewed_at": "2026-06-23T12:05:00Z"
+          }
+        },
+        "reviewed_project_metadata": {},
+        "repo_sync": {
+          "repo_may_be_stale": false,
+          "sync_status": "synced",
+          "checked_at": "2026-06-23T12:04:00Z"
+        }
+      }
+    }
+  }
+}
