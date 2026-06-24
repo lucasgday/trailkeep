@@ -1,0 +1,26 @@
+{
+  "description": "Low-signal or administrative conversations must be checkpointed without inventing durable decisions, blockers, or task hints.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "conversation_summary_quality"
+  ],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "summary_quality_version": "actionable-v2",
+          "signal_level": "low_signal",
+          "include_in_project_rollup": false,
+          "summary": "Administrative follow-up; no durable project decision detected.",
+          "decisions": [
+            "User decided to rebuild the settings panel."
+          ],
+          "task_hints": [
+            "Implement a new settings panel."
+          ]
+        }
+      }
+    }
+  }
+}

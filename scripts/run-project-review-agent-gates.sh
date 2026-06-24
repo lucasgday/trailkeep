@@ -20,6 +20,11 @@ Commands:
              Passes options through to check_repo_sync.py, usually:
              --backup-dir <backup_dir>
 
+  validate-summary
+            Validate one generated conversation summary before checkpointing it.
+             Passes options through to validate_conversation_summary.py, usually:
+             --summary-json <path-or-> --session-id <id>
+
   finalize   Run generated-output evals and write the review update log.
              Passes options through to finalize_review_run.py, usually:
              --backup-dir <backup_dir> --model-provider <provider>
@@ -28,6 +33,7 @@ Commands:
 Examples:
   scripts/run-project-review-agent-gates.sh pre --backup-dir /path/to/backups
   scripts/run-project-review-agent-gates.sh repo-sync --backup-dir /path/to/backups
+  scripts/run-project-review-agent-gates.sh validate-summary --summary-json /tmp/summary.json
   scripts/run-project-review-agent-gates.sh finalize --backup-dir /path/to/backups --model-used gpt-5
 USAGE
 }
@@ -87,6 +93,11 @@ case "$COMMAND" in
   repo-sync|sync)
     SCRIPT="$SKILL_DIR/scripts/check_repo_sync.py"
     [[ -f "$SCRIPT" ]] || die "missing repo sync script: $SCRIPT"
+    exec "$PYTHON_BIN" "$SCRIPT" "$@"
+    ;;
+  validate-summary|summary)
+    SCRIPT="$SKILL_DIR/scripts/validate_conversation_summary.py"
+    [[ -f "$SCRIPT" ]] || die "missing conversation summary validator script: $SCRIPT"
     exec "$PYTHON_BIN" "$SCRIPT" "$@"
     ;;
   finalize|post)

@@ -31,7 +31,16 @@
           "repo_may_be_stale": true,
           "needs_deep_review": true,
           "open_questions": [
-            "Remote commits are ahead; fetch or merge before trusting the next project review."
+            {
+              "question": "Remote commits are ahead; fetch or merge before trusting the next project review.",
+              "evidence_refs": [
+                {
+                  "type": "repo_sync",
+                  "id_or_path": "demo-project",
+                  "field": "remote_ahead"
+                }
+              ]
+            }
           ],
           "repo_sync": {
             "repo_may_be_stale": true,

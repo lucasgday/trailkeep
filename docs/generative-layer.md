@@ -12,6 +12,12 @@ Implemented in trailkeep:
   `_review_run_plan.json`, and `_review_eval_report.json`.
 - `converters/eval_generated_reviews.py` validates generated review sidecars and
   writes `_review_generated_eval_report.json`.
+- Generated conversation summaries require
+  `summary_quality_version: "actionable-v2"` and deterministic quality checks
+  reject bootstrap boilerplate, role-marker pollution, stale versions, and
+  low-signal conversations that invent tasks.
+- Per-summary deterministic validation is available through the wrapper command
+  `scripts/run-project-review-agent-gates.sh validate-summary`.
 - `skills/trailkeep-project-review/` contains the repo-versioned skill and its
   deterministic finalizer script.
 - `skills/trailkeep-project-review/scripts/check_repo_sync.py` checks local git
@@ -27,7 +33,7 @@ Not implemented yet:
 - the recurring post-backup automation in the user's coding agent;
 - model calls;
 - generation of the optional sidecars;
-- generated-output quality evals beyond the deterministic local checks.
+- viewer rendering of semantic quality sampling details beyond the Runs log.
 
 ## Activation Model
 
@@ -312,6 +318,23 @@ conversation.
       "source": "",
       "date": "",
       "content_hash": "",
+      "evidence_refs": [
+        {
+          "type": "conversation",
+          "id_or_path": "session-id",
+          "content_hash": ""
+        },
+        {
+          "type": "tool",
+          "id_or_path": "session-id",
+          "tool_name": "Bash | Edit | apply_patch | ...",
+          "status": "passed | failed | file changed | command output",
+          "content_hash": ""
+        }
+      ],
+      "summary_quality_version": "actionable-v2",
+      "signal_level": "administrative | low_signal | context_dependent | decision | implementation | blocker",
+      "include_in_project_rollup": true,
       "summary": "",
       "decisions": [],
       "blockers": [],
@@ -323,6 +346,68 @@ conversation.
 }
 ```
 
+Current summary quality version: `actionable-v2`.
+
+The automation must validate every conversation summary before checkpointing it.
+A useful summary is not necessarily long; it is honest about the amount of
+signal in the conversation. Each entry must classify `signal_level`:
+
+- `administrative`: coordination, commit/push/status/checking messages, or
+  confirmations without durable product or engineering content.
+- `low_signal`: little or no durable decision, implementation, blocker, or task.
+- `context_dependent`: the message only makes sense with prior context that was
+  not selected.
+- `decision`: short but contains a durable product or engineering decision.
+- `implementation`: records actual work, changed behavior, files, or areas.
+- `blocker`: records a real unresolved blocker or approval need.
+
+For `administrative`, `low_signal`, and `context_dependent`, set
+`include_in_project_rollup: false` unless there is explicit durable evidence.
+Checkpoint the conversation so it is not retried forever, but do not invent
+decisions, blockers, or task hints. For short but meaningful conversations,
+summarize only the durable decision or task that is actually present.
+
+Before writing a conversation summary, reject:
+
+- `Bootstrap summary for...`
+- `Evidence clusters around...`
+- repeated role markers such as `Claude You Claude`
+- meta text such as `selected because new or changed conversation`
+- using redaction/preprocessing notes as the main summary
+- serialized dict/object output instead of readable text
+
+If a previous summary has the same `content_hash` but lacks
+`summary_quality_version: "actionable-v2"` or matching `evidence_refs`, treat it
+as stale and regenerate it. Project checkpoints that record reviewed sessions
+must also store the same `summary_quality_version`, so project reviews based on
+old summaries do not look current.
+
+Deterministic validation must run for every conversation summary before
+checkpointing:
+
+```sh
+scripts/run-project-review-agent-gates.sh validate-summary \
+  --summary-json <summary-entry.json> \
+  --session-id <session-id> \
+  --expected-content-hash <content-hash>
+```
+
+Semantic/LLM quality review is separate from deterministic validation. Do not
+run an LLM judge for every summary by default. During bootstrap/deep-review and
+large daily runs, sample at least one out of every 25 generated summaries, and
+always include summaries that:
+
+- have low confidence or `signal_level: "context_dependent"`;
+- create non-empty `decisions`, `blockers`, or `task_hints`;
+- are used directly in a project review rollup;
+- come from very long conversations;
+- use preprocessed/redacted input.
+
+The semantic judge may run in batches. Record its result in the latest
+`_review_update_log.json` run under `semantic_quality_review`. If model access
+is unavailable, record `status: "skipped"`, a reason, and mark the review run
+`needs_attention` rather than pretending the semantic sample passed.
+
 ### Project Summary / Project Review
 
 `_project_reviews.json` combines repo docs, deterministic metadata,
@@ -331,7 +416,10 @@ summary layer: repo planning/design docs are source of truth, and conversation
 summaries are recent evidence.
 Every project review entry must include a non-empty `suggested_next_prompt`.
 It should be a concrete prompt the user can copy to start the next coding-agent
-session for that project. Missing or placeholder prompts are eval failures.
+session for that project. It must name a concrete file, section, view,
+component, or flow; identify the selected follow-up task; include the
+verification step; and state the expected output or sidecar/doc update. Missing,
+placeholder, or boilerplate prompts are eval failures.
 
 ```json
 {
@@ -340,20 +428,41 @@ session for that project. Missing or placeholder prompts are eval failures.
   "projects": {
     "project-name": {
       "summary": "",
+      "evidence_refs": [],
+      "summary_evidence_refs": [],
       "standing_context": "",
+      "standing_context_evidence_refs": [],
       "next_step": "",
+      "next_step_evidence_refs": [],
       "roadmap_status": "",
+      "roadmap_status_evidence_refs": [],
       "recommended_repo_doc_updates": [
         {
           "file": "ROADMAP.md",
           "reason": "Planned still includes work already reflected in Done.",
           "action": "Move completed items from Planned to Done and keep remaining priorities in the user's existing order.",
           "confidence": "high",
-          "requires_user_approval": true
+          "requires_user_approval": true,
+          "evidence_refs": []
         }
       ],
-      "open_questions": [],
-      "tasks": [],
+      "open_questions": [
+        {
+          "question": "",
+          "evidence_refs": []
+        }
+      ],
+      "tasks": [
+        {
+          "id": "",
+          "status": "open | done | stale",
+          "title": "",
+          "source": "roadmap | repo_doc | conversation | project_review | inferred",
+          "evidence_refs": [],
+          "confidence": "low | medium | high",
+          "reason": "Required only when source is inferred."
+        }
+      ],
       "suggested_next_prompt": "",
       "repo_may_be_stale": false,
       "needs_deep_review": false,
@@ -390,6 +499,85 @@ session for that project. Missing or placeholder prompts are eval failures.
 
 Tasks must have stable ids. Do not change a task id unless evidence closes,
 splits, merges, or materially changes that task.
+
+### Evidence Grounding
+
+Generated reviews must be grounded enough to audit. Every durable project claim
+must cite short `evidence_refs` from selected conversations, conversation
+summaries, repo docs, deterministic metadata, repo-sync output, tool turns, or
+previous sidecars. Do not quote long raw content; optional `quote` fields must
+stay short and must never include secrets.
+
+Required grounding:
+
+- conversation summaries include at least one `conversation` evidence ref with
+  the same `content_hash` as the summarized input;
+- project `summary`, `standing_context`, `next_step`, and `roadmap_status` cite
+  explicit evidence refs;
+- each task has a `source` and non-empty `evidence_refs`;
+- `source: "inferred"` tasks also include `confidence` and `reason`, and remain
+  candidate work until confirmed by repo docs or future conversations;
+- each open question is an object with `question` and `evidence_refs`;
+- each `recommended_repo_doc_updates` entry includes evidence refs and
+  `requires_user_approval: true`.
+- any claim that work was implemented, fixed, changed, verified, tested, built,
+  committed, pushed, passed, or failed cites at least one `tool` evidence ref
+  when the selected conversation contains tool turns.
+
+If evidence is insufficient, write `unknown`, add an evidence-backed open
+question, or leave the task as a low-confidence candidate. Do not promote a
+guess into `next_step`, `roadmap_status`, or a task without evidence.
+
+### Instruction Context Policy
+
+Initial coding-agent instruction/header blocks are constraints, not user
+intent. Codex and other agents may prepend AGENTS.md, global instructions,
+developer context, environment details, permissions, or skill/plugin headers to
+the first conversation turn. The deterministic planner marks and sanitizes those
+blocks as `instruction_context` when it can detect them.
+
+Rules:
+
+- use any selected input `preprocessed_ref` instead of the raw markdown; it may
+  be redacted for secrets, sanitized for instruction context, or both;
+- do not summarize AGENTS.md/global/developer/system headers as the conversation
+  narrative;
+- do not create project decisions, tasks, `next_step`, `roadmap_status`, or
+  recommended repo-doc updates from instruction context alone;
+- classify conversations that are mostly instruction context and have little
+  user intent as `context_dependent` or `administrative`, with
+  `include_in_project_rollup: false`;
+- allow `instruction_context` evidence only for repo conventions, agent profile,
+  constraints/instructions, and verification/security rules;
+- if the user later explicitly discusses or changes those instructions, cite the
+  later user/assistant conversation evidence for the product decision, not the
+  header block alone.
+
+Generated-output evals fail if phrases such as `AGENTS.md instructions for`,
+`Global verification standard`, `Evidence before claims`, permissions headers,
+or environment headers appear as the main summary, a product task, a next step,
+or roadmap status.
+
+### Tool Turn Policy
+
+Tool turns are execution evidence, not conversation narrative. Prefer user and
+assistant turns for intent, decisions, tradeoffs, blockers, and next-step
+discussion. Prefer tool turns for what actually happened: files touched,
+commands run, test/build/lint results, errors, logs, git state, and concrete
+artifacts.
+
+Rules:
+
+- do not summarize tool output as the main conversation story;
+- do not paste long raw tool output into summaries or project reviews;
+- ignore noisy or repetitive tool output unless it proves a blocker, failure,
+  verification result, file change, or artifact;
+- cite relevant execution evidence with `evidence_refs` of `type: "tool"`,
+  including a safe `tool_name`, `command` or `status` when available;
+- use short optional quotes only for the minimum output needed to justify the
+  claim;
+- never include secret-looking tool output or raw private dumps in generated
+  sidecars.
 
 ### Global Agent Profile
 
@@ -441,6 +629,15 @@ unless a real size or performance problem appears.
       "model_used": "",
       "model_routing": "available | unavailable",
       "warnings": [],
+      "semantic_quality_review": {
+        "status": "pass | needs_attention | skipped",
+        "sample_every": 25,
+        "sampled_summaries": 0,
+        "always_reviewed_summaries": 0,
+        "model_used": "",
+        "failures": [],
+        "warnings": []
+      },
       "repo_sync": {
         "checked_at": "",
         "network_attempted": false,
@@ -542,12 +739,13 @@ Recommended shape:
     "last_reviewed_activity": "2026-06-21T18:12:00-03:00",
     "last_reviewed_git_commit": "abc1234",
     "reviewed_sessions": {
-      "session-id-1": {
-        "content_hash": "sha256...",
-        "date": "2026-06-21T18:12:00-03:00",
-        "source": "claude-code",
-        "title": "Fix dashboard cards"
-      }
+        "session-id-1": {
+          "content_hash": "sha256...",
+          "summary_quality_version": "actionable-v2",
+          "date": "2026-06-21T18:12:00-03:00",
+          "source": "claude-code",
+          "title": "Fix dashboard cards"
+        }
     },
     "reviewed_repo_docs": {
       "ROADMAP.md": {
@@ -585,6 +783,9 @@ Rules:
   one; otherwise use the Markdown relative path.
 - `content_hash` is the hash from `_review_run_plan.json` for that selected
   input.
+- `summary_quality_version` must match the conversation summary quality version
+  used to produce the review. Missing or stale versions invalidate the
+  checkpoint.
 - `reviewed_repo_docs` uses paths relative to the project repo.
 - If an input hash changes, select it again.
 - If an input disappears, do not silently delete the checkpoint. Mark it stale
@@ -661,9 +862,9 @@ For bootstrap or deep-review modes:
 - Do not introduce a separate `partial` run status yet. Use `needs_attention`
   for valid but incomplete generated sidecars.
 - The next run must read `_conversation_summaries.json` and
-  `_project_reviews.json`, skip conversations whose selected `content_hash`
-  already matches, and continue from pending inputs instead of resending the
-  whole archive.
+  `_project_reviews.json`, skip conversations only when both selected
+  `content_hash` and `summary_quality_version` already match, and continue from
+  pending inputs instead of resending the whole archive.
 - The finalizer may accept valid partial sidecars, but the run must not be
   logged as `ok` while selected work is incomplete. Use `needs_attention` and
   include pending conversation/project counts when available.
@@ -673,9 +874,10 @@ Recommended bootstrap loop:
 ```text
 for project in _review_effective_plan.json:
   for selected conversation in project:
-    if _conversation_summaries.json has matching content_hash:
+    if _conversation_summaries.json has matching content_hash and summary_quality_version:
       skip
     summarize conversation
+    validate summary quality before checkpoint
     atomic merge _conversation_summaries.json
   update project review from repo docs + available conversation summaries
   atomic merge _project_reviews.json
@@ -689,7 +891,7 @@ run finalizer
 It must include selected projects, selected repo docs, selected conversation ids,
 selected summaries/sidecars, reasons, character counts, word counts, estimated
 input tokens, expected output tokens, intended model tier, remote-provider risk,
-approval flags, and local output files.
+approval flags, the required `summary_quality_version`, and local output files.
 When a project sets `requires_approval: true`, it must also include
 `approval_reasons`: sanitized reason objects with `code`, `message`, and
 `input_refs` that identify the flagged input by type/id/path/hash without
@@ -701,11 +903,13 @@ cap by default; estimates are for visibility and routing.
 
 ### Preprocessed Inputs
 
-When the deterministic planner detects a possible secret inside a selected
-conversation or repo doc, it should keep the input useful by redacting only the
-suspected value, not by dropping the whole conversation. The redacted text lives
-in `<backup_dir>/_review_preprocessed_inputs.json` and the plan input references
-it with `preprocessed_ref`.
+When the deterministic planner detects a possible secret or initial
+instruction/header context inside a selected input, it should keep the input
+useful by redacting only the suspected secret value and/or replacing the
+instruction block with a short placeholder. It should not drop the whole
+conversation. The sanitized text lives in
+`<backup_dir>/_review_preprocessed_inputs.json` and the plan input references it
+with `preprocessed_ref`.
 
 Recommended shape:
 
@@ -725,6 +929,17 @@ Recommended shape:
       "redacted_content_hash": "sha256...",
       "redaction_count": 1,
       "redaction_types": ["credential_assignment"],
+      "instruction_context_count": 1,
+      "instruction_contexts": [
+        {
+          "id": "instruction_context_1",
+          "kind": "agents_md_initial_context",
+          "content_hash": "sha256...",
+          "chars": 4200,
+          "words": 620,
+          "estimated_input_tokens": 1050
+        }
+      ],
       "text": "Markdown with [REDACTED_CREDENTIAL_ASSIGNMENT_1]"
     }
   }
@@ -736,8 +951,9 @@ Rules:
 - This sidecar is deterministic, local, and generated before model calls.
 - It may contain large redacted text, but must not contain raw suspected secret
   values.
-- If a plan input has `possible_secret: true` and `preprocessed_ref`, the agent
-  must use the preprocessed text for model context.
+- If a plan input has `preprocessed_ref`, the agent must use the preprocessed
+  text for model context, whether it was created for secrets, instruction
+  context, or both.
 - If a plan input has `possible_secret: true` without `preprocessed_ref`, the
   gate should exclude that input automatically and log a `needs_attention`
   warning such as `input excluded for possible secret`.
@@ -758,6 +974,12 @@ The planner marks flags. The coding-agent automation interprets them through
   the raw conversation or repo doc. If no `preprocessed_ref` exists, the gate
   excludes that input automatically and records a non-fatal `needs_attention`
   warning. Do not ask the user to approve suspected secrets by default.
+- `instruction_context: true`: the planner found AGENTS/global/system/developer
+  instruction/header context. If `preprocessed_ref` is present, use that
+  sanitized text instead of raw markdown. Treat the removed instruction block as
+  constraints only; it may inform repo conventions, agent profile, and
+  verification/security rules, but it must not create project tasks, decisions,
+  `next_step`, or `roadmap_status`.
 - `requires_approval: true`: if only some projects are flagged, skip those
   projects from `_review_effective_plan.json`, record a `needs_approval` event,
   and continue model calls for safe projects. If every selected project is
@@ -930,6 +1152,10 @@ Output:
 Minimum checks:
 
 - `schema`: JSON is valid and required fields exist.
+- `conversation_summary_quality`: each conversation summary has the current
+  `summary_quality_version`, a valid `signal_level`, a truthful rollup flag, no
+  bootstrap boilerplate, no role-marker pollution, and no invented tasks for
+  low-signal conversations.
 - `incrementality`: if one conversation in one project changes, only that
   project's generated entries should need to change.
 - `referential_integrity`: project names and session ids exist.
@@ -940,6 +1166,14 @@ Minimum checks:
   in output.
 - `source_precedence`: if `ROADMAP.md` or equivalent repo docs contradict a
   conversation, repo docs win and an `open_question` is created.
+- `evidence_grounding`: conversation summaries, project summaries, next steps,
+  roadmap status, tasks, open questions, and recommended repo-doc updates cite
+  explicit short `evidence_refs`; inferred tasks include confidence and reason.
+- `tool_evidence_policy`: execution and verification claims cite `tool`
+  evidence, while raw tool output stays out of generated summaries and reviews.
+- `instruction_context_policy`: AGENTS/global/system/developer instruction
+  blocks are treated as constraints, not user intent, and do not create product
+  tasks, next steps, or roadmap status.
 - `repo_sync_reflection`: if `_review_repo_sync.json` says a local repo is
   behind its upstream, the generated project review must mark
   `repo_may_be_stale`, `needs_deep_review`, copy repo-sync state, or create an
@@ -949,8 +1183,16 @@ Minimum checks:
 - `token_estimate`: planned estimates are compared with processed input size or
   actual token metadata when available.
 - `actionability`: `next_step` and `suggested_next_prompt` are specific and
-  executable.
+  executable. `suggested_next_prompt` must name a concrete file, section, view,
+  component, or flow; identify the selected follow-up task; include a
+  verification step; and state the expected output or sidecar/doc update.
+  Generic boilerplate such as "review the generated sidecars", "compare open
+  tasks with repo planning docs", or "choose the highest-priority next step"
+  should fail this eval.
 - `update_log`: a run with failures is not marked `ok`.
+- `semantic_quality_review`: large summary runs record semantic sampling
+  metadata. If the semantic judge is skipped because model access is unavailable,
+  the run must be `needs_attention` with a warning.
 
 The automation must run these evals after writing sidecars. If they fail, do not
 mark the run `ok`. Prefer the wrapper finalizer because it also writes

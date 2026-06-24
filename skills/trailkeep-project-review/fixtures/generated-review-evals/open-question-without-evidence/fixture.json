@@ -1,0 +1,20 @@
+{
+  "description": "Open questions must be structured and evidence-backed, not ungrounded strings.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "evidence_grounding",
+    "update_log"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "open_questions": [
+            "Should this project add a settings drawer later?"
+          ]
+        }
+      }
+    }
+  }
+}

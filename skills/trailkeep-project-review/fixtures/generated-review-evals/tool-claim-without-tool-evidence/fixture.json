@@ -1,0 +1,39 @@
+{
+  "description": "Execution and verification claims must cite tool evidence, not only conversation text.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "tool_evidence_policy",
+    "update_log"
+  ],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "summary": "The session fixed the settings panel and verified the regression test passed.",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      }
+    },
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "summary": "Demo project fixed the settings-panel workflow and verified the regression test passed.",
+          "summary_evidence_refs": [
+            {
+              "type": "conversation_summary",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

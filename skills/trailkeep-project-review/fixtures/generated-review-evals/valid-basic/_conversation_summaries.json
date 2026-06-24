@@ -7,6 +7,23 @@
       "source": "codex",
       "date": "2026-06-01T12:00:00Z",
       "content_hash": "fixture-session-hash-1",
+      "evidence_refs": [
+        {
+          "type": "conversation",
+          "id_or_path": "session-1",
+          "content_hash": "fixture-session-hash-1"
+        },
+        {
+          "type": "tool",
+          "id_or_path": "session-1",
+          "tool_name": "Edit",
+          "status": "file changed",
+          "content_hash": "fixture-session-hash-1"
+        }
+      ],
+      "summary_quality_version": "actionable-v2",
+      "signal_level": "implementation",
+      "include_in_project_rollup": true,
       "summary": "The session added a settings panel and left a focused regression test as follow-up.",
       "reviewed_at": "2026-06-23T12:05:00Z",
       "decisions": [

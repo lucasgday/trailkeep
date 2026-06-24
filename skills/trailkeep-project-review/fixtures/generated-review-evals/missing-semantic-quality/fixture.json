@@ -1,0 +1,35 @@
+{
+  "description": "Large generated-summary runs must record semantic quality sampling metadata in the update log.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "semantic_quality_review",
+    "update_log"
+  ],
+  "overrides": {
+    "_review_update_log.json": {
+      "runs": [
+        {
+          "date": "2026-06-23T12:07:00Z",
+          "status": "ok",
+          "title": "Fixture generated review",
+          "projects": [
+            "demo-project"
+          ],
+          "conversation_summaries": 50,
+          "model_provider": "fixture",
+          "model_used": "fixture-model",
+          "model_routing": "available",
+          "outputs": [
+            "_conversation_summaries.json",
+            "_project_reviews.json",
+            "_agent_profile.json",
+            "_review_repo_sync.json"
+          ],
+          "warnings": [],
+          "errors": []
+        }
+      ]
+    }
+  }
+}

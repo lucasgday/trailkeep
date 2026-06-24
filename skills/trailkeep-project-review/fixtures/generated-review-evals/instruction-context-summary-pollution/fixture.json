@@ -1,0 +1,26 @@
+{
+  "description": "Conversation summaries must treat initial AGENTS/system instruction blocks as context boilerplate, not as the conversation summary.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "instruction_context_policy",
+    "update_log"
+  ],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "summary": "AGENTS.md instructions for /Users/dev/code/demo-project define the Global verification standard and Evidence before claims rules for the project.",
+          "decisions": [
+            "Follow the Global verification standard."
+          ],
+          "task_hints": [
+            "Apply Evidence before claims."
+          ],
+          "signal_level": "implementation",
+          "include_in_project_rollup": true
+        }
+      }
+    }
+  }
+}

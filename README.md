@@ -213,7 +213,8 @@ generated sidecars, it should run the wrapper finalizer:
 --backup-dir <backup_dir>`. That writes
 `_review_generated_eval_report.json`, appends `_review_update_log.json`, and
 validates schema, referential integrity, checkpoints, repo-doc precedence,
-privacy/secret leakage, stable task ids, actionability, and update-log status. A
+privacy/secret leakage, stable task ids, evidence grounding, actionability,
+tool-evidence policy, instruction-context policy, semantic quality sampling, and update-log status. A
 failing finalizer means the agent review run must not be marked `ok`.
 For development, `node scripts/test-generated-review-evals.cjs` runs local
 fixtures that exercise those generated-output evals.

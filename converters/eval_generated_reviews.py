@@ -16,6 +16,8 @@ import sys
 
 
 REPORT_VERSION = 1
+SUMMARY_QUALITY_VERSION = "actionable-v2"
+SEMANTIC_SAMPLE_EVERY = 25
 PLAN_FILE = "_review_run_plan.json"
 EFFECTIVE_PLAN_FILE = "_review_effective_plan.json"
 REPORT_FILE = "_review_generated_eval_report.json"
@@ -35,12 +37,108 @@ SECRET_PATTERNS = [
 EMAIL_PATTERN = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,80}$")
 RUN_STATUSES = {"ok", "needs_attention", "needs_approval", "failed"}
+SEMANTIC_QUALITY_STATUSES = {"pass", "needs_attention", "skipped"}
+EVIDENCE_REF_TYPES = {
+    "conversation",
+    "conversation_summary",
+    "repo_doc",
+    "metadata",
+    "repo_sync",
+    "project_review",
+    "agent_profile",
+    "tool",
+    "instruction_context",
+}
+TASK_SOURCES = {"roadmap", "repo_doc", "conversation", "project_review", "inferred"}
+CONFIDENCE_LEVELS = {"low", "medium", "high"}
+MAX_EVIDENCE_QUOTE_CHARS = 280
+SUMMARY_SIGNAL_LEVELS = {
+    "administrative",
+    "low_signal",
+    "context_dependent",
+    "decision",
+    "implementation",
+    "blocker",
+}
+LOW_SIGNAL_LEVELS = {"administrative", "low_signal", "context_dependent"}
 ACTION_RE = re.compile(
     r"(?i)\b(add|build|create|design|fix|implement|inspect|review|run|test|"
     r"update|write|refactor|wire|document|summarize|extract|continue|"
     r"agregar|crear|disenar|diseñar|implementar|revisar|actualizar|corregir)\b"
 )
 VAGUE_RE = re.compile(r"(?i)\b(tbd|todo|later|someday|something|next steps?|continue working)\b")
+PROMPT_BOILERPLATE_RE = re.compile(
+    r"(?i)\b("
+    r"review\s+(the\s+)?trailkeep generated sidecars|"
+    r"compare\s+(the\s+)?open tasks\s+with\s+(the\s+)?repo planning docs|"
+    r"choose one focused follow-up|"
+    r"highest-priority next step|"
+    r"validate it against repo docs"
+    r")\b"
+)
+PROMPT_TARGET_RE = re.compile(
+    r"(?ix)"
+    r"(\b[\w./-]+\.(?:md|py|js|cjs|mjs|ts|tsx|jsx|html|css|json|sh|yml|yaml|toml)\b|"
+    r"\b(?:section|view|screen|component|flow|panel|card|sidebar|dashboard|"
+    r"seccion|sección|vista|pantalla|componente|flujo|tarjeta|barra lateral|tablero)\b)"
+)
+PROMPT_VERIFY_RE = re.compile(
+    r"(?i)\b(run|verify|validate|test|check|assert|qa|manual verification|screenshot|"
+    r"playwright|lint|build|py_compile|pytest|node|npm|pnpm|python|"
+    r"verificar|validar|probar|testear|chequear|captura|verificacion manual|verificación manual)\b"
+)
+PROMPT_OUTPUT_RE = re.compile(
+    r"(?is)\b(update|write|record|report|document|commit|append|merge|return|leave|create|"
+    r"actualizar|escribir|registrar|reportar|documentar|commitear|crear)\b"
+    r".{0,160}\b(sidecar|_project_reviews|_conversation_summaries|roadmap|backlog|todo|docs?|"
+    r"tests?|fixture|eval|viewer|file|output|result|archivo|salida|resultado)\b"
+)
+SUMMARY_BOILERPLATE_RE = re.compile(
+    r"(?i)\b("
+    r"bootstrap summary for|"
+    r"selected because new or changed conversation|"
+    r"evidence clusters around|"
+    r"noted areas include|"
+    r"secret-like content was read from|"
+    r"deterministic redacted preprocessed input"
+    r")\b"
+)
+INSTRUCTION_CONTEXT_POLLUTION_RE = re.compile(
+    r"(?i)\b("
+    r"AGENTS\.md instructions for|"
+    r"Codex Context \(Global\)|"
+    r"Global verification standard|"
+    r"Evidence before claims|"
+    r"Global UI product standards|"
+    r"Global security and data integrity|"
+    r"Non-negotiable rules|"
+    r"INSTRUCTION_CONTEXT_\d+|"
+    r"instruction_context|"
+    r"permissions instructions|"
+    r"environment_context|"
+    r"skills_instructions|"
+    r"plugins_instructions|"
+    r"developer/system context"
+    r")\b"
+)
+ROLE_MARKER_POLLUTION_RE = re.compile(
+    r"(?i)\b(claude|codex|cursor|opencode|assistant|user|you)\b"
+    r"(?:\s+\b(claude|codex|cursor|opencode|assistant|user|you)\b){2,}"
+)
+SUMMARY_SERIALIZED_OBJECT_RE = re.compile(r"^\s*[\{\[]|['\"](?:project|source|content_hash|summary)['\"]\s*:")
+TOOL_EVIDENCE_CLAIM_RE = re.compile(
+    r"(?i)\b("
+    r"implemented|fixed|changed|added|created|wrote|edited|updated|removed|"
+    r"refactored|ran|tested|verified|passed|failed|built|committed|pushed|"
+    r"errored|applied|compiled|deployed|"
+    r"implement[oó]|arregl[oó]|corrigi[oó]|agreg[oó]|cre[oó]|escribi[oó]|"
+    r"edit[oó]|actualiz[oó]|quit[oó]|refactoriz[oó]|corri[oó]|prob[oó]|"
+    r"verific[oó]|pas[oó]|fall[oó]|compil[oó]|commite[oó]|pushe[oó]"
+    r")\b"
+)
+RAW_TOOL_OUTPUT_RE = re.compile(
+    r"(?im)(^\s*\[(tool|result|herramienta|resultado)\b|^\s*```(?:bash|sh|zsh|console)?\s*$)"
+)
 
 
 def now():
@@ -192,6 +290,79 @@ def text_value(value):
     return str(value).strip()
 
 
+def evidence_refs(value):
+    return value if isinstance(value, list) else []
+
+
+def evidence_ref_target(ref):
+    if not isinstance(ref, dict):
+        return ""
+    for key in ("id_or_path", "relative_path", "path", "session_id", "project", "field", "tool_name", "command", "status"):
+        value = text_value(ref.get(key))
+        if value:
+            return value
+    return ""
+
+
+def validate_evidence_refs(refs, context, failures, *, allowed_types=None, require_content_hash=False):
+    if not isinstance(refs, list) or not refs:
+        failures.append(f"{context} missing evidence_refs")
+        return
+    for idx, ref in enumerate(refs):
+        label = f"{context}.evidence_refs[{idx}]"
+        if not isinstance(ref, dict):
+            failures.append(f"{label} must be an object")
+            continue
+        ref_type = text_value(ref.get("type"))
+        if ref_type not in EVIDENCE_REF_TYPES:
+            failures.append(f"{label} has invalid type: {ref_type or '(missing)'}")
+        elif allowed_types and ref_type not in allowed_types:
+            failures.append(f"{label} has unsupported type for this context: {ref_type}")
+        if not evidence_ref_target(ref):
+            failures.append(f"{label} must identify an input, path, project, or field")
+        if require_content_hash and not text_value(ref.get("content_hash")):
+            failures.append(f"{label} missing content_hash")
+        quote = text_value(ref.get("quote"))
+        if len(quote) > MAX_EVIDENCE_QUOTE_CHARS:
+            failures.append(f"{label}.quote exceeds {MAX_EVIDENCE_QUOTE_CHARS} characters")
+        if contains_secret_value(ref):
+            failures.append(f"{label} contains a secret-looking literal")
+
+
+def has_tool_evidence(refs):
+    return any(isinstance(ref, dict) and text_value(ref.get("type")) == "tool" for ref in evidence_refs(refs))
+
+
+def has_instruction_context_evidence(refs):
+    return any(
+        isinstance(ref, dict) and text_value(ref.get("type")) == "instruction_context"
+        for ref in evidence_refs(refs)
+    )
+
+
+def needs_tool_evidence(text):
+    return bool(TOOL_EVIDENCE_CLAIM_RE.search(text_value(text)))
+
+
+def append_tool_policy_failure(failures, context, refs, text):
+    if needs_tool_evidence(text) and not has_tool_evidence(refs):
+        failures.append(f"{context} makes execution/verification claims without tool evidence")
+
+
+def instruction_context_polluted(text):
+    return bool(INSTRUCTION_CONTEXT_POLLUTION_RE.search(text_value(text)))
+
+
+def append_instruction_text_failure(failures, context, text):
+    if instruction_context_polluted(text):
+        failures.append(f"{context} treats instruction/header context as conversation content")
+
+
+def append_instruction_ref_failure(failures, context, refs):
+    if has_instruction_context_evidence(refs):
+        failures.append(f"{context} uses instruction_context evidence for product work")
+
+
 def selected_projects(plan):
     return as_list(as_dict(plan).get("projects"))
 
@@ -275,12 +446,29 @@ def check_schema(data):
             if not isinstance(entry, dict):
                 failures.append(f"conversation summary {sid} must be an object")
                 continue
-            for key in ["project", "source", "date", "content_hash", "summary", "reviewed_at"]:
+            for key in [
+                "project",
+                "source",
+                "date",
+                "content_hash",
+                "evidence_refs",
+                "summary",
+                "reviewed_at",
+                "summary_quality_version",
+                "signal_level",
+                "include_in_project_rollup",
+            ]:
                 if key not in entry:
                     failures.append(f"conversation summary {sid} missing field: {key}")
             for key in ["decisions", "blockers", "task_hints", "files_or_areas"]:
                 if key in entry and not isinstance(entry.get(key), list):
                     failures.append(f"conversation summary {sid}.{key} must be a list")
+            if "evidence_refs" in entry and not isinstance(entry.get("evidence_refs"), list):
+                failures.append(f"conversation summary {sid}.evidence_refs must be a list")
+            if "summary" in entry and not isinstance(entry.get("summary"), str):
+                failures.append(f"conversation summary {sid}.summary must be a string")
+            if "include_in_project_rollup" in entry and not isinstance(entry.get("include_in_project_rollup"), bool):
+                failures.append(f"conversation summary {sid}.include_in_project_rollup must be a boolean")
 
     if isinstance(reviews, dict):
         if reviews.get("version") != 1:
@@ -292,9 +480,31 @@ def check_schema(data):
             if not isinstance(entry, dict):
                 failures.append(f"project review {name} must be an object")
                 continue
-            for key in ["summary", "standing_context", "next_step", "roadmap_status", "open_questions", "tasks", "suggested_next_prompt", "design_system", "checkpoints"]:
+            for key in [
+                "summary",
+                "summary_evidence_refs",
+                "standing_context",
+                "next_step",
+                "next_step_evidence_refs",
+                "roadmap_status",
+                "roadmap_status_evidence_refs",
+                "open_questions",
+                "tasks",
+                "suggested_next_prompt",
+                "design_system",
+                "checkpoints",
+            ]:
                 if key not in entry:
                     failures.append(f"project review {name} missing field: {key}")
+            for key in [
+                "evidence_refs",
+                "summary_evidence_refs",
+                "standing_context_evidence_refs",
+                "next_step_evidence_refs",
+                "roadmap_status_evidence_refs",
+            ]:
+                if key in entry and not isinstance(entry.get(key), list):
+                    failures.append(f"project review {name}.{key} must be a list")
             if "open_questions" in entry and not isinstance(entry.get("open_questions"), list):
                 failures.append(f"project review {name}.open_questions must be a list")
             if "tasks" in entry and not isinstance(entry.get("tasks"), list):
@@ -312,6 +522,8 @@ def check_schema(data):
                             failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}] missing field: {key}")
                     if update.get("requires_user_approval") is not True:
                         failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}] must require user approval")
+                    if "evidence_refs" in update and not isinstance(update.get("evidence_refs"), list):
+                        failures.append(f"project review {name}.recommended_repo_doc_updates[{idx}].evidence_refs must be a list")
             if "design_system" in entry and not isinstance(entry.get("design_system"), dict):
                 failures.append(f"project review {name}.design_system must be an object")
             checkpoints = entry.get("checkpoints")
@@ -383,6 +595,68 @@ def check_referential_integrity(data, sessions, session_by_key):
     )
 
 
+def check_conversation_summary_quality(data):
+    failures = []
+    warnings = []
+    summaries = as_dict(as_dict(data.get(CONVERSATION_SUMMARIES_FILE)).get("conversations"))
+    stats = {
+        "summaries": len(summaries),
+        "rollup_included": 0,
+        "low_signal": 0,
+    }
+    for sid, entry in summaries.items():
+        if not isinstance(entry, dict):
+            continue
+        version = str(entry.get("summary_quality_version") or "").strip()
+        signal = str(entry.get("signal_level") or "").strip()
+        summary = text_value(entry.get("summary"))
+        decisions = as_list(entry.get("decisions"))
+        blockers = as_list(entry.get("blockers"))
+        task_hints = as_list(entry.get("task_hints"))
+        include = entry.get("include_in_project_rollup")
+
+        if version != SUMMARY_QUALITY_VERSION:
+            failures.append(
+                f"conversation summary {sid} has stale summary_quality_version: {version or '(missing)'}"
+            )
+        if signal not in SUMMARY_SIGNAL_LEVELS:
+            failures.append(f"conversation summary {sid} has invalid signal_level: {signal or '(missing)'}")
+        if include is True:
+            stats["rollup_included"] += 1
+        if signal in LOW_SIGNAL_LEVELS:
+            stats["low_signal"] += 1
+        if not summary:
+            failures.append(f"conversation summary {sid} has empty summary")
+            continue
+        if RAW_TOOL_OUTPUT_RE.search(summary):
+            failures.append(f"conversation summary {sid} includes raw tool output or code fence")
+        if SUMMARY_BOILERPLATE_RE.search(summary):
+            failures.append(f"conversation summary {sid} contains bootstrap/boilerplate summary text")
+        if instruction_context_polluted(summary):
+            failures.append(f"conversation summary {sid} contains instruction/header context as summary text")
+        for label, values in [
+            ("decisions", decisions),
+            ("blockers", blockers),
+            ("task_hints", task_hints),
+        ]:
+            if any(instruction_context_polluted(value) for value in values):
+                failures.append(f"conversation summary {sid}.{label} contains instruction/header context")
+        if ROLE_MARKER_POLLUTION_RE.search(summary):
+            failures.append(f"conversation summary {sid} contains role-marker pollution")
+        if SUMMARY_SERIALIZED_OBJECT_RE.search(summary):
+            failures.append(f"conversation summary {sid} looks like a serialized object, not a readable summary")
+        if signal in LOW_SIGNAL_LEVELS:
+            if include is True:
+                failures.append(f"conversation summary {sid} is low-signal but included in project rollup")
+            if decisions or blockers or task_hints:
+                failures.append(f"conversation summary {sid} is low-signal but invents decisions, blockers, or task hints")
+        elif include is False:
+            warnings.append(f"conversation summary {sid} has durable signal but is excluded from project rollup")
+        if signal in {"decision", "implementation", "blocker"} and len(summary) < 40:
+            warnings.append(f"conversation summary {sid} has durable signal but very short summary")
+    return result("conversation_summary_quality", failures, warnings, stats)
+
+
 def check_checkpoint_integrity(data):
     failures = []
     plan = review_plan(data)
@@ -399,6 +673,8 @@ def check_checkpoint_integrity(data):
             failures.append(f"{project_name} missing summary for selected conversation {session_id}")
         elif summary.get("content_hash") != expected_hash:
             failures.append(f"{project_name} summary hash mismatch for {session_id}")
+        elif summary.get("summary_quality_version") != SUMMARY_QUALITY_VERSION:
+            failures.append(f"{project_name} summary quality version mismatch for {session_id}")
 
         review = reviews.get(project_name)
         if not isinstance(review, dict):
@@ -411,6 +687,8 @@ def check_checkpoint_integrity(data):
             failures.append(f"{project_name} missing reviewed_sessions checkpoint for {session_id}")
         elif not checkpoint_hash_matches(record, expected_hash):
             failures.append(f"{project_name} reviewed_sessions hash mismatch for {session_id}")
+        elif isinstance(record, dict) and record.get("summary_quality_version") != SUMMARY_QUALITY_VERSION:
+            failures.append(f"{project_name} reviewed_sessions quality version mismatch for {session_id}")
 
     for project, item in iter_selected_inputs(plan, "repo_doc"):
         project_name = project.get("name") or "(unknown project)"
@@ -510,6 +788,199 @@ def check_source_precedence(data):
     return result("source_precedence", failures, warnings)
 
 
+def check_evidence_grounding(data):
+    failures = []
+    warnings = []
+    summaries = as_dict(as_dict(data.get(CONVERSATION_SUMMARIES_FILE)).get("conversations"))
+    reviews = as_dict(as_dict(data.get(PROJECT_REVIEWS_FILE)).get("projects"))
+
+    for sid, entry in summaries.items():
+        if not isinstance(entry, dict):
+            continue
+        refs = entry.get("evidence_refs")
+        validate_evidence_refs(
+            refs,
+            f"conversation summary {sid}",
+            failures,
+            allowed_types={"conversation", "tool", "instruction_context"},
+            require_content_hash=True,
+        )
+        expected_hash = text_value(entry.get("content_hash"))
+        if expected_hash and isinstance(refs, list):
+            if not any(isinstance(ref, dict) and text_value(ref.get("content_hash")) == expected_hash for ref in refs):
+                failures.append(f"conversation summary {sid} evidence_refs do not include its content_hash")
+
+    for project_name, review in reviews.items():
+        if not isinstance(review, dict):
+            continue
+        validate_evidence_refs(review.get("evidence_refs"), f"{project_name} project review", failures)
+        validate_evidence_refs(review.get("summary_evidence_refs"), f"{project_name}.summary", failures)
+        if text_value(review.get("standing_context")):
+            validate_evidence_refs(
+                review.get("standing_context_evidence_refs"),
+                f"{project_name}.standing_context",
+                failures,
+            )
+        validate_evidence_refs(review.get("next_step_evidence_refs"), f"{project_name}.next_step", failures)
+        validate_evidence_refs(review.get("roadmap_status_evidence_refs"), f"{project_name}.roadmap_status", failures)
+
+        for idx, question in enumerate(as_list(review.get("open_questions"))):
+            context = f"{project_name}.open_questions[{idx}]"
+            if not isinstance(question, dict):
+                failures.append(f"{context} must be an object with question/text and evidence_refs")
+                continue
+            if not text_value(question.get("question") or question.get("text")):
+                failures.append(f"{context} missing question/text")
+            validate_evidence_refs(question.get("evidence_refs"), context, failures)
+
+        for idx, task in enumerate(as_list(review.get("tasks"))):
+            context = f"{project_name}.tasks[{idx}]"
+            if not isinstance(task, dict):
+                continue
+            task_id = text_value(task.get("id")) or str(idx)
+            source = text_value(task.get("source"))
+            if source not in TASK_SOURCES:
+                failures.append(f"{context} {task_id} has invalid source: {source or '(missing)'}")
+            validate_evidence_refs(task.get("evidence_refs"), f"{context} {task_id}", failures)
+            if source == "inferred":
+                if text_value(task.get("confidence")) not in CONFIDENCE_LEVELS:
+                    failures.append(f"{context} {task_id} inferred task missing confidence")
+                if not text_value(task.get("reason")):
+                    failures.append(f"{context} {task_id} inferred task missing reason")
+
+        for idx, update in enumerate(as_list(review.get("recommended_repo_doc_updates"))):
+            context = f"{project_name}.recommended_repo_doc_updates[{idx}]"
+            if not isinstance(update, dict):
+                continue
+            validate_evidence_refs(update.get("evidence_refs"), context, failures)
+
+    return result(
+        "evidence_grounding",
+        failures,
+        warnings,
+        {"conversation_summaries": len(summaries), "project_reviews": len(reviews)},
+    )
+
+
+def check_tool_evidence_policy(data):
+    failures = []
+    warnings = []
+    summaries = as_dict(as_dict(data.get(CONVERSATION_SUMMARIES_FILE)).get("conversations"))
+    reviews = as_dict(as_dict(data.get(PROJECT_REVIEWS_FILE)).get("projects"))
+
+    for sid, entry in summaries.items():
+        if not isinstance(entry, dict):
+            continue
+        summary = text_value(entry.get("summary"))
+        if RAW_TOOL_OUTPUT_RE.search(summary):
+            failures.append(f"conversation summary {sid} includes raw tool output instead of a summary")
+        evidence_text = " ".join(
+            [summary]
+            + [text_value(value) for value in as_list(entry.get("decisions"))]
+            + [text_value(value) for value in as_list(entry.get("blockers"))]
+        )
+        append_tool_policy_failure(failures, f"conversation summary {sid}", entry.get("evidence_refs"), evidence_text)
+
+    project_field_refs = {
+        "summary": "summary_evidence_refs",
+        "standing_context": "standing_context_evidence_refs",
+        "next_step": "next_step_evidence_refs",
+        "roadmap_status": "roadmap_status_evidence_refs",
+    }
+    for project_name, review in reviews.items():
+        if not isinstance(review, dict):
+            continue
+        for field, refs_field in project_field_refs.items():
+            text = text_value(review.get(field))
+            if RAW_TOOL_OUTPUT_RE.search(text):
+                failures.append(f"{project_name}.{field} includes raw tool output")
+            append_tool_policy_failure(
+                failures,
+                f"{project_name}.{field}",
+                review.get(refs_field) or review.get("evidence_refs"),
+                text,
+            )
+        for idx, task in enumerate(as_list(review.get("tasks"))):
+            if not isinstance(task, dict):
+                continue
+            task_id = text_value(task.get("id")) or str(idx)
+            task_text = " ".join([text_value(task.get(key)) for key in ("title", "task", "text", "summary")])
+            status = text_value(task.get("status")).lower()
+            if status in {"done", "closed", "complete", "completed"} and not has_tool_evidence(task.get("evidence_refs")):
+                failures.append(f"{project_name}.tasks[{idx}] {task_id} is {status} without tool evidence")
+            append_tool_policy_failure(failures, f"{project_name}.tasks[{idx}] {task_id}", task.get("evidence_refs"), task_text)
+
+    return result(
+        "tool_evidence_policy",
+        failures,
+        warnings,
+        {"conversation_summaries": len(summaries), "project_reviews": len(reviews)},
+    )
+
+
+def check_instruction_context_policy(data):
+    failures = []
+    warnings = []
+    summaries = as_dict(as_dict(data.get(CONVERSATION_SUMMARIES_FILE)).get("conversations"))
+    reviews = as_dict(as_dict(data.get(PROJECT_REVIEWS_FILE)).get("projects"))
+
+    for sid, entry in summaries.items():
+        if not isinstance(entry, dict):
+            continue
+        append_instruction_text_failure(failures, f"conversation summary {sid}", entry.get("summary"))
+        for field in ("decisions", "blockers", "task_hints"):
+            for idx, value in enumerate(as_list(entry.get(field))):
+                append_instruction_text_failure(failures, f"conversation summary {sid}.{field}[{idx}]", value)
+
+    project_fields = {
+        "summary": "summary_evidence_refs",
+        "next_step": "next_step_evidence_refs",
+        "roadmap_status": "roadmap_status_evidence_refs",
+    }
+    for project_name, review in reviews.items():
+        if not isinstance(review, dict):
+            continue
+        for field, refs_field in project_fields.items():
+            append_instruction_text_failure(failures, f"{project_name}.{field}", review.get(field))
+            append_instruction_ref_failure(failures, f"{project_name}.{field}", review.get(refs_field))
+
+        for idx, question in enumerate(as_list(review.get("open_questions"))):
+            if not isinstance(question, dict):
+                continue
+            text = text_value(question.get("question") or question.get("text"))
+            append_instruction_text_failure(failures, f"{project_name}.open_questions[{idx}]", text)
+            append_instruction_ref_failure(failures, f"{project_name}.open_questions[{idx}]", question.get("evidence_refs"))
+
+        for idx, task in enumerate(as_list(review.get("tasks"))):
+            if not isinstance(task, dict):
+                continue
+            task_id = text_value(task.get("id")) or str(idx)
+            task_text = " ".join([text_value(task.get(key)) for key in ("title", "task", "text", "summary")])
+            append_instruction_text_failure(failures, f"{project_name}.tasks[{idx}] {task_id}", task_text)
+            append_instruction_ref_failure(failures, f"{project_name}.tasks[{idx}] {task_id}", task.get("evidence_refs"))
+
+        for idx, update in enumerate(as_list(review.get("recommended_repo_doc_updates"))):
+            if not isinstance(update, dict):
+                continue
+            update_text = " ".join([text_value(update.get(key)) for key in ("reason", "action")])
+            append_instruction_text_failure(failures, f"{project_name}.recommended_repo_doc_updates[{idx}]", update_text)
+            append_instruction_ref_failure(
+                failures,
+                f"{project_name}.recommended_repo_doc_updates[{idx}]",
+                update.get("evidence_refs"),
+            )
+
+        prompt = review.get("suggested_next_prompt")
+        append_instruction_text_failure(failures, f"{project_name}.suggested_next_prompt", prompt)
+
+    return result(
+        "instruction_context_policy",
+        failures,
+        warnings,
+        {"conversation_summaries": len(summaries), "project_reviews": len(reviews)},
+    )
+
+
 def open_questions_mention_repo_stale(review):
     text = " ".join(text_value(item) for item in as_list(as_dict(review).get("open_questions")))
     return bool(re.search(r"(?i)\b(remote|fetch|upstream|stale|behind|sync|sincron)", text))
@@ -565,7 +1036,74 @@ def check_actionability(data):
             warnings.append(f"{project_name} next_step has no obvious action verb")
         if prompt and VAGUE_RE.fullmatch(prompt.strip()):
             failures.append(f"{project_name} suggested_next_prompt is vague")
+        if prompt and PROMPT_BOILERPLATE_RE.search(prompt):
+            failures.append(f"{project_name} suggested_next_prompt is boilerplate")
+        if prompt and not PROMPT_TARGET_RE.search(prompt):
+            failures.append(f"{project_name} suggested_next_prompt must name a concrete file, section, view, component, or flow")
+        if prompt and not PROMPT_VERIFY_RE.search(prompt):
+            failures.append(f"{project_name} suggested_next_prompt must include a verification step")
+        if prompt and not PROMPT_OUTPUT_RE.search(prompt):
+            failures.append(f"{project_name} suggested_next_prompt must state the expected output or update")
     return result("actionability", failures, warnings)
+
+
+def int_value(value):
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+
+def check_semantic_quality_review(data):
+    failures = []
+    warnings = []
+    latest = latest_update_run(data.get(UPDATE_LOG_FILE))
+    if not latest:
+        return result("semantic_quality_review", failures, warnings)
+    latest = as_dict(latest)
+    summary_count = int_value(
+        latest.get("conversation_summaries")
+        or latest.get("summaries")
+        or latest.get("conversations_summarized")
+    )
+    if summary_count < SEMANTIC_SAMPLE_EVERY:
+        return result("semantic_quality_review", failures, warnings, {"conversation_summaries": summary_count})
+
+    review = as_dict(latest.get("semantic_quality_review"))
+    if not review:
+        failures.append("large generated-summary run missing semantic_quality_review metadata")
+        return result("semantic_quality_review", failures, warnings, {"conversation_summaries": summary_count})
+
+    status = str(review.get("status") or "").strip().lower()
+    if status not in SEMANTIC_QUALITY_STATUSES:
+        failures.append(f"semantic_quality_review has invalid status: {status or '(missing)'}")
+    sample_every = int_value(review.get("sample_every"))
+    if sample_every <= 0 or sample_every > SEMANTIC_SAMPLE_EVERY:
+        failures.append(f"semantic_quality_review.sample_every must be between 1 and {SEMANTIC_SAMPLE_EVERY}")
+    sampled = int_value(review.get("sampled_summaries"))
+    always_reviewed = int_value(review.get("always_reviewed_summaries"))
+    if status != "skipped" and sampled + always_reviewed <= 0:
+        failures.append("semantic_quality_review did not record any sampled summaries")
+    if status == "skipped":
+        if not text_value(review.get("reason")):
+            failures.append("semantic_quality_review skipped without a reason")
+        if str(latest.get("status") or "").lower() == "ok":
+            failures.append("semantic_quality_review was skipped but latest run is marked ok; use needs_attention")
+    semantic_failures = as_list(review.get("failures"))
+    if semantic_failures and str(latest.get("status") or "").lower() == "ok":
+        failures.append("semantic_quality_review has failures but latest run is marked ok")
+    if status == "needs_attention" and not as_list(review.get("warnings")) and not semantic_failures:
+        warnings.append("semantic_quality_review needs_attention without warnings or failures")
+    return result(
+        "semantic_quality_review",
+        failures,
+        warnings,
+        {
+            "conversation_summaries": summary_count,
+            "sampled_summaries": sampled,
+            "always_reviewed_summaries": always_reviewed,
+        },
+    )
 
 
 def check_update_log(data, prior_failed):
@@ -609,12 +1147,17 @@ def run_checks(data, errors, sessions, session_by_key):
         check_sidecar_presence(data, errors, review_plan(data)),
         check_schema(data),
         check_referential_integrity(data, sessions, session_by_key),
+        check_conversation_summary_quality(data),
         check_checkpoint_integrity(data),
         check_task_stability(data),
         check_privacy(data),
         check_source_precedence(data),
+        check_evidence_grounding(data),
+        check_tool_evidence_policy(data),
+        check_instruction_context_policy(data),
         check_repo_sync_reflection(data),
         check_actionability(data),
+        check_semantic_quality_review(data),
     ]
     prior_failed = any(c["status"] == "fail" for c in base_checks)
     return base_checks + [check_update_log(data, prior_failed)]

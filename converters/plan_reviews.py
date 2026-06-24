@@ -18,6 +18,7 @@ import sys
 
 PLAN_VERSION = 1
 ESTIMATOR = "chars_div_4"
+SUMMARY_QUALITY_VERSION = "actionable-v2"
 PREPROCESSED_INPUTS_FILE = "_review_preprocessed_inputs.json"
 OUTPUT_FILES = [
     "_conversation_summaries.json",
@@ -60,6 +61,21 @@ SECRET_PATTERNS = [
     ("credential_assignment", re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[^'\"\s]{8,}")),
     ("email", re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")),
 ]
+INSTRUCTION_CONTEXT_PATTERNS = [
+    (
+        "agents_md_initial_context",
+        re.compile(r"(?im)^#\s+AGENTS\.md instructions for .+$"),
+    ),
+    ("instructions_block", re.compile(r"(?is)<INSTRUCTIONS>.*?</INSTRUCTIONS>")),
+    ("permissions_instructions", re.compile(r"(?is)<permissions instructions>.*?</permissions instructions>")),
+    ("environment_context", re.compile(r"(?is)<environment_context>.*?</environment_context>")),
+    ("app_context", re.compile(r"(?is)<app-context>.*?</app-context>")),
+    ("apps_instructions", re.compile(r"(?is)<apps_instructions>.*?</apps_instructions>")),
+    ("skills_instructions", re.compile(r"(?is)<skills_instructions>.*?</skills_instructions>")),
+    ("plugins_instructions", re.compile(r"(?is)<plugins_instructions>.*?</plugins_instructions>")),
+    ("collaboration_mode", re.compile(r"(?is)<collaboration_mode>.*?</collaboration_mode>")),
+]
+INSTRUCTION_CONTEXT_DOCS = {"AGENTS.md", "CLAUDE.md"}
 
 
 def load_json(path, default):
@@ -92,6 +108,38 @@ def content_hash(text):
 
 def possible_secret(text):
     return any(pattern.search(text or "") for _, pattern in SECRET_PATTERNS)
+
+
+def sanitize_instruction_context(text):
+    processed = text or ""
+    contexts = []
+
+    def make_replacement(kind):
+        def replace(match):
+            block = match.group(0)
+            idx = len(contexts) + 1
+            block_estimate = estimate(block)
+            contexts.append({
+                "id": f"instruction_context_{idx}",
+                "kind": kind,
+                "content_hash": content_hash(block),
+                **block_estimate,
+            })
+            return (
+                f"\n[INSTRUCTION_CONTEXT_{idx}: {kind} omitted from conversation "
+                "summary context. Use only for constraints, repo conventions, "
+                "agent profile, or verification/security rules.]\n"
+            )
+        return replace
+
+    for kind, pattern in INSTRUCTION_CONTEXT_PATTERNS:
+        processed = pattern.sub(make_replacement(kind), processed)
+    return processed, contexts
+
+
+def instruction_context_doc(doc):
+    rel = str(doc.get("relative_path") or doc.get("id_or_path") or "")
+    return os.path.basename(rel) in INSTRUCTION_CONTEXT_DOCS
 
 
 def redact_secrets(text):
@@ -210,13 +258,47 @@ def reviewed_repo_docs(review_entry):
     return docs if isinstance(docs, dict) else {}
 
 
-def session_changed(session, reviewed):
+def summary_quality_current(session, summaries):
+    conversations = (summaries or {}).get("conversations") or {}
+    summary = conversations.get(session["id"]) or conversations.get(session.get("path"))
+    if not isinstance(summary, dict):
+        return False
+    evidence_refs = summary.get("evidence_refs")
+    has_matching_evidence = (
+        isinstance(evidence_refs, list)
+        and any(
+            isinstance(ref, dict)
+            and ref.get("type") == "conversation"
+            and ref.get("content_hash") == session["hash"]
+            for ref in evidence_refs
+        )
+    )
+    return (
+        summary.get("content_hash") == session["hash"]
+        and summary.get("summary_quality_version") == SUMMARY_QUALITY_VERSION
+        and has_matching_evidence
+    )
+
+
+def reviewed_session_record(session, reviewed):
     old = reviewed.get(session["id"])
+    if old is None and session.get("path"):
+        old = reviewed.get(session.get("path"))
+    return old
+
+
+def session_content_changed(session, reviewed):
+    old = reviewed_session_record(session, reviewed)
     if isinstance(old, dict):
         return old.get("content_hash") != session["hash"]
     if isinstance(old, str):
         return old != session["hash"]
     return True
+
+
+def session_checkpoint_quality_current(session, reviewed):
+    old = reviewed_session_record(session, reviewed)
+    return isinstance(old, dict) and old.get("summary_quality_version") == SUMMARY_QUALITY_VERSION
 
 
 def repo_doc_changed(doc, reviewed):
@@ -252,7 +334,19 @@ def sum_estimate(inputs):
 
 def approval_input_ref(item):
     ref = {}
-    for key in ["type", "id_or_path", "relative_path", "path", "reason", "estimated_input_tokens", "content_hash", "possible_secret"]:
+    for key in [
+        "type",
+        "id_or_path",
+        "relative_path",
+        "path",
+        "reason",
+        "estimated_input_tokens",
+        "content_hash",
+        "possible_secret",
+        "instruction_context",
+        "instruction_context_count",
+        "instruction_context_usage",
+    ]:
         if key in item:
             ref[key] = item[key]
     return ref
@@ -283,10 +377,15 @@ def preprocessed_key(project, item):
     ])
 
 
-def add_preprocessed_input(preprocessed, project, item, text, metadata=None):
-    redacted, replacements = redact_secrets(text)
+def add_preprocessed_input(preprocessed, project, item, text, metadata=None, strip_instruction_context=True):
+    processed_text = text or ""
+    instruction_contexts = []
+    if strip_instruction_context:
+        processed_text, instruction_contexts = sanitize_instruction_context(processed_text)
+    redacted, replacements = redact_secrets(processed_text)
     title, title_replacements = redact_metadata_value(item.get("title") or "")
-    if not replacements and not title_replacements:
+    has_secret_replacements = bool(replacements or title_replacements)
+    if not has_secret_replacements and not instruction_contexts:
         return item
     key = preprocessed_key(project, item)
     redacted_hash = content_hash(redacted)
@@ -305,6 +404,8 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None):
         "redacted_content_hash": redacted_hash,
         "redaction_count": redaction_count,
         "redaction_types": redaction_types,
+        "instruction_context_count": len(instruction_contexts),
+        "instruction_contexts": instruction_contexts,
         "text": redacted,
     }
     redacted_estimate = estimate(redacted)
@@ -313,17 +414,28 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None):
     if "title" in updated:
         updated["title"] = title
     updated.update({
-        "possible_secret": True,
         "preprocessed": True,
         "preprocessed_ref": f"{PREPROCESSED_INPUTS_FILE}#{key}",
         "preprocessed_input_key": key,
         "preprocessed_content_hash": redacted_hash,
-        "redaction_count": redaction_count,
-        "redaction_types": redaction_types,
         "source_chars": item.get("chars", 0),
         "source_words": item.get("words", 0),
         "source_estimated_input_tokens": item.get("estimated_input_tokens", 0),
     })
+    if has_secret_replacements:
+        updated.update({
+            "possible_secret": True,
+            "redaction_count": redaction_count,
+            "redaction_types": redaction_types,
+        })
+    else:
+        updated["possible_secret"] = bool(item.get("possible_secret"))
+    if instruction_contexts:
+        updated.update({
+            "instruction_context": True,
+            "instruction_context_count": len(instruction_contexts),
+            "instruction_context_usage": "constraints_only",
+        })
     return updated
 
 
@@ -332,8 +444,17 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
     reviewed_docs = reviewed_repo_docs(review_entry)
     selected_sessions = []
     for s in sorted(sessions, key=lambda x: x.get("date") or "", reverse=True):
-        if bootstrap or session_changed(s, reviewed):
-            selected_sessions.append(s)
+        content_changed = session_content_changed(s, reviewed)
+        stale_checkpoint = not session_checkpoint_quality_current(s, reviewed)
+        stale_summary = not summary_quality_current(s, summaries)
+        if bootstrap or content_changed or stale_checkpoint or stale_summary:
+            selected = dict(s)
+            selected["_review_reason"] = (
+                "conversation summary missing, quality version stale, or evidence refs missing"
+                if (stale_summary or stale_checkpoint) and not content_changed and not bootstrap
+                else "new or changed conversation for this project"
+            )
+            selected_sessions.append(selected)
 
     docs = project_docs(project_meta)
     changed_docs = [d for d in docs if bootstrap or repo_doc_changed(d, reviewed_docs)]
@@ -343,8 +464,20 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
     inputs = []
     for d in docs:
         item = public_item(d)
+        if instruction_context_doc(d):
+            item.update({
+                "instruction_context": True,
+                "instruction_context_usage": "constraints_only",
+                "instruction_context_kind": "repo_instruction_doc",
+            })
         if d.get("possible_secret"):
-            item = add_preprocessed_input(preprocessed, name, item, d.get("_text") or "")
+            item = add_preprocessed_input(
+                preprocessed,
+                name,
+                item,
+                d.get("_text") or "",
+                strip_instruction_context=False,
+            )
         inputs.append(item)
 
     for s in selected_sessions:
@@ -353,25 +486,27 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
             "id_or_path": s["id"],
             "path": s["path"],
             "title": s["title"],
-            "reason": "new or changed conversation for this project",
+            "reason": s.get("_review_reason") or "new or changed conversation for this project",
             **s["estimate"],
             "content_hash": s["hash"],
+            "summary_quality_version_required": SUMMARY_QUALITY_VERSION,
             "possible_secret": s["possible_secret"],
         }
-        if s["possible_secret"]:
-            item = add_preprocessed_input(
-                preprocessed,
-                name,
-                item,
-                s["text"],
-                {"source": s.get("source") or "", "date": s.get("date") or ""},
-            )
+        item = add_preprocessed_input(
+            preprocessed,
+            name,
+            item,
+            s["text"],
+            {"source": s.get("source") or "", "date": s.get("date") or ""},
+        )
         inputs.append(item)
 
     summary_inputs = []
     conv_summaries = (summaries or {}).get("conversations") or {}
     for s in sessions:
-        summary = conv_summaries.get(s["id"])
+        if not summary_quality_current(s, summaries):
+            continue
+        summary = conv_summaries.get(s["id"]) or conv_summaries.get(s.get("path"))
         item = sidecar_input(
             f"_conversation_summaries.json:{s['id']}",
             summary,
@@ -495,6 +630,9 @@ def main():
                 "preprocessed_ref": item.get("preprocessed_ref") or "",
                 "preprocessed_content_hash": item.get("preprocessed_content_hash") or "",
                 "redaction_count": item.get("redaction_count", 0),
+                "instruction_context": bool(item.get("instruction_context")),
+                "instruction_context_count": item.get("instruction_context_count", 0),
+                "instruction_context_usage": item.get("instruction_context_usage") or "",
             })
 
     totals = sum_estimate(input_manifest)
@@ -503,7 +641,10 @@ def main():
         "generated_at": generated_at,
         "mode": "bootstrap" if bootstrap_mode else "daily",
         "estimator": ESTIMATOR,
-        "model_tiers": MODEL_TIERS,
+        "summary_quality_version": SUMMARY_QUALITY_VERSION,
+            "summary_evidence_refs_required": True,
+            "instruction_context_policy": "Instruction/header blocks are constraints, not user intent. Use preprocessed_ref when present.",
+            "model_tiers": MODEL_TIERS,
         "preprocessed_inputs_file": PREPROCESSED_INPUTS_FILE,
         "input_manifest": input_manifest,
         "output_files": OUTPUT_FILES,

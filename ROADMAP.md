@@ -78,11 +78,13 @@ itself still makes no network calls and never uploads your backups.
 - **Generated review eval runner** — `converters/eval_generated_reviews.py`
   validates optional sidecars after the coding-agent automation writes them and
   emits `_review_generated_eval_report.json`; failing evals must not be logged
-  as `ok`
+  as `ok`. Checks now include summary quality, evidence grounding, actionability,
+  tool-evidence policy, instruction-context policy, semantic sampling metadata, task-id stability, privacy,
+  source precedence and repo freshness reflection
 - **Generative eval fixtures** — `scripts/test-generated-review-evals.cjs`
   runs local generated-output fixtures covering schema-valid output, privacy /
-  secret leakage, repo freshness reflection, task-id stability and repo-doc
-  source precedence
+  secret leakage, repo freshness reflection, task-id stability, evidence
+  grounding, actionability and repo-doc source precedence
 - **Repo-versioned project-review skill** —
   `skills/trailkeep-project-review/SKILL.md` plus deterministic gate/finalizer
   scripts define the runtime workflow a user's coding agent can install or link

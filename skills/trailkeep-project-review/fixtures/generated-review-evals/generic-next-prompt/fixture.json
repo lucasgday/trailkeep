@@ -1,0 +1,17 @@
+{
+  "description": "suggested_next_prompt must not be generic boilerplate; it needs a concrete target, verification, and expected output.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "actionability"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "suggested_next_prompt": "Review the trailkeep generated sidecars for project 'demo-project', compare the open tasks with the repo planning docs, and implement or refine only the highest-priority next step with tests or manual verification."
+        }
+      }
+    }
+  }
+}

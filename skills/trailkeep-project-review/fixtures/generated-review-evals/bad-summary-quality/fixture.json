@@ -1,0 +1,20 @@
+{
+  "description": "Conversation summaries must use the current quality version and must not contain bootstrap boilerplate, evidence-cluster text, role-marker pollution, or serialized dict output.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "conversation_summary_quality"
+  ],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "summary_quality_version": "bootstrap-v0",
+          "signal_level": "implementation",
+          "include_in_project_rollup": true,
+          "summary": "{'project': 'demo-project', 'summary': 'Bootstrap summary for Demo review conversation: selected because new or changed conversation for this project. Evidence clusters around Claude You Claude settings. Noted areas include viewer.html. Secret-like content was read from the deterministic redacted preprocessed input.'}"
+        }
+      }
+    }
+  }
+}

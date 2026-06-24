@@ -1,0 +1,35 @@
+{
+  "description": "Project reviews and tasks without evidence refs fail grounding checks.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "evidence_grounding",
+    "update_log"
+  ],
+  "deletePaths": {
+    "_project_reviews.json": [
+      [
+        "projects",
+        "demo-project",
+        "summary_evidence_refs"
+      ],
+      [
+        "projects",
+        "demo-project",
+        "next_step_evidence_refs"
+      ],
+      [
+        "projects",
+        "demo-project",
+        "roadmap_status_evidence_refs"
+      ],
+      [
+        "projects",
+        "demo-project",
+        "tasks",
+        0,
+        "evidence_refs"
+      ]
+    ]
+  }
+}

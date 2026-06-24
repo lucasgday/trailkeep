@@ -82,18 +82,22 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   writes `_conversation_summaries.json`, `_project_reviews.json`,
   `_agent_profile.json`, and `_review_update_log.json`. Writes
   `_review_generated_eval_report.json` with schema, referential-integrity,
-  checkpoint, task-id, privacy, source-precedence, actionability, and update-log
-  checks. Nonzero exit means the automation must not mark the run `ok`.
+  checkpoint, task-id, privacy, source-precedence, evidence-grounding,
+  tool-evidence, instruction-context, actionability, semantic-quality, and update-log checks. Nonzero
+  exit means the automation must not mark the run `ok`.
 - `skills/trailkeep-project-review/` — repo-versioned optional coding-agent
   skill. `SKILL.md` defines the runtime workflow;
   `scripts/run-project-review-agent-gates.sh` is the mandatory wrapper the
-  optional automation should call for `pre`, `repo-sync`, and `finalize`;
+  optional automation should call for `pre`, `repo-sync`, `validate-summary`,
+  and `finalize`;
   `scripts/pre_model_gate.py` blocks model calls when planner evals fail,
   writes partial safe `_review_effective_plan.json` files when only some
   projects need approval, reads `_review_gate_decisions.json` to resolve
   approval/exclusion choices for the current plan, and writes
   `_review_effective_plan.json` as the selected context that model calls may
-  use; `scripts/check_repo_sync.py` runs the optional post-gate local git
+  use; `scripts/validate_conversation_summary.py` validates each generated
+  conversation summary before checkpointing; `scripts/check_repo_sync.py` runs
+  the optional post-gate local git
   freshness check and writes `_review_repo_sync.json`; `scripts/finalize_review_run.py`
   runs generated-output evals, appends `_review_update_log.json`, reruns evals
   so the log is validated, and exits nonzero unless the generated review run can
@@ -142,7 +146,7 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
-- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
 - Prompt drift: `node scripts/check-prompt-drift.cjs`

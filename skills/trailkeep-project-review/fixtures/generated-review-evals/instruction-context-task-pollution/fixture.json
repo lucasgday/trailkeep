@@ -1,0 +1,51 @@
+{
+  "description": "Project reviews must not turn instruction/header context into product tasks, next steps, or roadmap status.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "instruction_context_policy",
+    "update_log"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "next_step": "Implement the AGENTS.md instructions for /Users/dev/code/demo-project and enforce Evidence before claims.",
+          "next_step_evidence_refs": [
+            {
+              "type": "instruction_context",
+              "id_or_path": "session-1",
+              "field": "initial_context",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ],
+          "roadmap_status": "Global verification standard is the roadmap priority.",
+          "roadmap_status_evidence_refs": [
+            {
+              "type": "instruction_context",
+              "id_or_path": "session-1",
+              "field": "initial_context",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ],
+          "tasks": [
+            {
+              "id": "demo-project-follow-agents",
+              "status": "open",
+              "title": "Follow AGENTS.md instructions for /Users/dev/code/demo-project",
+              "source": "conversation",
+              "evidence_refs": [
+                {
+                  "type": "instruction_context",
+                  "id_or_path": "session-1",
+                  "field": "initial_context",
+                  "content_hash": "fixture-session-hash-1"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

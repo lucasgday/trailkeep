@@ -106,10 +106,11 @@ effective-plan generation.
 6. After the gate exits `0`, use `<backup_dir>/_review_effective_plan.json` if
    present. It contains the selected context after approval/exclusion decisions.
    Excluded inputs must not be sent to the model.
-   If a selected input has `possible_secret: true` and `preprocessed_ref`, read
-   that entry from `<backup_dir>/_review_preprocessed_inputs.json` and use the
-   redacted text as model context. Do not read or send the raw markdown for that
-   input unless the user explicitly asks for a raw deep-review rerun.
+   If a selected input has `preprocessed_ref`, read that entry from
+   `<backup_dir>/_review_preprocessed_inputs.json` and use the sanitized text as
+   model context. It may be redacted for secrets, sanitized for instruction
+   context, or both. Do not read or send the raw markdown for that input unless
+   the user explicitly asks for a raw deep-review rerun.
 7. Before model calls for local git repos, run the wrapper repo-sync check:
 
 ```sh
@@ -129,13 +130,20 @@ effective-plan generation.
    conversation reads are allowed only for explicit bootstrap/deep-review modes,
    scoped to the project being reviewed unless the user approves a global
    full-archive pass.
-10. For bootstrap and deep-review runs, checkpoint continuously. After each
-   conversation summary, atomically merge `_conversation_summaries.json` using a
-   temporary file in `backup_dir` and rename it into place. After each project
-   review, atomically merge `_project_reviews.json`. If usage/context/time or
-   provider limits stop the run, keep valid partial sidecars, record
-   `needs_attention` with pending counts in `_review_update_log.json`, and
-   resume next time from matching `content_hash` checkpoints. Never hold all
+10. For bootstrap and deep-review runs, checkpoint continuously. Before merging
+   each conversation summary, run:
+
+```sh
+<review_gate_cmd> --skill-dir <skill_dir> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>
+```
+
+   Only atomically merge `_conversation_summaries.json` after that deterministic
+   validation passes. Use a temporary file in `backup_dir` and rename it into
+   place. After each project review, atomically merge `_project_reviews.json`.
+   If usage/context/time or provider limits stop the run, keep valid partial
+   sidecars, record `needs_attention` with pending counts in
+   `_review_update_log.json`, and resume next time only from checkpoints with
+   matching `content_hash` and `summary_quality_version`. Never hold all
    generated output only in memory until the finalizer.
 11. Write generated sidecars only at the root of `backup_dir`:
    `_conversation_summaries.json`, `_project_reviews.json`,
@@ -165,8 +173,48 @@ that repo runner and records the result in `_review_update_log.json`.
 
 ## Sidecar Responsibilities
 
-- `_conversation_summaries.json`: update only new or changed conversations by
-  session id and preserve existing entries.
+- `_conversation_summaries.json`: update only new, changed, or stale-quality
+  conversations by session id and preserve existing valid entries. The current
+  `summary_quality_version` is `actionable-v2`; summaries without that version
+  or matching `evidence_refs` are stale even if their `content_hash` still
+  matches. Each summary must include `summary_quality_version`, `signal_level`,
+  and `include_in_project_rollup`.
+  Allowed signal levels are `administrative`, `low_signal`,
+  `context_dependent`, `decision`, `implementation`, and `blocker`.
+  Administrative/low-signal/context-dependent conversations should be
+  checkpointed with `include_in_project_rollup: false` and empty
+  `decisions`/`blockers`/`task_hints` unless there is explicit durable evidence.
+  Do not invent full summaries for short or low-signal conversations.
+  Each summary must include `evidence_refs` with at least one `conversation`
+  reference carrying the summarized input `content_hash`.
+  Conversation summaries must answer only what the selected context supports:
+  what the user wanted, what was decided, what changed, files/areas touched,
+  real blockers, and actionable next hints. Reject and regenerate summaries that
+  contain "Bootstrap summary for", "Evidence clusters around", repeated role
+  markers such as "Claude You Claude", redaction/preprocessing notes as the main
+  content, or serialized object/dict text instead of readable prose.
+- Treat initial coding-agent instruction/header blocks as constraints, not user
+  intent. Codex conversations may include AGENTS.md, global instructions,
+  developer context, environment data, permissions, or skill/plugin headers in
+  the first turn. If the plan marks an input with `instruction_context` or
+  `preprocessed_ref`, use the sanitized text and do not create summaries,
+  decisions, tasks, `next_step`, or `roadmap_status` from those headers alone.
+  They may support repo conventions, agent profile, constraints/instructions,
+  and verification/security rules. If the conversation is mostly instruction
+  context with little user intent, classify it as `context_dependent` or
+  `administrative`, set `include_in_project_rollup: false`, and leave durable
+  task/decision/blocker fields empty.
+- Deterministic validation is mandatory for every conversation summary before
+  checkpointing. Semantic/LLM quality review is sampled, not run for every
+  summary by default: sample at least one out of every 25 generated summaries,
+  and always review summaries with low confidence, `context_dependent` signal,
+  non-empty `decisions`/`blockers`/`task_hints`, very long source
+  conversations, preprocessed/redacted input, or direct use in a project review
+  rollup. Batch this semantic judge when possible. Record the result in
+  `_review_update_log.json.semantic_quality_review` with `status`,
+  `sample_every`, sampled counts, `model_used`, warnings, and failures. If the
+  semantic judge cannot run because model access is unavailable, record
+  `status: "skipped"` and mark the review run `needs_attention`.
 - `_project_reviews.json`: use repo planning/design docs as source of truth,
   conversation summaries as evidence, preserve stable task ids, preserve the
   user's roadmap/backlog priority order, and make suggested next steps advance
@@ -175,10 +223,26 @@ that repo runner and records the result in `_review_update_log.json`.
   question with evidence; do not silently promote it above existing roadmap
   priorities. If repo planning docs are stale, duplicated, or contradictory,
   record focused recommendations in `recommended_repo_doc_updates` with
-  `file`, `reason`, `action`, `confidence`, and
+  `file`, `reason`, `action`, `confidence`, `evidence_refs`, and
   `requires_user_approval: true`. Never modify `ROADMAP.md`, `BACKLOG.md`,
   `TODO.md`, `docs/design.md`, or equivalent repo docs automatically during
   recurring runs.
+- Ground every durable project-review claim with explicit short `evidence_refs`.
+  Project `summary`, `standing_context`, `next_step`, `roadmap_status`, tasks,
+  open questions, and recommended repo-doc updates must cite selected
+  conversations, conversation summaries, repo docs, metadata, repo-sync output,
+  or prior sidecars. Do not include long raw quotes or secrets in evidence refs.
+  Every task must include `source` and `evidence_refs`; `source: "inferred"`
+  tasks also need `confidence` and `reason` and must remain candidate work. If
+  evidence is insufficient, write `unknown` or an evidence-backed open question
+  instead of promoting the guess into a task, next step, or roadmap status.
+- Treat tool turns as execution evidence, not narrative. Use user/assistant
+  turns for intent and decisions; use tool turns only to prove files changed,
+  commands ran, tests/builds passed or failed, errors happened, git state
+  changed, or artifacts were produced. Do not paste long raw tool output into
+  summaries or reviews. Any claim that work was implemented, fixed, verified,
+  tested, built, committed, pushed, passed, or failed must cite a short
+  `evidence_refs` item with `type: "tool"` when tool evidence exists.
 - Cumulative review means using previous sidecars and checkpoints as compact
   memory, sending only selected deltas to the model by default, preserving stable
   ids/notes, and escalating to broader review only for bootstrap, explicit
@@ -192,7 +256,9 @@ that repo runner and records the result in `_review_update_log.json`.
   broader review or set a deep-review flag only when deterministic change
   signals, remote commits ahead of local, or low confidence show the prior
   project summary may be stale; preserve task ids unless evidence says to
-  update, close, split, or replace them.
+  update, close, split, or replace them. A reviewed-session checkpoint is current
+  only when both `content_hash` and `summary_quality_version` match the current
+  policy.
 - Keep runs token-efficient: use cheaper configured tiers for classification and
   summarization, and stronger tiers only for deep project review or
   design-system extraction.
@@ -207,9 +273,16 @@ that repo runner and records the result in `_review_update_log.json`.
 - Every updated `_project_reviews.json` project entry must include a non-empty
   `suggested_next_prompt`. It should be a concrete, executable prompt for the
   next coding-agent session for that project, not a placeholder.
+  It must name a concrete file, section, view, component, or flow; identify the
+  selected follow-up task; include the verification step to run or perform; and
+  state the expected output or sidecar/doc update. Avoid boilerplate such as
+  "review the generated sidecars", "compare open tasks with repo planning docs",
+  or "choose the highest-priority next step" unless those phrases are followed
+  by a concrete target and action.
 - `_review_update_log.json`: record the automation result, provider/routing
   metadata when known, concrete `model_used`, repo-sync summary, affected
-  projects, outputs, eval report path, warnings, and errors.
+  projects, outputs, eval report path, semantic quality sampling result,
+  warnings, and errors.
   Keep it as one global chronological log in `backup_dir`; do not create
   per-project review logs unless trailkeep later needs them for size or
   performance.

@@ -4,16 +4,63 @@
   "projects": {
     "demo-project": {
       "summary": "Demo project tracks the settings-panel workflow and its follow-up test.",
+      "evidence_refs": [
+        {
+          "type": "repo_doc",
+          "id_or_path": "ROADMAP.md",
+          "content_hash": "fixture-roadmap-hash-1"
+        },
+        {
+          "type": "conversation_summary",
+          "id_or_path": "session-1",
+          "content_hash": "fixture-session-hash-1"
+        }
+      ],
+      "summary_evidence_refs": [
+        {
+          "type": "conversation_summary",
+          "id_or_path": "session-1",
+          "content_hash": "fixture-session-hash-1"
+        }
+      ],
       "standing_context": "ROADMAP.md is treated as the source of truth; conversations provide recent implementation evidence.",
+      "standing_context_evidence_refs": [
+        {
+          "type": "repo_doc",
+          "id_or_path": "ROADMAP.md",
+          "content_hash": "fixture-roadmap-hash-1"
+        }
+      ],
       "next_step": "Add the settings panel regression test and update the roadmap note.",
+      "next_step_evidence_refs": [
+        {
+          "type": "conversation_summary",
+          "id_or_path": "session-1",
+          "content_hash": "fixture-session-hash-1"
+        }
+      ],
       "roadmap_status": "ROADMAP.md remains current and points to finishing settings-panel QA.",
+      "roadmap_status_evidence_refs": [
+        {
+          "type": "repo_doc",
+          "id_or_path": "ROADMAP.md",
+          "content_hash": "fixture-roadmap-hash-1"
+        }
+      ],
       "open_questions": [],
       "tasks": [
         {
           "id": "demo-project-settings-test",
           "status": "open",
           "title": "Add settings panel regression test",
-          "source": "project_review"
+          "source": "conversation",
+          "evidence_refs": [
+            {
+              "type": "conversation_summary",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
         }
       ],
       "suggested_next_prompt": "Open demo-project, inspect the settings panel flow, add one focused regression test, run the relevant test command, and update the trailkeep review sidecar with the result.",
@@ -32,6 +79,7 @@
         "reviewed_sessions": {
           "session-1": {
             "content_hash": "fixture-session-hash-1",
+            "summary_quality_version": "actionable-v2",
             "reviewed_at": "2026-06-23T12:05:00Z"
           }
         },
