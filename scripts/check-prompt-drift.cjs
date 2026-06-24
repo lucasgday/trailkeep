@@ -41,6 +41,20 @@ function templateLiteralAfterReturn(source, functionName) {
   throw new Error(`Unterminated template return in ${functionName}`);
 }
 
+function templateLiteralProperty(source, propertyName) {
+  const propIndex = source.indexOf(`${propertyName}:`);
+  if (propIndex < 0) throw new Error(`Missing property ${propertyName}`);
+  const startTick = source.indexOf("`", propIndex);
+  if (startTick < 0) throw new Error(`Missing template value for ${propertyName}`);
+  const start = startTick + 1;
+  for (let i = start; i < source.length; i += 1) {
+    if (source[i] === "`" && source[i - 1] !== "\\") {
+      return normalize(source.slice(start, i));
+    }
+  }
+  throw new Error(`Unterminated template value for ${propertyName}`);
+}
+
 function canonicalizeManualPrompt(template) {
   return normalize(template)
     .replaceAll("${name}", "<project_name>")
@@ -82,7 +96,8 @@ function assertSame(label, expected, actual) {
 function htmlPrompts(relPath) {
   const html = read(relPath);
   return {
-    setup: templateLiteralAfterReturn(html, "projectReviewSetupPrompt"),
+    setup: templateLiteralAfterReturn(html, "projectReviewSetupPromptEn"),
+    setupEs: templateLiteralProperty(html, "project_review_setup_prompt"),
     manual: canonicalizeManualPrompt(templateLiteralAfterReturn(html, "projectReviewPrompt")),
   };
 }
@@ -91,6 +106,7 @@ function main() {
   const docs = read("docs/prompts.md");
   const canonical = {
     setup: fencedPrompt(docs, "Initial Setup"),
+    setupEs: fencedPrompt(docs, "Initial Setup (Spanish)"),
     manual: fencedPrompt(docs, "Manual Project Review"),
   };
 
@@ -99,9 +115,12 @@ function main() {
 
   assertSame("viewer.html setup prompt", canonical.setup, viewer.setup);
   assertSame("docs/index.html setup prompt", canonical.setup, demo.setup);
+  assertSame("viewer.html setup prompt es", canonical.setupEs, viewer.setupEs);
+  assertSame("docs/index.html setup prompt es", canonical.setupEs, demo.setupEs);
   assertSame("viewer.html manual project prompt", canonical.manual, viewer.manual);
   assertSame("docs/index.html manual project prompt", canonical.manual, demo.manual);
   assertSame("viewer.html and docs/index.html setup prompts", viewer.setup, demo.setup);
+  assertSame("viewer.html and docs/index.html setup prompts es", viewer.setupEs, demo.setupEs);
   assertSame("viewer.html and docs/index.html manual prompts", viewer.manual, demo.manual);
 
   console.log("Prompt drift check passed.");

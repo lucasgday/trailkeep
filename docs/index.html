@@ -152,9 +152,11 @@
   .ph-prompt-scrim{position:absolute;inset:0;background:rgba(24,31,29,.22);cursor:pointer}
   .ph-prompt-panel{position:relative;z-index:1;width:min(560px,calc(100vw - 24px));height:100%;background:var(--paper);border-left:1px solid var(--line-strong);box-shadow:-16px 0 40px rgba(0,0,0,.18);padding:18px;display:flex;flex-direction:column;gap:12px;outline:none}
   .ph-prompt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .ph-prompt-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .ph-prompt-title{margin:0;font-size:16px;color:var(--ink);font-weight:800}
   .ph-prompt-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .ph-prompt-tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .ph-prompt-copy{margin-left:auto}
   .ph-prompt-tab{font:inherit;font-size:11.5px;cursor:pointer;padding:4px 9px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft)}
   .ph-prompt-tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .ph-prompt-hint{margin:0;color:var(--ink-soft);font-size:12px;line-height:1.45}
@@ -188,9 +190,9 @@
   .gen-panel{display:flex;flex-direction:column;gap:12px}
   .gen-section{display:flex;flex-direction:column;gap:6px}
   .gen-section h4{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
-  .gen-section p{margin:0;color:var(--ink);font-size:13px;line-height:1.5;max-width:760px}
+  .gen-section p{margin:0;color:var(--ink);font-size:13px;line-height:1.5;max-width:760px;overflow-wrap:anywhere}
   .gen-warning{border:1px solid #e8c9a9;background:#fff8ee;color:#9a5c20;border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.45}
-  .gen-list{margin:0;padding-left:18px;color:var(--ink);font-size:13px;line-height:1.5}
+  .gen-list{margin:0;padding-left:18px;color:var(--ink);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
   .gen-list li{margin:3px 0}
   .gen-actions{display:flex;gap:8px;flex-wrap:wrap}
   .conv-summary-card{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 16px;margin:16px 0 8px;display:flex;flex-direction:column;gap:10px}
@@ -371,7 +373,8 @@
 
   .projects{padding:6px 8px 28px}
   .sidebar.project-nav .filters{display:none}
-  .project-side-heading{padding:10px 10px 6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7FA39D;font-weight:700}
+  .project-side-heading{padding:10px 10px 6px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7FA39D;font-weight:700;line-height:1.35}
+  .project-side-heading span{display:block;letter-spacing:.08em;font-size:9px;color:#668983;margin-top:1px}
   .project-side-item{width:100%;display:flex;flex-direction:column;gap:5px;text-align:left;border:0;background:transparent;color:#C3D3CF;font:inherit;cursor:pointer;padding:9px 10px;border-left:2px solid transparent;border-radius:0 8px 8px 0;transition:.12s}
   .project-side-item:hover,.project-side-item.active{background:#0c2422;color:#fff}
   .project-side-item.active{border-left-color:var(--you)}
@@ -454,6 +457,8 @@
   .doc-actions{display:flex;gap:8px;margin-top:12px}
   .mini{font:inherit;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-soft)}
   .mini:hover{background:var(--tool-bg)}
+  .mini.has-icon{display:inline-flex;align-items:center;gap:6px}
+  .mini.has-icon svg{width:14px;height:14px;flex:0 0 auto}
   .mini.is-primary{background:var(--ink);border-color:var(--ink);color:#fff}
   .mini.is-primary:hover{background:var(--spine-2);color:#fff}
   .mini.is-disabled{cursor:not-allowed;opacity:.55;background:var(--paper);color:var(--ink-soft)}
@@ -580,6 +585,7 @@
     <div class="grow"></div>
     <div class="global-count" id="globalCount"></div>
     <button class="btn ghost" id="btnLang" title="Language">🌐 EN</button>
+    <button class="btn ghost" id="refreshBtn" hidden>Refresh</button>
     <button class="btn" id="openBtn">Open folder</button>
     <input id="folder" type="file" webkitdirectory directory multiple hidden>
   </header>
@@ -681,7 +687,7 @@ const state = {
   types: { user:true, assistant:true, tool:true },
   query: "", hideDone:true, hideArchived:true, collapseAll:false,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
-  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null,
+  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null,
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
 };
 
@@ -691,12 +697,12 @@ const I18N = {
     doc_title:"trailkeep · Session viewer",
     sub_default:"local viewer · 100% offline",
     last_backup:"last backup",
-    save_progress:"Export progress", export_short:"Export", load:"Import", open_folder:"Open folder",
+    save_progress:"Export progress", export_short:"Export", load:"Import", open_folder:"Open folder", refresh_folder:"Refresh", refreshing_folder:"Refreshing…",
     export_tip:"Save your review progress (which conversations & turns you've marked, per browser) to a file",
     foot_cap:"Review progress (your marks — not the conversations)",
     import_tip:"Load review progress from a file exported earlier",
     analytics:"📊 Analytics", runs:"⟳ Runs", projects_nav:"📁 Projects", search:"Search…", search_projects:"Search projects…",
-    projects_title:"Projects", pj_active:"active", pj_inactive:"inactive", pj_gone:"folder gone", pj_deployed:"deployed", pj_repo:"Repo", pj_nogit:"no git", pj_dirty:"uncommitted changes", pj_sessions:"conversations", pj_last:"last", pj_empty:"No project metadata yet — run a backup to generate it.", pj_clear:"Show all projects",
+    projects_title:"Projects", projects_recent_heading:"sorted by recent activity", pj_active:"active", pj_inactive:"inactive", pj_gone:"folder gone", pj_deployed:"deployed", pj_repo:"Repo", pj_nogit:"no git", pj_dirty:"uncommitted changes", pj_sessions:"conversations", pj_last:"last", pj_empty:"No project metadata yet — run a backup to generate it.", pj_clear:"Show all projects",
     pj_hide:"Hide", pj_hidden:"Hidden", pj_hidden_title:"Hidden / archived projects", pj_hidden_empty:"No hidden projects.", pj_restore:"Restore",
     pj_status:"Status", pj_source:"Source", pj_sort:"Sort", pj_f_all:"All", pj_none_match:"No projects match these filters.",
     pj_sort_recent:"Recent conversation", pj_sort_name:"Name (A–Z)", pj_sort_count:"Most conversations",
@@ -767,7 +773,7 @@ const I18N = {
     runs_backup:"Backups", runs_agent:"Agent reviews",
     runs_status_ok:"ok", runs_status_failed:"failed", runs_status_needs_attention:"needs attention", runs_status_needs_approval:"needs approval",
     runs_agent_empty:"No agent review runs yet. The optional automation writes _review_update_log.json.",
-    runs_status:"status", runs_projects:"projects", runs_summaries:"summaries", runs_tasks_added:"tasks added", runs_tasks_closed:"tasks closed", runs_approval:"approval", runs_provider:"provider", runs_outputs:"outputs", runs_warnings:"warnings", runs_errors:"errors",
+    runs_status:"status", runs_projects:"projects", runs_summaries:"summaries", runs_tasks_added:"tasks added", runs_tasks_closed:"tasks closed", runs_approval:"approval", runs_provider:"provider", runs_outputs:"outputs", runs_warning:"warning", runs_warnings:"warnings", runs_error:"error", runs_errors:"errors",
     review_unread_title:"Unread agent review changes",
     review_unread_one:"1 new agent review update is ready. View it in Runs.",
     review_unread_many:"{count} new agent review updates are ready. View them in Runs.",
@@ -806,12 +812,12 @@ const I18N = {
     doc_title:"trailkeep · Visor de sesiones",
     sub_default:"visor local · 100% offline",
     last_backup:"último respaldo",
-    save_progress:"Exportar progreso", export_short:"Exportar", load:"Importar", open_folder:"Abrir carpeta",
+    save_progress:"Exportar progreso", export_short:"Exportar", load:"Importar", open_folder:"Abrir carpeta", refresh_folder:"Actualizar", refreshing_folder:"Actualizando…",
     export_tip:"Guardá tu progreso de revisión (qué conversaciones y turnos marcaste, por navegador) a un archivo",
     foot_cap:"Progreso de revisión (tus marcas — no las conversaciones)",
     import_tip:"Cargá el progreso de revisión desde un archivo exportado antes",
     analytics:"📊 Analytics", runs:"⟳ Corridas", projects_nav:"📁 Proyectos", search:"Buscar…", search_projects:"Buscar proyectos…",
-    projects_title:"Proyectos", pj_active:"activo", pj_inactive:"inactivo", pj_gone:"carpeta ausente", pj_deployed:"deployado", pj_repo:"Repo", pj_nogit:"sin git", pj_dirty:"cambios sin commitear", pj_sessions:"conversaciones", pj_last:"último", pj_empty:"Sin metadata de proyectos todavía — corré un backup para generarla.", pj_clear:"Ver todos los proyectos",
+    projects_title:"Proyectos", projects_recent_heading:"ordenado por actividad reciente", pj_active:"activo", pj_inactive:"inactivo", pj_gone:"carpeta ausente", pj_deployed:"deployado", pj_repo:"Repo", pj_nogit:"sin git", pj_dirty:"cambios sin commitear", pj_sessions:"conversaciones", pj_last:"último", pj_empty:"Sin metadata de proyectos todavía — corré un backup para generarla.", pj_clear:"Ver todos los proyectos",
     pj_hide:"Ocultar", pj_hidden:"Ocultos", pj_hidden_title:"Proyectos ocultos / archivados", pj_hidden_empty:"No hay proyectos ocultos.", pj_restore:"Restaurar",
     pj_status:"Estado", pj_source:"Fuente", pj_sort:"Ordenar", pj_f_all:"Todos", pj_none_match:"Ningún proyecto coincide con estos filtros.",
     pj_sort_recent:"Conversación reciente", pj_sort_name:"Nombre (A–Z)", pj_sort_count:"Más conversaciones",
@@ -870,6 +876,65 @@ const I18N = {
     ph_read_prompt:"Ver prompts", ph_hide_prompt:"Ocultar prompts", ph_prompt_panel_title:"Prompts", ph_setup_prompt:"Setup global", ph_review_prompt:"Actualizar proyecto",
     ph_setup_prompt_hint:"Setup global, una sola vez para esta carpeta de backups. Instala/linkea la skill y la automatización del agente; no es específico de este proyecto.",
     ph_review_prompt_hint:"Prompt manual de este proyecto: copialo solo si querés refrescar este proyecto ahora, sin esperar al run diario. La automatización diaria usa este mismo template para proyectos con cambios.",
+    project_review_setup_prompt:`Configurá la capa generativa opcional de trailkeep en mi coding agent.
+
+Contexto:
+- trailkeep en sí se mantiene local y nunca hace llamadas de red. Los scripts de backup y el viewer nunca envían datos.
+- Esta capa opcional de review corre dentro de mi coding agent después del backup normal de trailkeep.
+- Si este agente usa un proveedor remoto de modelos, el contexto seleccionado de proyectos puede enviarse a ese proveedor como parte de la review.
+- Si este agente no puede probar que el modelo es local/on-device, tratalo como remoto.
+- Usá el modelo más fuerte disponible con razonamiento/esfuerzo extremely high para bootstrap, deep-review, extracción de design system y generación del perfil global del agente. Si este agente no puede elegir esfuerzo de razonamiento o submodos directamente, usá su modelo/perfil más fuerte disponible y registrá el modelo real usado.
+- Enviá solo el contexto seleccionado por _review_run_plan.json salvo que yo apruebe explícitamente un alcance más amplio de deep-review.
+- La aprobación de proveedor remoto ocurre una sola vez durante el setup. Los runs diarios no deberían volver a preguntar solo porque el proveedor es remoto; solo deben preguntar cuando el gate reporte requires_approval sin resolver, o cuando cambien materialmente provider/model, alcance, schedule o archivos de output. Los inputs possible_secret con preprocessed_ref ya están redactados localmente.
+- La automatización opcional puede correr git fetch en repos locales de proyectos para revisar si cambios remotos vuelven stale una review. Nunca debe correr git pull ni modificar un worktree sin mi aprobación explícita.
+- No envíes secretos, API keys, tokens, credenciales, archivos env privados ni datos no relacionados del repo.
+- No agregues llamadas a modelos dentro de update-backup.sh ni viewer.html.
+
+Fuente de verdad:
+- En el repo local de trailkeep, leé docs/generative-layer.md y seguí esa spec exactamente.
+- Leé skills/trailkeep-project-review/SKILL.md y usá el wrapper obligatorio en scripts/run-project-review-agent-gates.sh.
+- Si no podés encontrar docs/generative-layer.md, pedime el path del repo de trailkeep antes de continuar.
+
+Tus tareas:
+1. Resolvé backup_dir como la carpeta que contiene carpetas markdown-* y el _review_run_plan.json que vas a consumir.
+2. Instalá o linkeá la skill compartida trailkeep-project-review desde el repo si este agente soporta skills locales.
+3. Resolvé skill_dir como el path de la skill instalada, o usá como fallback <trailkeep_repo>/skills/trailkeep-project-review.
+4. Resolvé review_gate_cmd como <trailkeep_repo>/scripts/run-project-review-agent-gates.sh. Usá este wrapper para todos los gates pre-model, repo-sync y finalizer. Si skill_dir está fuera del repo, pasá --skill-dir <skill_dir> al wrapper.
+5. Antes de instalar o habilitar cualquier job recurrente que pueda llamar a un modelo remoto o no comprobado como local, o correr git fetch en repos locales de proyectos, mostrame schedule, alcance, provider/model tier, nombre concreto de modelo o alias cuando se conozca, comportamiento de chequeo remoto de repos, tokens estimados a procesar, archivos locales que va a escribir, y que el contexto seleccionado puede enviarse al proveedor. Esperá mi aprobación una vez.
+6. Creá una automatización recurrente de review propiedad de este coding agent. Preferí un trigger real post-backup si este agente lo soporta. Si solo hay scheduling por horario, inferí el horario diario de backup/update de trailkeep desde launchd/cron instalado o entradas recientes de backup_dir/log.json, y programá la review 10-15 minutos después de cuando normalmente corre ese update.
+7. Creá o usá un thread/subagent dedicado del coding agent para los runs recurrentes de review de trailkeep. Usá el thread principal/visible para setup approval y prompts de intervención.
+8. Antes de cualquier model call, leé backup_dir/_review_run_plan.json y backup_dir/_review_eval_report.json.
+9. Corré <review_gate_cmd> pre --backup-dir <backup_dir>. Debe validar que plan/eval estén actualizados y alineados, y confirmar que backup_dir/log.json tenga un último backup de menos de 24 horas. Continuá a model calls solo si sale 0. Exit 0 puede ser parcial; usá solo proyectos en _review_effective_plan.json.
+10. Si el comando pre del wrapper sale 0 con partial=true o pending_projects, continuá solo con el effective plan seguro y mostrale al usuario el batch pendiente de aprobación como intervención no bloqueante. No envíes proyectos ni inputs salteados al modelo. Si reporta auto_excluded_secret_inputs, tratalos como exclusiones de privacidad no fatales.
+11. Si el comando pre del wrapper sale 2, abrí o retomá este thread del coding agent y preguntame una vez con el batch completo de aprobación del output del gate. Usá solo nombres de proyecto e input ids sanitizados. No preguntes proyecto por proyecto, y no continúes model calls hasta que yo elija. No preguntes en un run diario solo porque el proveedor es remoto si la aprobación de setup ya fue dada.
+12. Después de que yo apruebe, excluya o frene, escribí esa decisión en backup_dir/_review_gate_decisions.json acotada al generated_at del plan actual y a los content_hashes de inputs, y después corré de nuevo <review_gate_cmd> pre --backup-dir <backup_dir>. No edites _review_run_plan.json. needs_approval es una pausa transitoria, no un bloqueo permanente.
+13. Cuando el comando pre del wrapper salga 0, usá backup_dir/_review_effective_plan.json para el contexto del modelo si existe. Los inputs excluidos y proyectos salteados no deben enviarse al modelo. Para cualquier input seleccionado con preprocessed_ref, leé el texto saneado desde backup_dir/_review_preprocessed_inputs.json y usalo en lugar del markdown raw; puede estar redactado por secretos, saneado por boilerplate de instrucciones/contexto, o ambas.
+14. Antes de revisar proyectos con repos git locales, corré <review_gate_cmd> repo-sync --backup-dir <backup_dir>. Puede correr git fetch para actualizar refs remote-tracking, pero nunca debe hacer pull ni modificar worktrees. Usá _review_repo_sync.json para marcar repo_may_be_stale, sync_uncertain o needs_deep_review.
+15. Corré de forma incremental y acumulativa por default: compará sesiones actuales, docs del repo, metadata, estado git/repo-sync/deploy con checkpoints de _project_reviews.json; reutilizá summaries/reviews previos como memoria compacta; procesá solo deltas seleccionados; salteá proyectos sin cambios.
+16. No releas conversaciones raw completas solo porque pasó tiempo. Los raw reads completos están permitidos solo para modos bootstrap/deep-review, acotados al proyecto salvo que yo apruebe un full-archive pass global. Escalá solo por cambios amplios/conflictivos, baja confianza, checkpoints stale con evidencia, commits remotos ahead o cambios grandes de metadata.
+17. Preservá task ids estables, notas de review y conclusiones previas salvo que nueva evidencia las cambie. Usá tiers de modelos más baratos para clasificación/summarization y tiers más fuertes solo para deep project review o extracción de design system.
+18. Respetá requires_approval, possible_secret, preprocessed_ref, instruction_context, needs_deep_review, needs_deep_design_review, repo_may_be_stale y sync_uncertain exactamente como describe docs/generative-layer.md. Fundamentá cada claim generado durable con evidence_refs desde conversaciones seleccionadas, conversation summaries, docs del repo, metadata, repo sync, tool turns o sidecars previos. Tratá los tool turns como evidencia de ejecución, no narrativa: citá evidencia type:"tool" para claims de implementado/arreglado/verificado/test/build/pass/fail, y nunca pegues output largo raw de tools en sidecars generados. Tratá los bloques AGENTS/global/system/developer como constraints, no intención del usuario: no crees summaries, decisiones, tasks, next_step, roadmap_status, open_questions ni recommended repo-doc updates desde instruction_context solo; usalo solo para convenciones de repo, agent profile, constraints o reglas de verificación/seguridad. No crees tasks, decisiones, próximos pasos, roadmap status, open questions ni recommended repo-doc updates sin evidencia; usá unknown o una open_question con evidencia cuando la evidencia no alcance.
+19. Para runs bootstrap o deep-review, escribí checkpoints continuamente. No mantengas todo el output generado solo en memoria hasta el final. Antes de escribir cada conversation summary, seteá summary_quality_version: "actionable-v2" y corré <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. Después de cada conversation summary válida, mergeá atómicamente backup_dir/_conversation_summaries.json usando archivo temporal y rename cuando sea posible. Corré sampling semántico/LLM al menos una vez cada 25 summaries generadas, y siempre para summaries de baja confianza, context-dependent, con tasks/decisions/blockers, muy largas, preprocesadas/saneadas o usadas en el project rollup. Registrá ese sample en _review_update_log.json.semantic_quality_review; si se saltea porque no hay acceso a modelo, marcá el run needs_attention. Después de cada project review, mergeá atómicamente backup_dir/_project_reviews.json. Si límites de uso/tiempo/contexto/provider frenan el run, actualizá backup_dir/_review_update_log.json con status needs_attention, conteos pendientes y metadata suficiente para reanudar. El próximo run debe reanudar desde checkpoints con content_hash y summary_quality_version coincidentes y saltear conversaciones ya resumidas.
+20. Escribí sidecars generados solo en la raíz de backup_dir:
+   - _conversation_summaries.json
+   - _project_reviews.json
+   - _agent_profile.json
+   - _review_repo_sync.json
+   - _review_update_log.json
+21. Después de escribir sidecars, corré: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown>
+22. Si el finalizer falla, no marques el run de review como ok. Si registra needs_attention, tratá el run como completado con warnings y mostrale esos warnings al usuario. Usá _review_generated_eval_report.json y _review_update_log.json como evidencia.
+23. No escribas sidecars generados dentro de repos de proyectos, carpetas raw de herramientas fuente, carpetas markdown-* ni el repo de trailkeep.
+24. Nunca transmitas la carpeta completa de backups como archivo comprimido ni como dump sin scope. Usá primero el input manifest de _review_run_plan.json.
+25. No commitees backups privados ni sidecars generados.
+
+Después del setup, reportá:
+- ruta de instalación de la skill o fallback;
+- schedule/trigger de la automatización, incluyendo horario de backup derivado y offset de review si es por horario;
+- backup_dir;
+- disponibilidad de model tier routing y modelo concreto usado o alias;
+- comportamiento de repo sync y repos stale/uncertain;
+- sidecars que se van a escribir;
+- aprobaciones o decisiones sin resolver.`,
     demo_title:"Estás viendo una demo en vivo", demo_b1:"Esta página está cargada con datos de ejemplo para que veas cómo funciona trailkeep. Nada de esto es real.", demo_b2:"trailkeep es local y offline — tus conversaciones reales nunca salen de tu máquina, y esta demo no sube nada. Instalalo para guardar y explorar tu propio historial de coding con IA — privado y tuyo.", demo_accept:"Ver la demo →", demo_cta:"Obtenelo en GitHub",
     demo_review_cta:"Copiar prompt de reviews",
     demo_bn:"datos de ejemplo — no se sube nada.", demo_bn_agent:"Configurar con tu agente", demo_bn_cta:"Instalá trailkeep para respaldar lo tuyo →",
@@ -882,7 +947,7 @@ const I18N = {
     runs_backup:"Respaldos", runs_agent:"Reviews del agente",
     runs_status_ok:"ok", runs_status_failed:"falló", runs_status_needs_attention:"requiere atención", runs_status_needs_approval:"requiere aprobación",
     runs_agent_empty:"Todavía no hay corridas de review del agente. La automatización opcional escribe _review_update_log.json.",
-    runs_status:"estado", runs_projects:"proyectos", runs_summaries:"summaries", runs_tasks_added:"tasks nuevas", runs_tasks_closed:"tasks cerradas", runs_approval:"aprobación", runs_provider:"provider", runs_outputs:"outputs", runs_warnings:"avisos", runs_errors:"errores",
+    runs_status:"estado", runs_projects:"proyectos", runs_summaries:"summaries", runs_tasks_added:"tasks nuevas", runs_tasks_closed:"tasks cerradas", runs_approval:"aprobación", runs_provider:"provider", runs_outputs:"outputs", runs_warning:"aviso", runs_warnings:"avisos", runs_error:"error", runs_errors:"errores",
     review_unread_title:"Cambios de review sin revisar",
     review_unread_one:"Hay 1 actualización nueva de review del agente. Revisala en Corridas.",
     review_unread_many:"Hay {count} actualizaciones nuevas de review del agente. Revisalas en Corridas.",
@@ -947,6 +1012,7 @@ function applyStaticI18n(){
   set("lbl-hide-done",t("hide_done")); set("lbl-hide-archived",t("hide_archived")); set("lbl-collapse-turns",t("collapse_turns"));
   set("lbl-group-by",t("group_by")); set("gtSource",t("by_tool")); set("gtProject",t("by_project"));
   set("openBtn",t("open_folder"));
+  set("refreshBtn",t("refresh_folder"));
   set("exportBtn","⤓ "+t("export_short")); set("importBtn","⤒ "+t("load"));
   set("footCap",t("foot_cap"));
   const setTitle=(id,v)=>{ const el=document.getElementById(id); if(el) el.title=v; };
@@ -1020,9 +1086,94 @@ function formatDate(iso, withTime){
 function emptyDataCard(message){
   return `<div class="an-card empty-card"><p>${escapeHtml(message||t("no_data"))}</p><button class="btn sm" data-open-folder>${escapeHtml(t("open_folder"))}</button></div>`;
 }
-function openFolderPicker(){
+function fileRelPath(file){
+  return file.webkitRelativePath || file.relativePath || file._relativePath || file.name;
+}
+function supportsDirectoryPicker(){
+  return typeof window.showDirectoryPicker === "function";
+}
+function updateRefreshButton(){
+  const btn=document.getElementById("refreshBtn");
+  if(btn) btn.hidden=!(state.directoryHandle && state.sessions.length);
+}
+function setFolderLoading(loading){
+  const open=document.getElementById("openBtn");
+  const refresh=document.getElementById("refreshBtn");
+  if(open) open.disabled=!!loading;
+  if(refresh){
+    refresh.disabled=!!loading;
+    refresh.textContent=loading ? t("refreshing_folder") : t("refresh_folder");
+  }
+}
+function withRelativePath(file, relativePath){
+  try{
+    Object.defineProperty(file,"_relativePath",{value:relativePath, configurable:true});
+    return file;
+  }catch(e){
+    return {
+      name:file.name,
+      _relativePath:relativePath,
+      type:file.type,
+      size:file.size,
+      lastModified:file.lastModified,
+      text:()=>file.text()
+    };
+  }
+}
+async function filesFromDirectoryHandle(handle, prefix=""){
+  const files=[];
+  for await(const [name, child] of handle.entries()){
+    const rel=prefix ? `${prefix}/${name}` : name;
+    if(child.kind==="file"){
+      files.push(withRelativePath(await child.getFile(), rel));
+    }else if(child.kind==="directory"){
+      files.push(...await filesFromDirectoryHandle(child, rel));
+    }
+  }
+  return files;
+}
+async function ensureDirectoryReadPermission(handle){
+  const opts={mode:"read"};
+  if(handle.queryPermission){
+    const current=await handle.queryPermission(opts);
+    if(current==="granted") return true;
+  }
+  if(handle.requestPermission) return (await handle.requestPermission(opts))==="granted";
+  return true;
+}
+async function loadDirectoryHandle(handle){
+  setFolderLoading(true);
+  try{
+    const files=await filesFromDirectoryHandle(handle);
+    await handleFiles(files);
+  }finally{
+    setFolderLoading(false);
+  }
+}
+async function openFolderPicker(){
+  if(supportsDirectoryPicker()){
+    try{
+      const handle=await window.showDirectoryPicker({mode:"read"});
+      state.directoryHandle=handle;
+      await loadDirectoryHandle(handle);
+      return;
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+  }
   const input=document.getElementById("folder");
-  if(input) input.click();
+  if(input){ input.value=""; input.click(); }
+}
+async function refreshFolder(){
+  if(state.directoryHandle){
+    try{
+      if(await ensureDirectoryReadPermission(state.directoryHandle)){
+        await loadDirectoryHandle(state.directoryHandle);
+        return;
+      }
+    }catch(e){}
+  }
+  await openFolderPicker();
 }
 
 function setStickyOffsets(){
@@ -1099,8 +1250,8 @@ function reviewLogEventHtml(e, options){
     reviewLogChip(t("runs_approval"), e.requires_approval??e.approvals_required, !!(e.requires_approval||e.approvals_required)),
     modelLabel ? `<span class="review-log-chip">${escapeHtml(t("runs_provider"))}: <b>${escapeHtml(modelLabel)}</b></span>` : "",
     Array.isArray(outputs)&&outputs.length ? reviewLogChip(t("runs_outputs"), outputs.length, false) : "",
-    warningCount ? reviewLogChip(t("runs_warnings"), warningCount, true) : "",
-    errorCount ? reviewLogChip(t("runs_errors"), errorCount, true) : "",
+    warningCount ? reviewLogChip(t(warningCount===1?"runs_warning":"runs_warnings"), warningCount, true) : "",
+    errorCount ? reviewLogChip(t(errorCount===1?"runs_error":"runs_errors"), errorCount, true) : "",
   ].filter(Boolean).join("");
   const typeChip=options.showType===false ? "" : `<span class="review-log-status review">${escapeHtml(t("runs_agent"))}</span>`;
   return `<div class="review-log-row review">
@@ -1316,22 +1467,23 @@ function previewText(t){
 
 /* ---------- loading ---------- */
 async function handleFiles(fileList){
-  const files=Array.from(fileList).filter(f=>/\.md$/i.test(f.name));
+  const allFiles=Array.from(fileList);
+  const files=allFiles.filter(f=>/\.md$/i.test(f.name));
   // collect backup stamps (_backup-info.json)
   state.backupInfo={};
-  for(const f of Array.from(fileList).filter(f=>/_backup-info\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_backup-info\.json$/i.test(f.name))){
     try{ const j=JSON.parse(await f.text()); Object.assign(state.backupInfo, j); }catch(e){}
   }
   // collect run history (.sync-state/log.json)
   state.runLog=[];
-  for(const f of Array.from(fileList).filter(f=>/(^|\/)log\.json$/i.test(f.webkitRelativePath||f.name))){
+  for(const f of allFiles.filter(f=>/(^|\/)log\.json$/i.test(fileRelPath(f)))){
     try{ const j=JSON.parse(await f.text()); if(Array.isArray(j)) state.runLog=j; }catch(e){}
   }
   // collect the Evidence Ledger sidecar(s): one _ledger.json per source dir;
   // merge their per-source blocks, then aggregate to a single display object.
   state.ledger=null;
   const ledgerSources={};
-  for(const f of Array.from(fileList).filter(f=>/_ledger\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_ledger\.json$/i.test(f.name))){
     try{
       const doc=JSON.parse(await f.text());
       const src=(doc&&doc.sources)?doc.sources:{};
@@ -1341,7 +1493,7 @@ async function handleFiles(fileList){
   if(Object.keys(ledgerSources).length) state.ledger=aggregateLedger({sources:ledgerSources});
   // collect the project-metadata sidecar (git/stack/status per project)
   state.projectMeta={}; state.projectMetaGenerated=null;
-  for(const f of Array.from(fileList).filter(f=>/_projects\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_projects\.json$/i.test(f.name))){
     try{
       const doc=JSON.parse(await f.text());
       if(doc&&doc.projects) Object.assign(state.projectMeta, doc.projects);
@@ -1353,7 +1505,7 @@ async function handleFiles(fileList){
   state.projectReviews=null;
   const reviews={version:1,projects:{}};
   let reviewFiles=0;
-  for(const f of Array.from(fileList).filter(f=>/_project_reviews\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_project_reviews\.json$/i.test(f.name))){
     try{
       reviewFiles++;
       const doc=JSON.parse(await f.text());
@@ -1368,7 +1520,7 @@ async function handleFiles(fileList){
   state.conversationSummaries=null;
   const summaries={version:1,conversations:{}};
   let summaryFiles=0;
-  for(const f of Array.from(fileList).filter(f=>/_conversation_summaries\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_conversation_summaries\.json$/i.test(f.name))){
     try{
       summaryFiles++;
       const doc=JSON.parse(await f.text());
@@ -1379,7 +1531,7 @@ async function handleFiles(fileList){
   }
   if(summaryFiles) state.conversationSummaries=summaries;
   state.agentProfile=null;
-  for(const f of Array.from(fileList).filter(f=>/_agent_profile\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_agent_profile\.json$/i.test(f.name))){
     try{
       const doc=JSON.parse(await f.text());
       if(doc && (!state.agentProfile || String(doc.updated_at||doc.generated_at||"")>String(state.agentProfile.updated_at||state.agentProfile.generated_at||""))) state.agentProfile=doc;
@@ -1387,25 +1539,30 @@ async function handleFiles(fileList){
   }
   // Deterministic preflight sidecar written by the local backup run.
   state.reviewPlan=null;
-  for(const f of Array.from(fileList).filter(f=>/_review_run_plan\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_review_run_plan\.json$/i.test(f.name))){
     try{
       const doc=JSON.parse(await f.text());
       if(doc && (!state.reviewPlan || String(doc.generated_at||"")>String(state.reviewPlan.generated_at||""))) state.reviewPlan=doc;
     }catch(e){}
   }
   state.reviewUpdateLog=[];
-  for(const f of Array.from(fileList).filter(f=>/_review_update_log\.json$/i.test(f.name))){
+  for(const f of allFiles.filter(f=>/_review_update_log\.json$/i.test(f.name))){
     try{
       const doc=JSON.parse(await f.text());
       state.reviewUpdateLog.push(...reviewUpdateRowsFrom(doc));
     }catch(e){}
   }
   state.reviewUpdateLog.sort((a,b)=>String(reviewLogDate(b)||"").localeCompare(String(reviewLogDate(a)||"")));
-  if(!files.length){ document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`; return; }
+  if(!files.length){
+    state.sessions=[]; state.projects=new Map(); state.sources=new Map();
+    updateRefreshButton();
+    document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`;
+    return;
+  }
   document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("reading")} ${files.length} ${t("sessions_word")}…</div>`;
   state.sessions=[]; state.projects=new Map(); state.sources=new Map();
   for(const f of files){
-    const rel=f.webkitRelativePath||f.name;
+    const rel=fileRelPath(f);
     const text=await f.text();
     const meta=parseMeta(text);
     const tm=text.match(/^#\s+(.+)$/m);
@@ -1453,6 +1610,7 @@ async function handleFiles(fileList){
   renderRunLog();
   renderReviewUnreadSlots();
   setStickyOffsets();
+  updateRefreshButton();
   showProjects();
 }
 
@@ -1681,15 +1839,62 @@ function projectReviewEntry(name){
 function conversationSummaryEntry(s){
   const root=state.conversationSummaries && state.conversationSummaries.conversations;
   if(!root||!s) return null;
-  return root[s.sessionId] || root[s.id] || root[String(s.sessionId||"").trim()] || null;
+  const directKeys=[
+    s.sessionId,
+    s.id,
+    String(s.sessionId||"").trim(),
+    String(s.id||"").trim(),
+    String(s.id||"").split("/").pop(),
+  ].filter(Boolean);
+  for(const key of directKeys) if(root[key]) return root[key];
+  let best=null;
+  let bestScore=0;
+  for(const [key, entry] of Object.entries(root)){
+    if(!entry||typeof entry!=="object") continue;
+    let score=0;
+    const ids=[key, entry.id, entry.session_id, entry.sessionId, entry.id_or_path, entry.path, entry.relative_path].filter(Boolean).map(v=>String(v));
+    if(ids.some(v=>v===s.sessionId||v===s.id||v.split("/").pop()===s.sessionId)) score+=8;
+    if(s.project && entry.project && String(entry.project)===String(s.project)) score+=3;
+    if(s.fuente && entry.source && normalizeSource(entry.source)===normalizeSource(s.fuente)) score+=3;
+    if(s.title && entry.title && String(entry.title).trim()===String(s.title).trim()) score+=3;
+    if(s.fecha && entry.date && sameConversationDate(s.fecha, entry.date)) score+=3;
+    if(score>bestScore){ best=entry; bestScore=score; }
+  }
+  return bestScore>=9 ? best : null;
+}
+function normalizeSource(value){
+  return String(value||"").toLowerCase().replace(/[\s_]+/g,"-");
+}
+function sameConversationDate(a,b){
+  if(!a||!b) return false;
+  if(String(a)===String(b)) return true;
+  const da=new Date(a), db=new Date(b);
+  if(!isNaN(da)&&!isNaN(db)) return Math.abs(da-db)<60000;
+  return String(a).slice(0,10)===String(b).slice(0,10);
 }
 function asArray(value){
   if(value==null || value==="") return [];
   return Array.isArray(value) ? value : [value];
 }
+function extractSerializedGeneratedField(text, field){
+  if(!text || text[0]!=="{" || !text.includes(field)) return "";
+  const fieldRe=String(field).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nextKey="\\s*,\\s*['\\\"][A-Za-z_][A-Za-z0-9_]*['\\\"]\\s*:";
+  const doubleRe=new RegExp("['\\\"]"+fieldRe+"['\\\"]\\s*:\\s*\"([\\s\\S]*?)\"(?:"+nextKey+"|\\s*})");
+  const singleRe=new RegExp("['\\\"]"+fieldRe+"['\\\"]\\s*:\\s*'([\\s\\S]*?)'(?:"+nextKey+"|\\s*})");
+  const match=doubleRe.exec(text) || singleRe.exec(text);
+  return match ? match[1].trim() : "";
+}
+function cleanGeneratedText(text){
+  const s=String(text||"").trim();
+  if(!s) return "";
+  return extractSerializedGeneratedField(s, "summary")
+    || extractSerializedGeneratedField(s, "next_step")
+    || s;
+}
 function genText(value){
   if(value==null) return "";
-  if(typeof value==="string") return value.trim();
+  if(typeof value==="string") return cleanGeneratedText(value);
   if(typeof value==="number"||typeof value==="boolean") return String(value);
   if(typeof value==="object"){
     const primary=value.title||value.task||value.text||value.summary||value.question||value.name||value.next_step||"";
@@ -1956,7 +2161,7 @@ function projectReviewUpdateCard(name){
   </div>`;
 }
 // Offline copy of docs/prompts.md. Keep viewer.html and docs/index.html in sync.
-function projectReviewSetupPrompt(){
+function projectReviewSetupPromptEn(){
   return `Set up the optional trailkeep generative layer in my coding agent.
 
 Context:
@@ -1964,6 +2169,7 @@ Context:
 - This optional review layer is agent-powered and runs inside my coding agent after the normal trailkeep backup.
 - If this agent uses a remote model provider, selected project context may be sent to that provider as part of the review.
 - If this agent cannot prove the model is local/on-device, treat it as remote.
+- Use the strongest available model with extremely high reasoning/effort for bootstrap, deep-review, design-system extraction, and global agent profile generation. If this agent cannot select reasoning effort or submodes directly, use its strongest available model/profile and record the actual model used.
 - Only send context selected by _review_run_plan.json unless I explicitly approve a wider deep-review scope.
 - Remote-provider approval happens once during setup. Daily runs should not ask again merely because the provider is remote; they should ask only when the gate reports unresolved requires_approval, or when provider/model, scope, schedule, or output files materially change. possible_secret inputs with preprocessed_ref are already redacted locally.
 - The optional automation may run git fetch in local project repos to check whether remote changes make a review stale. It must never run git pull or modify a worktree without my explicit approval.
@@ -1988,13 +2194,13 @@ Your tasks:
 10. If the wrapper pre command exits 0 with partial=true or pending_projects, continue only with the safe effective plan and surface the pending approval batch as a non-blocking intervention. Do not send skipped projects or inputs to the model. If it reports auto_excluded_secret_inputs, treat those as non-fatal privacy exclusions.
 11. If the wrapper pre command exits 2, open or resume this coding-agent thread and ask me once with the full approval batch from the gate output. Use only sanitized project names and input ids. Do not ask project-by-project, and do not continue model calls until I choose. Do not ask on a daily run only because the provider is remote if the setup approval was already granted.
 12. After I approve, exclude, or stop, write that choice to backup_dir/_review_gate_decisions.json scoped to the current plan generated_at and input content_hashes, then rerun <review_gate_cmd> pre --backup-dir <backup_dir>. Do not edit _review_run_plan.json. needs_approval is a transient pause, not a permanent blocker.
-13. When the wrapper pre command exits 0, use backup_dir/_review_effective_plan.json for model context if it exists. Excluded inputs and skipped projects must not be sent to the model. For any selected input with possible_secret=true and preprocessed_ref, read the redacted text from backup_dir/_review_preprocessed_inputs.json and use that instead of the raw markdown.
+13. When the wrapper pre command exits 0, use backup_dir/_review_effective_plan.json for model context if it exists. Excluded inputs and skipped projects must not be sent to the model. For any selected input with preprocessed_ref, read the sanitized text from backup_dir/_review_preprocessed_inputs.json and use that instead of the raw markdown; it may be redacted for secrets, sanitized for instruction/context boilerplate, or both.
 14. Before reviewing projects with local git repos, run <review_gate_cmd> repo-sync --backup-dir <backup_dir>. It may run git fetch to update remote-tracking refs, but must never pull or modify worktrees. Use _review_repo_sync.json to mark repo_may_be_stale, sync_uncertain, or needs_deep_review.
 15. Run incrementally and cumulatively by default: compare current sessions, repo docs, metadata, git/repo-sync/deploy state with _project_reviews.json checkpoints; reuse previous summaries/reviews as compact memory; process only selected deltas; skip unchanged projects.
 16. Do not reread full raw conversations just because time passed. Full raw reads are allowed only for bootstrap/deep-review modes, scoped to the project unless I approve a global full-archive pass. Escalate only for broad/conflicting changes, low confidence, evidence-backed stale checkpoints, remote commits ahead, or major metadata changes.
 17. Preserve stable task ids, review notes, and previous conclusions unless new evidence changes them. Use cheaper model tiers for classification/summarization and stronger tiers only for deep project review or design-system extraction.
-18. Respect requires_approval, possible_secret, preprocessed_ref, needs_deep_review, needs_deep_design_review, repo_may_be_stale, and sync_uncertain exactly as described in docs/generative-layer.md.
-19. For bootstrap or deep-review runs, checkpoint continuously. Do not keep generated output only in memory until the end. After each conversation summary, atomically merge backup_dir/_conversation_summaries.json using a temporary file and rename when possible. After each project review, atomically merge backup_dir/_project_reviews.json. If usage/time/context/provider limits stop the run, update backup_dir/_review_update_log.json with status needs_attention, pending counts, and enough checkpoint metadata to resume. Next run must resume from matching content_hash checkpoints and skip already summarized conversations.
+18. Respect requires_approval, possible_secret, preprocessed_ref, instruction_context, needs_deep_review, needs_deep_design_review, repo_may_be_stale, and sync_uncertain exactly as described in docs/generative-layer.md. Ground every durable generated claim with evidence_refs from selected conversations, conversation summaries, repo docs, metadata, repo sync, tool turns, or prior sidecars. Treat tool turns as execution evidence, not narrative: cite type:"tool" evidence for implemented/fixed/verified/test/build/pass/fail claims, and never paste long raw tool output into generated sidecars. Treat AGENTS/global/system/developer instruction blocks as constraints, not user intent: do not create summaries, decisions, tasks, next_step, roadmap_status, open_questions, or recommended repo-doc updates from instruction_context alone; use it only for repo conventions, agent profile, constraints, or verification/security rules. Do not create tasks, decisions, next steps, roadmap status, open questions, or recommended repo-doc updates without evidence; use unknown or an evidence-backed open_question when evidence is insufficient.
+19. For bootstrap or deep-review runs, checkpoint continuously. Do not keep generated output only in memory until the end. Before writing each conversation summary, set summary_quality_version: "actionable-v2" and run <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. After each valid conversation summary, atomically merge backup_dir/_conversation_summaries.json using a temporary file and rename when possible. Run semantic/LLM quality sampling at least once every 25 generated summaries, and always for low-confidence, context-dependent, task/decision/blocker-producing, very long, preprocessed/redacted, or project-rollup summaries. Record the semantic sample in _review_update_log.json.semantic_quality_review; if it is skipped because model access is unavailable, mark the run needs_attention. After each project review, atomically merge backup_dir/_project_reviews.json. If usage/time/context/provider limits stop the run, update backup_dir/_review_update_log.json with status needs_attention, pending counts, and enough checkpoint metadata to resume. Next run must resume from matching content_hash and summary_quality_version checkpoints and skip already summarized conversations.
 20. Write generated sidecars only at the root of backup_dir:
    - _conversation_summaries.json
    - _project_reviews.json
@@ -2015,6 +2221,9 @@ After setup, report:
 - repo sync behavior and any stale/uncertain repos;
 - sidecars that will be written;
 - unresolved approvals or decisions.`;
+}
+function projectReviewSetupPrompt(){
+  return state.lang==="es" ? t("project_review_setup_prompt") : projectReviewSetupPromptEn();
 }
 function projectReviewPrompt(name, sessions, meta, ledger){
   const recent=sessions.slice(0,8).map(s=>`- ${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.title} · id:${s.id}`).join("\n");
@@ -2064,19 +2273,27 @@ Instructions:
 - For next step, roadmap, and tasks, roadmap/backlog/product-progress win. For design-system extraction, design docs and real component files win. Conversations only explain recent decisions or undocumented changes.
 - Preserve the user's existing priority/order from roadmap/backlog files. Suggested next steps should advance the existing roadmap when present.
 - If conversations reveal new legitimate work not present in the roadmap, add it as a pending/candidate task or open question with evidence. Do not silently promote it above the existing roadmap priorities.
-- If roadmap/backlog/todo/design docs are stale, duplicated, or contradictory, add focused recommendations to recommended_repo_doc_updates with file, reason, action, confidence, and requires_user_approval=true. Never modify repo planning docs automatically during recurring runs.
+- If roadmap/backlog/todo/design docs are stale, duplicated, or contradictory, add focused recommendations to recommended_repo_doc_updates with file, reason, action, confidence, evidence_refs, and requires_user_approval=true. Never modify repo planning docs automatically during recurring runs.
+- Ground every durable claim in this project entry with evidence_refs. summary, standing_context, next_step, roadmap_status, tasks, open_questions, and recommended_repo_doc_updates must cite selected conversations, conversation summaries, repo docs, metadata, repo sync, tool turns, or prior sidecars. Treat tool turns as execution evidence, not narrative: cite type:"tool" evidence for implemented/fixed/verified/test/build/pass/fail claims, and never paste long raw tool output into generated sidecars. Treat AGENTS/global/system/developer instruction blocks as constraints, not user intent: do not create product tasks, next_step, roadmap_status, open_questions, or recommended_repo_doc_updates from instruction_context alone; use it only for repo conventions, agent profile, constraints, or verification/security rules. Do not create tasks or conclusions without evidence; use unknown or an evidence-backed open_question when evidence is insufficient.
 - Run design-system review daily, but incrementally: skip projects without UI/design changes; use design docs and component files as source of truth; use new conversations only as evidence for changes or undocumented decisions; update design_system only with new evidence; set needs_deep_design_review=true for broad or conflicting changes instead of rereading the full project automatically.
 - Use these conversations as supporting evidence for recent decisions, completed work, and blockers.
 - Do not re-read everything if unnecessary: compare against _project_reviews.json and process only deltas.
 - Update or create this project's entry in _project_reviews.json.
 - Preserve stable task ids unless there is clear evidence.
-- If there are contradictions, add them to open_questions.
+- If there are contradictions, add them to open_questions with evidence_refs.
 - If context is insufficient, set needs_deep_review or needs_deep_design_review instead of inventing.
 
 Return/write only the updated JSON entry for this project, compatible with the backup_dir/_project_reviews.json sidecar.`;
 }
 function projectPromptPreviewText(kind, name, sessions, meta, ledger){
   return kind==="review" ? projectReviewPrompt(name, sessions, meta, ledger) : projectReviewSetupPrompt();
+}
+function copyIcon(){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`;
+}
+function copyPromptButtonHtml(kind){
+  const label=kind==="review" ? t("ph_copy_project_review") : t("ph_copy_review_setup");
+  return `${copyIcon()}<span>${escapeHtml(label)}</span>`;
 }
 function projectPromptPreviewHint(kind){
   return kind==="review" ? t("ph_review_prompt_hint") : t("ph_setup_prompt_hint");
@@ -2095,7 +2312,7 @@ function setProjectPromptPreview(host, kind, name, sessions, meta, ledger){
     btn.setAttribute("aria-selected", String(on));
   });
   const copyActive=host.querySelector("[data-copy-active-prompt]");
-  if(copyActive) copyActive.textContent=kind==="review" ? t("ph_copy_project_review") : t("ph_copy_review_setup");
+  if(copyActive) copyActive.innerHTML=copyPromptButtonHtml(kind);
 }
 function projectReviewSection(name){
   const hasSidecar=!!state.projectReviews;
@@ -2103,6 +2320,7 @@ function projectReviewSection(name){
   const hasEntry=!!entry;
   const title=hasEntry ? t("ph_review_title") : t("ph_review_empty_t");
   const body=hasEntry ? t("ph_review_ready_p") : (hasSidecar ? t("ph_review_missing_p") : t("ph_review_empty_p"));
+  const reviewDetails=hasEntry ? projectReviewDetails(name) : "";
   const nextPrompt=genText(entry&&entry.suggested_next_prompt);
   const nextPromptButton=hasEntry
     ? (nextPrompt
@@ -2128,7 +2346,7 @@ function projectReviewSection(name){
         ${hasEntry?"":`<h3>${escapeHtml(title)}</h3>`}
         ${hasEntry?"":`<p>${escapeHtml(body)}</p>`}
         ${emptyActions}
-        ${projectReviewDetails(name)}
+        ${reviewDetails}
       </div>
       <div class="ph-review-side">
         <div class="an-card">${projectReviewPlanSummary(name)}</div>
@@ -2142,14 +2360,16 @@ function projectReviewSection(name){
           <div>
             <h3 class="ph-prompt-title" id="phPromptTitle">${escapeHtml(t("ph_prompt_panel_title"))}</h3>
           </div>
-          <button class="mini" data-close-prompt>${t("ph_hide_prompt")}</button>
+          <div class="ph-prompt-head-actions">
+            <button class="mini" data-close-prompt>${t("ph_hide_prompt")}</button>
+          </div>
         </div>
         <div class="ph-prompt-controls">
           <div class="ph-prompt-tabs" role="tablist" aria-label="${escapeHtml(t("ph_review_title"))}">
             <button class="ph-prompt-tab on" data-prompt-kind="setup" role="tab" aria-selected="true">${t("ph_setup_prompt")}</button>
             <button class="ph-prompt-tab" data-prompt-kind="review" role="tab" aria-selected="false">${t("ph_review_prompt")}</button>
           </div>
-          <button class="mini" data-copy-active-prompt>${t("ph_copy_review_setup")}</button>
+          <button class="mini has-icon ph-prompt-copy" data-copy-active-prompt>${copyPromptButtonHtml("setup")}</button>
         </div>
         <p class="ph-prompt-hint" id="phPromptHint"></p>
         <pre id="phPromptText"></pre>
@@ -2821,7 +3041,7 @@ function renderProjectNavSidebar(activeName){
   }
   const head=document.createElement("div");
   head.className="project-side-heading";
-  head.textContent=t("projects_title");
+  head.innerHTML=`${escapeHtml(t("projects_title"))}<span>${escapeHtml(t("projects_recent_heading"))}</span>`;
   root.appendChild(head);
   for(const p of rows){
     const item=document.createElement("button");
@@ -3019,8 +3239,12 @@ function fallbackCopy(txt,cb){
 /* ---------- events ---------- */
 setupTooltips();
 document.getElementById("openBtn").addEventListener("click",openFolderPicker);
+document.getElementById("refreshBtn").addEventListener("click",refreshFolder);
 document.addEventListener("click",e=>{ if(e.target.closest("[data-open-folder]")) openFolderPicker(); });
-document.getElementById("folder").addEventListener("change",e=>handleFiles(e.target.files));
+document.getElementById("folder").addEventListener("change",e=>{
+  state.directoryHandle=null;
+  handleFiles(e.target.files);
+});
 function toggleType(type){
   if(!(type in state.types)) return;
   state.types[type]=!state.types[type];
@@ -3159,12 +3383,13 @@ setLang(detectLang());
     "generated_at": "2026-06-15T12:02:00-03:00",
     "mode": "daily",
     "estimator": "chars_div_4",
+    "summary_quality_version": "actionable-v2",
     "model_tiers": {"daily_project_update":"default","bootstrap_project":"strong","deep_project_review":"strong","deep_design_review":"strong","global_synthesis":"strong"},
     "output_files": ["_conversation_summaries.json","_project_reviews.json","_agent_profile.json","_review_repo_sync.json","_review_update_log.json"],
     "input_manifest": [
       {"project":"todo-app","type":"repo_doc","id_or_path":"/Users/dev/code/todo-app/ROADMAP.md","reason":"repo planning source of truth","chars":4200,"words":640,"estimated_input_tokens":1050,"content_hash":"demo-roadmap","possible_secret":false},
-      {"project":"todo-app","type":"conversation","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","reason":"new or changed conversation for this project","chars":2600,"words":390,"estimated_input_tokens":650,"content_hash":"demo-session","possible_secret":false},
-      {"project":"marketing-site","type":"conversation","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","reason":"new or changed conversation for this project","chars":3100,"words":455,"estimated_input_tokens":775,"content_hash":"demo-session-2","possible_secret":false}
+      {"project":"todo-app","type":"conversation","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","reason":"new or changed conversation for this project","chars":2600,"words":390,"estimated_input_tokens":650,"content_hash":"demo-session","summary_quality_version_required":"actionable-v2","possible_secret":false},
+      {"project":"marketing-site","type":"conversation","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","reason":"new or changed conversation for this project","chars":3100,"words":455,"estimated_input_tokens":775,"content_hash":"demo-session-2","summary_quality_version_required":"actionable-v2","possible_secret":false}
     ],
     "projects": [
       {
@@ -3175,7 +3400,7 @@ setLang(detectLang());
         "path":"/Users/dev/code/todo-app",
         "selected_inputs":[
           {"type":"repo_doc","id_or_path":"/Users/dev/code/todo-app/ROADMAP.md","reason":"repo planning source of truth","chars":4200,"words":640,"estimated_input_tokens":1050,"content_hash":"demo-roadmap","possible_secret":false},
-          {"type":"conversation","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","reason":"new or changed conversation for this project","chars":2600,"words":390,"estimated_input_tokens":650,"content_hash":"demo-session","possible_secret":false}
+          {"type":"conversation","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","reason":"new or changed conversation for this project","chars":2600,"words":390,"estimated_input_tokens":650,"content_hash":"demo-session","summary_quality_version_required":"actionable-v2","possible_secret":false}
         ],
         "estimate":{"input_tokens":1700,"overhead_tokens":204,"expected_output_tokens":1200,"total_tokens":3104},
         "model_tier":"default",
@@ -3191,7 +3416,7 @@ setLang(detectLang());
         "status":"active",
         "path":"/Users/dev/code/marketing-site",
         "selected_inputs":[
-          {"type":"conversation","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","reason":"new or changed conversation for this project","chars":3100,"words":455,"estimated_input_tokens":775,"content_hash":"demo-session-2","possible_secret":false}
+          {"type":"conversation","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","reason":"new or changed conversation for this project","chars":3100,"words":455,"estimated_input_tokens":775,"content_hash":"demo-session-2","summary_quality_version_required":"actionable-v2","possible_secret":false}
         ],
         "estimate":{"input_tokens":775,"overhead_tokens":93,"expected_output_tokens":1200,"total_tokens":2068},
         "model_tier":"default",
@@ -3213,7 +3438,11 @@ setLang(detectLang());
         "project": "todo-app",
         "source": "claude-code",
         "date": "2026-06-02T07:40:00",
-        "content_hash": "demo-summary-1",
+        "content_hash": "demo-session",
+        "evidence_refs": [{"type":"conversation","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","content_hash":"demo-session"}],
+        "summary_quality_version": "actionable-v2",
+        "signal_level": "implementation",
+        "include_in_project_rollup": true,
         "summary": "The conversation focused on stabilizing dark-mode persistence and checking the related CI path.",
         "decisions": ["Persist UI preference through localStorage", "Keep the fix scoped to the toggle component"],
         "blockers": [],
@@ -3225,7 +3454,11 @@ setLang(detectLang());
         "project": "marketing-site",
         "source": "cowork",
         "date": "2026-05-25T10:01:00",
-        "content_hash": "demo-summary-2",
+        "content_hash": "demo-session-2",
+        "evidence_refs": [{"type":"conversation","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","content_hash":"demo-session-2"}],
+        "summary_quality_version": "actionable-v2",
+        "signal_level": "implementation",
+        "include_in_project_rollup": true,
         "summary": "The project moved toward stricter TypeScript and export-to-PDF cleanup.",
         "decisions": ["Prefer small extraction helpers before broad refactors"],
         "blockers": ["Confirm browser PDF behavior on mobile"],
@@ -3241,13 +3474,26 @@ setLang(detectLang());
     "projects": {
       "todo-app": {
         "summary": "todo-app is active and mostly focused on preference persistence, report actions, and CI stability.",
+        "evidence_refs": [
+          {"type":"conversation_summary","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","content_hash":"demo-session"},
+          {"type":"conversation_summary","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","content_hash":"demo-session-2"}
+        ],
+        "summary_evidence_refs": [{"type":"conversation_summary","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","content_hash":"demo-session"}],
         "standing_context": "Repo docs and recent conversations point to a small-productivity app with a lightweight TypeScript stack.",
+        "standing_context_evidence_refs": [{"type":"metadata","id_or_path":"todo-app","field":"stack"}],
         "next_step": "Add regression coverage for dark-mode persistence, then clean up the report export path.",
+        "next_step_evidence_refs": [{"type":"conversation_summary","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","content_hash":"demo-session"}],
         "roadmap_status": "Implementation is in maintenance mode; testing gaps are more important than new surface area.",
-        "open_questions": ["Should export-to-PDF be supported on mobile or desktop-only for now?"],
+        "roadmap_status_evidence_refs": [{"type":"conversation_summary","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","content_hash":"demo-session-2"}],
+        "open_questions": [
+          {
+            "question": "Should export-to-PDF be supported on mobile or desktop-only for now?",
+            "evidence_refs": [{"type":"conversation_summary","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","content_hash":"demo-session-2"}]
+          }
+        ],
         "tasks": [
-          {"id":"todo-app-test-dark-mode","status":"open","title":"Add reload persistence regression test"},
-          {"id":"todo-app-export-qa","status":"open","title":"Verify export-to-PDF across desktop and mobile"}
+          {"id":"todo-app-test-dark-mode","status":"open","title":"Add reload persistence regression test","source":"conversation","evidence_refs":[{"type":"conversation_summary","id_or_path":"2e536fc6-5088-4eba-b4d1-a266faa9290f","content_hash":"demo-session"}]},
+          {"id":"todo-app-export-qa","status":"open","title":"Verify export-to-PDF across desktop and mobile","source":"conversation","evidence_refs":[{"type":"conversation_summary","id_or_path":"508fdeea-2ac3-4a68-a317-8d2202f5cd13","content_hash":"demo-session-2"}]}
         ],
         "suggested_next_prompt": "Open todo-app, inspect the dark-mode toggle implementation, add a focused persistence regression test, run the relevant test command, and update trailkeep's project review sidecar with the result.",
         "design_system": {
@@ -3258,7 +3504,7 @@ setLang(detectLang());
         },
         "checkpoints": {
           "last_reviewed_activity": "2026-06-12T18:40:00",
-          "reviewed_sessions": {"2e536fc6-5088-4eba-b4d1-a266faa9290f":{"content_hash":"demo-summary-1"}}
+          "reviewed_sessions": {"2e536fc6-5088-4eba-b4d1-a266faa9290f":{"content_hash":"demo-session","summary_quality_version":"actionable-v2"}}
         }
       }
     }
