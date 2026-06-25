@@ -1156,6 +1156,10 @@ Minimum checks:
   `summary_quality_version`, a valid `signal_level`, a truthful rollup flag, no
   bootstrap boilerplate, no role-marker pollution, and no invented tasks for
   low-signal conversations.
+- `project_review_quality`: project summaries, next steps, roadmap status,
+  tasks, open questions, design-system notes, and recommended repo-doc updates
+  contain readable review text, not bootstrap boilerplate, role-marker
+  pollution, raw tool output, or serialized object dumps.
 - `incrementality`: if one conversation in one project changes, only that
   project's generated entries should need to change.
 - `referential_integrity`: project names and session ids exist.

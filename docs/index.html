@@ -186,6 +186,8 @@
   .ph-plan-input-type{font-weight:650;color:var(--ink)}
   .ph-plan-input-link{color:var(--ink);font-weight:700;text-align:left;text-decoration:none}
   .ph-plan-input-id{font-family:var(--mono);color:var(--ink-soft);font-size:10.5px}
+  .ph-plan-input-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+  .ph-plan-mini-tag{display:inline-flex;align-items:center;border:1px solid #efd5b7;border-radius:999px;padding:1px 6px;font-size:10px;font-weight:700;line-height:1.25;color:#9a5c20;background:#fff8ee}
   .ph-plan-flag-reason{margin-top:2px}
   .gen-panel{display:flex;flex-direction:column;gap:12px}
   .gen-section{display:flex;flex-direction:column;gap:6px}
@@ -687,7 +689,7 @@ const state = {
   types: { user:true, assistant:true, tool:true },
   query: "", hideDone:true, hideArchived:true, collapseAll:false,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
-  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null,
+  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null, supersededSessions:[],
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
 };
 
@@ -720,7 +722,7 @@ const I18N = {
     ph_plan_title:"Preflight output", ph_plan_empty:"No preflight plan loaded yet. Run a backup to generate _review_run_plan.json in the backup folder.",
     ph_plan_not_selected:"No update is planned for this project in the loaded preflight plan.",
     ph_plan_generated:"Plan generated", ph_plan_mode:"Mode", ph_plan_tier:"tier", ph_plan_inputs:"inputs", ph_plan_tokens:"est. tokens",
-    ph_plan_approval:"requires approval", ph_plan_secret:"possible secret", ph_plan_secret_redacted:"secrets redacted",
+    ph_plan_approval:"requires approval", ph_plan_secret:"possible secret", ph_plan_secret_redacted:"secrets redacted", ph_plan_context_sanitized:"context sanitized",
     ph_plan_tip_mode:"Review mode selected by the planner for this project. Bootstrap project means there is no previous generated review yet, so the first pass should create the baseline.",
     ph_plan_tip_tier:"Intended model tier for the optional agent. Strong means use a stronger model if the coding agent supports model routing.",
     ph_plan_tip_inputs:"Selected context items for this project, such as conversations, repo docs, metadata, or summaries. The agent should not use more context unless you approve it.",
@@ -728,18 +730,20 @@ const I18N = {
     ph_plan_tip_approval:"Some selected inputs need your approval before they can be sent to a model.",
     ph_plan_tip_secret:"The planner found secret-looking content without a redacted replacement. The agent must not send it to a model unless you explicitly approve it.",
     ph_plan_tip_secret_redacted:"The planner found secret-looking content and generated deterministic redacted context. The agent should use the preprocessed input instead of the raw conversation.",
+    ph_plan_tip_context_sanitized:"The planner generated deterministic preprocessed context. This can mean secrets were redacted, instruction/header boilerplate was removed, or both.",
     ph_plan_attention:"Approval details for this project",
     ph_plan_safety:"Sanitized context for this project",
     ph_plan_attention_p:"The agent must pause before model calls and ask what to do with the flagged context.",
-    ph_plan_safety_p:"Secret-looking content was redacted locally before model calls. The conversation remains usable, but the suspected value is replaced.",
+    ph_plan_safety_p:"Selected context was sanitized locally before model calls. The conversation remains usable, but suspected secrets or instruction/header boilerplate are replaced.",
     ph_plan_group_conversation_secret:"Conversations with possible secrets",
-    ph_plan_group_conversation_redacted:"Conversations with redacted secrets",
+    ph_plan_group_conversation_redacted:"Sanitized conversations",
     ph_plan_group_conversation_approval:"Conversations requiring approval",
     ph_plan_group_repo_secret:"Repo docs with possible secrets",
-    ph_plan_group_repo_redacted:"Repo docs with redacted secrets",
+    ph_plan_group_repo_redacted:"Sanitized repo docs",
     ph_plan_group_repo_approval:"Repo docs requiring approval",
     ph_plan_group_input_secret:"Inputs with possible secrets",
-    ph_plan_group_input_redacted:"Inputs with redacted secrets",
+    ph_plan_group_input_redacted:"Sanitized inputs",
+    ph_plan_badge_secret:"secret", ph_plan_badge_instruction:"instructions",
     ph_plan_group_input_approval:"Inputs requiring approval",
     ph_plan_tokens_short:"tokens",
     ph_plan_conversation:"Conversation",
@@ -835,7 +839,7 @@ const I18N = {
     ph_plan_title:"Output del preflight", ph_plan_empty:"Todavía no hay preflight cargado. Corré un backup para generar _review_run_plan.json en la carpeta del backup.",
     ph_plan_not_selected:"Este proyecto no tiene actualización planificada en el preflight cargado.",
     ph_plan_generated:"Plan generado", ph_plan_mode:"Modo", ph_plan_tier:"tier", ph_plan_inputs:"inputs", ph_plan_tokens:"tokens est.",
-    ph_plan_approval:"requiere aprobación", ph_plan_secret:"posible secreto", ph_plan_secret_redacted:"secretos saneados",
+    ph_plan_approval:"requiere aprobación", ph_plan_secret:"posible secreto", ph_plan_secret_redacted:"secretos saneados", ph_plan_context_sanitized:"contexto saneado",
     ph_plan_tip_mode:"Modo de revisión elegido por el planner para este proyecto. Bootstrap project significa que todavía no hay review generativa previa, así que la primera pasada crea la base.",
     ph_plan_tip_tier:"Tier de modelo sugerido para el agente opcional. Strong significa usar un modelo más fuerte si el coding agent soporta ruteo de modelos.",
     ph_plan_tip_inputs:"Contexto seleccionado para este proyecto: conversaciones, docs del repo, metadata o summaries. El agente no debería usar más contexto salvo que lo apruebes.",
@@ -843,18 +847,20 @@ const I18N = {
     ph_plan_tip_approval:"Algunos inputs seleccionados requieren tu aprobación antes de poder enviarse a un modelo.",
     ph_plan_tip_secret:"El planner detectó contenido con pinta de secreto sin reemplazo saneado. El agente no debe mandarlo al modelo salvo que lo apruebes explícitamente.",
     ph_plan_tip_secret_redacted:"El planner detectó contenido con pinta de secreto y generó contexto saneado determinístico. El agente debería usar ese input preprocesado en vez de la conversación cruda.",
+    ph_plan_tip_context_sanitized:"El planner generó contexto preprocesado determinístico. Puede significar que se redactaron secretos, se removió boilerplate de instrucciones/headers, o ambas.",
     ph_plan_attention:"Detalle de aprobación para este proyecto",
     ph_plan_safety:"Contexto saneado para este proyecto",
     ph_plan_attention_p:"El agente debe pausar antes de llamar al modelo y preguntarte qué hacer con el contexto marcado.",
-    ph_plan_safety_p:"El contenido con pinta de secreto se saneó localmente antes de llamar al modelo. La conversación sigue siendo usable, pero el valor sospechado se reemplaza.",
+    ph_plan_safety_p:"El contexto seleccionado se saneó localmente antes de llamar al modelo. La conversación sigue siendo usable, pero se reemplazan secretos sospechados o boilerplate de instrucciones/headers.",
     ph_plan_group_conversation_secret:"Conversaciones con posible secreto",
-    ph_plan_group_conversation_redacted:"Conversaciones con secretos saneados",
+    ph_plan_group_conversation_redacted:"Conversaciones saneadas",
     ph_plan_group_conversation_approval:"Conversaciones que requieren aprobación",
     ph_plan_group_repo_secret:"Docs del repo con posible secreto",
-    ph_plan_group_repo_redacted:"Docs del repo con secretos saneados",
+    ph_plan_group_repo_redacted:"Docs del repo saneados",
     ph_plan_group_repo_approval:"Docs del repo que requieren aprobación",
     ph_plan_group_input_secret:"Inputs con posible secreto",
-    ph_plan_group_input_redacted:"Inputs con secretos saneados",
+    ph_plan_group_input_redacted:"Inputs saneados",
+    ph_plan_badge_secret:"secreto", ph_plan_badge_instruction:"instrucciones",
     ph_plan_group_input_approval:"Inputs que requieren aprobación",
     ph_plan_tokens_short:"tokens",
     ph_plan_conversation:"Conversación",
@@ -1465,6 +1471,58 @@ function previewText(t){
   return s.slice(0,90);
 }
 
+function stableSessionKey(s){
+  const sid=String((s&&s.sessionId)||"").trim();
+  const id=String((s&&s.id)||"").trim();
+  const source=String((s&&s.fuente)||"").trim();
+  if(!sid||!source||sid===id) return "";
+  return `${source}:${sid}`;
+}
+function newerSession(a,b){
+  const ad=Date.parse(a&&a.fecha)||0;
+  const bd=Date.parse(b&&b.fecha)||0;
+  if(ad!==bd) return ad>bd;
+  const ac=(a&&a.chars)||0;
+  const bc=(b&&b.chars)||0;
+  if(ac!==bc) return ac>bc;
+  return String((a&&a.id)||"")>String((b&&b.id)||"");
+}
+function mergeSupersededProgress(canonical, oldSession){
+  const old=state.progress&&state.progress[oldSession.id];
+  if(!old) return;
+  const cur=prog(canonical.id);
+  if(old.done) cur.done=true;
+  const turns=old.turns||{};
+  for(const [idx,value] of Object.entries(turns)) if(value) cur.turns[idx]=true;
+}
+function canonicalizeSessions(sessions){
+  const bestByKey=new Map();
+  for(const s of sessions){
+    const key=stableSessionKey(s);
+    if(!key) continue;
+    const current=bestByKey.get(key);
+    if(!current||newerSession(s,current)) bestByKey.set(key,s);
+  }
+  const canonical=[];
+  const superseded=[];
+  for(const s of sessions){
+    const key=stableSessionKey(s);
+    const best=key?bestByKey.get(key):null;
+    if(best&&best!==s){
+      s.superseded=true;
+      s.supersededBy=best.id;
+      if(!best.supersedes) best.supersedes=[];
+      best.supersedes.push(s.id);
+      mergeSupersededProgress(best,s);
+      superseded.push(s);
+    } else {
+      canonical.push(s);
+    }
+  }
+  state.supersededSessions=superseded;
+  return canonical;
+}
+
 /* ---------- loading ---------- */
 async function handleFiles(fileList){
   const allFiles=Array.from(fileList);
@@ -1554,13 +1612,14 @@ async function handleFiles(fileList){
   }
   state.reviewUpdateLog.sort((a,b)=>String(reviewLogDate(b)||"").localeCompare(String(reviewLogDate(a)||"")));
   if(!files.length){
-    state.sessions=[]; state.projects=new Map(); state.sources=new Map();
+    state.sessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
     updateRefreshButton();
     document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`;
     return;
   }
   document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("reading")} ${files.length} ${t("sessions_word")}…</div>`;
-  state.sessions=[]; state.projects=new Map(); state.sources=new Map();
+  state.sessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
+  const parsedSessions=[];
   for(const f of files){
     const rel=fileRelPath(f);
     const text=await f.text();
@@ -1572,12 +1631,15 @@ async function handleFiles(fileList){
     const segs=rel.split("/");
     const folder=segs.length>=2?segs[segs.length-2]:"";
     const project=meta.proyecto||folder||"(sin proyecto)";
-    const s={ id:rel, sessionId:meta.id||rel, title, project, fuente, fecha:meta.fecha, archivada:meta.archivada, turns };
-    state.sessions.push(s);
-    if(!state.sources.has(fuente)) state.sources.set(fuente,new Map());
-    const pm=state.sources.get(fuente);
-    if(!pm.has(project)) pm.set(project,{project, fuente, sessions:[], collapsed:false, checked:true});
-    pm.get(project).sessions.push(s);
+    const s={ id:rel, sessionId:meta.id||rel, title, project, fuente, fecha:meta.fecha, archivada:meta.archivada, turns, chars:text.length };
+    parsedSessions.push(s);
+  }
+  state.sessions=canonicalizeSessions(parsedSessions);
+  for(const s of state.sessions){
+    if(!state.sources.has(s.fuente)) state.sources.set(s.fuente,new Map());
+    const pm=state.sources.get(s.fuente);
+    if(!pm.has(s.project)) pm.set(s.project,{project:s.project, fuente:s.fuente, sessions:[], collapsed:false, checked:true});
+    pm.get(s.project).sessions.push(s);
   }
   // ordenar por fecha desc dentro de cada proyecto
   for(const pm of state.sources.values())
@@ -2058,11 +2120,11 @@ function planInputReason(item){
 }
 function projectPlanFlaggedInputs(entry){
   const inputs=Array.isArray(entry&&entry.selected_inputs) ? entry.selected_inputs : [];
-  return inputs.filter(i=>i&&(i.possible_secret||i.requires_approval));
+  return inputs.filter(i=>i&&(i.possible_secret||i.requires_approval||i.instruction_context||i.preprocessed_ref));
 }
 function planFlagGroupKey(item){
   const type=(item&&item.type)==="conversation" ? "conversation" : ((item&&item.type)==="repo_doc" ? "repo" : "input");
-  const flag=(item&&item.possible_secret) ? (item.preprocessed_ref ? "redacted" : "secret") : "approval";
+  const flag=(item&&item.preprocessed_ref) ? "redacted" : ((item&&item.possible_secret) ? "secret" : "approval");
   return `${type}_${flag}`;
 }
 function planFlagGroupLabel(key){
@@ -2076,8 +2138,15 @@ function planFlagGroupLabel(key){
   if(key==="input_secret") return t("ph_plan_group_input_secret");
   return t("ph_plan_group_input_approval");
 }
+function planInputBadges(item){
+  const badges=[];
+  if(item&&item.possible_secret&&item.preprocessed_ref) badges.push(t("ph_plan_badge_secret"));
+  if(item&&item.instruction_context) badges.push(t("ph_plan_badge_instruction"));
+  if(!badges.length) return "";
+  return `<div class="ph-plan-input-badges">${badges.map(label=>`<span class="ph-plan-mini-tag">${escapeHtml(label)}</span>`).join("")}</div>`;
+}
 function projectReviewPlanIssues(entry){
-  if(!(entry&&(entry.requires_approval||entry.possible_secret))) return "";
+  if(!(entry&&(entry.requires_approval||entry.possible_secret||entry.selected_inputs?.some?.(item=>item&&(item.instruction_context||item.preprocessed_ref))))) return "";
   const reasons=Array.isArray(entry.approval_reasons) ? entry.approval_reasons : [];
   const reasonText=reasons.map(r=>r&&r.message).filter(Boolean).join(" ");
   const flagged=projectPlanFlaggedInputs(entry);
@@ -2096,6 +2165,7 @@ function projectReviewPlanIssues(entry){
       const attrs=session ? ` data-plan-session="${escapeHtml(session.id)}" role="button" tabindex="0"` : "";
       return `<li class="ph-plan-flag-item${session?" is-clickable":""}"${attrs}>
       ${planInputHtml(item, {showType:false})}
+      ${planInputBadges(item)}
       ${reason?`<div class="ph-plan-flag-reason">${escapeHtml(reason)}</div>`:""}
     </li>`;
     }).join("");
@@ -2130,12 +2200,12 @@ function projectReviewPlanSummary(name){
   }
   const inputs=Array.isArray(entry.selected_inputs) ? entry.selected_inputs.length : 0;
   const selectedInputs=Array.isArray(entry.selected_inputs) ? entry.selected_inputs : [];
-  const redactedSecret=selectedInputs.some(item=>item&&item.possible_secret&&item.preprocessed_ref);
+  const sanitizedContext=selectedInputs.some(item=>item&&item.preprocessed_ref);
   const unresolvedSecret=selectedInputs.some(item=>item&&item.possible_secret&&!item.preprocessed_ref);
   const estimate=entry.estimate||{};
   const flags=[
     entry.requires_approval ? {label:t("ph_plan_approval"), tip:t("ph_plan_tip_approval")} : null,
-    redactedSecret ? {label:t("ph_plan_secret_redacted"), tip:t("ph_plan_tip_secret_redacted")} : null,
+    sanitizedContext ? {label:t("ph_plan_context_sanitized"), tip:t("ph_plan_tip_context_sanitized")} : null,
     unresolvedSecret ? {label:t("ph_plan_secret"), tip:t("ph_plan_tip_secret")} : null,
   ].filter(Boolean);
   const flagHtml=flags.map(f=>`<span class="ph-plan-chip warn"${tipAttr(f.tip)}><b>!</b> ${escapeHtml(f.label)}</span>`).join("");

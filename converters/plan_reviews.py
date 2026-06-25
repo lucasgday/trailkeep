@@ -195,6 +195,50 @@ def parse_markdown(path, backup_dir):
     }
 
 
+def session_stable_key(session):
+    sid = str(session.get("id") or "").strip()
+    source = str(session.get("source") or "").strip()
+    path = str(session.get("path") or "").strip()
+    if not sid or not source or sid == path:
+        return ""
+    return f"{source}:{sid}"
+
+
+def session_newer_than(left, right):
+    left_key = (
+        str(left.get("date") or ""),
+        int((left.get("estimate") or {}).get("chars") or 0),
+        str(left.get("path") or ""),
+    )
+    right_key = (
+        str(right.get("date") or ""),
+        int((right.get("estimate") or {}).get("chars") or 0),
+        str(right.get("path") or ""),
+    )
+    return left_key > right_key
+
+
+def canonical_sessions(sessions):
+    best_by_key = {}
+    for session in sessions:
+        key = session_stable_key(session)
+        if not key:
+            continue
+        current = best_by_key.get(key)
+        if current is None or session_newer_than(session, current):
+            best_by_key[key] = session
+
+    canonical = []
+    for session in sessions:
+        key = session_stable_key(session)
+        best = best_by_key.get(key)
+        if best is not None and best is not session:
+            best.setdefault("superseded_paths", []).append(session.get("path"))
+            continue
+        canonical.append(session)
+    return canonical
+
+
 def markdown_sessions(backup_dir):
     sessions = []
     for path in sorted(glob.glob(os.path.join(backup_dir, "markdown-*", "**", "*.md"), recursive=True)):
@@ -202,7 +246,7 @@ def markdown_sessions(backup_dir):
             sessions.append(parse_markdown(path, backup_dir))
         except Exception:
             continue
-    return sessions
+    return canonical_sessions(sessions)
 
 
 def project_docs(project_meta):
@@ -353,13 +397,13 @@ def approval_input_ref(item):
 
 
 def approval_reasons(inputs):
-    secret_inputs = [approval_input_ref(i) for i in inputs if i.get("possible_secret")]
+    approval_inputs = [approval_input_ref(i) for i in inputs if i.get("requires_approval")]
     reasons = []
-    if secret_inputs:
+    if approval_inputs:
         reasons.append({
-            "code": "possible_secret",
-            "message": "Selected input may contain secrets, credentials, tokens, email addresses, or other sensitive values.",
-            "input_refs": secret_inputs,
+            "code": "requires_approval",
+            "message": "Selected input requires explicit approval before it can be sent to a model.",
+            "input_refs": approval_inputs,
         })
     return reasons
 
@@ -418,6 +462,8 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
         "preprocessed_ref": f"{PREPROCESSED_INPUTS_FILE}#{key}",
         "preprocessed_input_key": key,
         "preprocessed_content_hash": redacted_hash,
+        "redaction_count": redaction_count,
+        "redaction_types": redaction_types,
         "source_chars": item.get("chars", 0),
         "source_words": item.get("words", 0),
         "source_estimated_input_tokens": item.get("estimated_input_tokens", 0),
@@ -425,8 +471,6 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
     if has_secret_replacements:
         updated.update({
             "possible_secret": True,
-            "redaction_count": redaction_count,
-            "redaction_types": redaction_types,
         })
     else:
         updated["possible_secret"] = bool(item.get("possible_secret"))
@@ -534,12 +578,9 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
     mode_key = "bootstrap_project" if bootstrap else "daily_project_update"
     model_tier = MODEL_TIERS.get(mode_key, "default")
     has_secret = any(i.get("possible_secret") for i in inputs)
-    unredacted_secret_inputs = [
-        i for i in inputs
-        if i.get("possible_secret") and not i.get("preprocessed_ref")
-    ]
-    requires_approval = bool(unredacted_secret_inputs)
-    approval_reason_list = approval_reasons(unredacted_secret_inputs)
+    approval_inputs = [i for i in inputs if i.get("requires_approval")]
+    requires_approval = bool(approval_inputs)
+    approval_reason_list = approval_reasons(approval_inputs)
     if bootstrap:
         reason = "missing project review entry; bootstrap required"
     elif selected_sessions and changed_docs:

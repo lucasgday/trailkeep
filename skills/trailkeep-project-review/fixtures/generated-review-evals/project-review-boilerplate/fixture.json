@@ -1,0 +1,18 @@
+{
+  "description": "Project review fields must not contain bootstrap boilerplate or preprocessing notes.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "project_review_quality",
+    "update_log"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "summary": "Bootstrap summary for 'Settings panel' in demo-project: selected because new or changed conversation for this project. Evidence clusters around settings, panel, tests. Noted areas include ROADMAP.md. Secret-like content was read from the deterministic redacted preprocessed input."
+        }
+      }
+    }
+  }
+}

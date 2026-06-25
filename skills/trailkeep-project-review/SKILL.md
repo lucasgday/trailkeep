@@ -227,6 +227,12 @@ that repo runner and records the result in `_review_update_log.json`.
   `requires_user_approval: true`. Never modify `ROADMAP.md`, `BACKLOG.md`,
   `TODO.md`, `docs/design.md`, or equivalent repo docs automatically during
   recurring runs.
+- Reject and regenerate project reviews whose `summary`, `next_step`,
+  `roadmap_status`, tasks, open questions, design-system notes, or recommended
+  repo-doc updates contain bootstrap boilerplate such as "Bootstrap summary
+  for", "Evidence clusters around", "selected because new or changed
+  conversation", redaction/preprocessing notes as product content, repeated role
+  markers, raw tool output, or serialized object/dict text.
 - Ground every durable project-review claim with explicit short `evidence_refs`.
   Project `summary`, `standing_context`, `next_step`, `roadmap_status`, tasks,
   open questions, and recommended repo-doc updates must cite selected

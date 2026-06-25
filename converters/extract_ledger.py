@@ -516,6 +516,34 @@ def scan_markdown(path):
     return finish_session(s)
 
 
+def newer_markdown_metrics(left, right):
+    left_key = (
+        str(left.get("last") or ""),
+        int(left.get("user_messages") or 0) + int(left.get("assistant_messages") or 0) + int(left.get("tool_calls") or 0),
+        str(left.get("id") or ""),
+    )
+    right_key = (
+        str(right.get("last") or ""),
+        int(right.get("user_messages") or 0) + int(right.get("assistant_messages") or 0) + int(right.get("tool_calls") or 0),
+        str(right.get("id") or ""),
+    )
+    return left_key > right_key
+
+
+def canonical_markdown_metrics(sessions):
+    best_by_id = {}
+    without_id = []
+    for metrics in sessions:
+        sid = metrics.get("id")
+        if not sid:
+            without_id.append(metrics)
+            continue
+        current = best_by_id.get(sid)
+        if current is None or newer_markdown_metrics(metrics, current):
+            best_by_id[sid] = metrics
+    return without_id + list(best_by_id.values())
+
+
 def collect_markdown(out_dir, old):
     """Scan out_dir/*.md → (cache, every session's metrics). The Markdown backup
     is cumulative + portable, so it is the durable anchor: a session is "still
@@ -541,7 +569,7 @@ def collect_markdown(out_dir, old):
                 misses += 1
             cache[key] = {"sig": sig, "metrics": metrics}
             sessions.append(metrics)
-    return cache, sessions, hits, misses
+    return cache, canonical_markdown_metrics(sessions), hits, misses
 
 
 # --------------------------------------------------------------------------

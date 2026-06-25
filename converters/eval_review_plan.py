@@ -91,6 +91,10 @@ def is_nonnegative_int(value):
     return isinstance(value, int) and value >= 0
 
 
+def positive_int(value):
+    return isinstance(value, int) and value > 0
+
+
 def iter_project_inputs(plan):
     for project in plan.get("projects") or []:
         for item in project.get("selected_inputs") or []:
@@ -267,8 +271,18 @@ def check_privacy(plan, backup_dir):
         for item in inputs:
             if item.get("preprocessed_ref") and not item.get("preprocessed_content_hash"):
                 failures.append(f"{project.get('name')} preprocessed input missing preprocessed_content_hash")
-            if item.get("preprocessed_ref") and not item.get("redaction_count"):
-                failures.append(f"{project.get('name')} preprocessed input missing redaction_count")
+            if item.get("preprocessed_ref"):
+                redaction_count = item.get("redaction_count")
+                instruction_count = item.get("instruction_context_count")
+                has_instruction_context = bool(item.get("instruction_context")) or (
+                    isinstance(instruction_count, int) and instruction_count > 0
+                )
+                if not is_nonnegative_int(redaction_count):
+                    failures.append(f"{project.get('name')} preprocessed input missing redaction_count")
+                elif item.get("possible_secret") and not positive_int(redaction_count):
+                    failures.append(f"{project.get('name')} secret preprocessed input has no redactions")
+                elif not item.get("possible_secret") and redaction_count == 0 and not has_instruction_context:
+                    failures.append(f"{project.get('name')} preprocessed input has no redactions or instruction context")
 
     preprocessed_path = os.path.join(backup_dir, str(plan.get("preprocessed_inputs_file") or PREPROCESSED_INPUTS_FILE))
     if os.path.exists(preprocessed_path):

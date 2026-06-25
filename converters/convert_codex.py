@@ -158,6 +158,33 @@ def safe_filename(s):
     s = re.sub(r"[^\w\s-]", "", s).strip().replace(" ", "_")
     return s[:80] or "session"
 
+def meta_value(body, key):
+    m = re.search(rf"{re.escape(key)}\s*:\s*([^|]+?)\s*(\||$)", body)
+    return m.group(1).strip() if m and m.group(1).strip() else ""
+
+def existing_markdowns_by_id(out_dir):
+    existing = {}
+    if not os.path.isdir(out_dir):
+        return existing
+    for path in glob.glob(os.path.join(out_dir, "**", "*.md"), recursive=True):
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                head = f.read(4096)
+        except Exception:
+            continue
+        comment = re.search(r"<!--(.*?)-->", head, re.S)
+        if not comment:
+            continue
+        body = comment.group(1)
+        sid = meta_value(body, "id")
+        if not sid:
+            continue
+        date = meta_value(body, "date") or meta_value(body, "fecha")
+        current = existing.get(sid)
+        if current is None or (date, path) > (current["date"], current["path"]):
+            existing[sid] = {"date": date, "path": path}
+    return existing
+
 def main():
     sessions_dir, index_path, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
     archived = len(sys.argv) > 4 and sys.argv[4].lower() in ("1","true","archived","yes")
@@ -165,7 +192,7 @@ def main():
     files = glob.glob(os.path.join(sessions_dir, "**", "*.jsonl"), recursive=True)
 
     counts = {"ok": 0, "empty": 0}
-    seen_names = {}
+    existing_by_id = existing_markdowns_by_id(out_dir)
     for f in files:
         s = parse_session(f, index, archived=archived)
         if not s["blocks"]:
@@ -180,8 +207,13 @@ def main():
         prefix = (s["date"] or "0000-00-00")
         uid = (s["id"] or "") or os.path.splitext(os.path.basename(f))[0]
         fname = f"{prefix}__{base}__{uid}.md"
+        out_path = existing_by_id.get(uid, {}).get("path") if s["id"] else ""
+        if not out_path:
+            out_path = os.path.join(pdir, fname)
+            if s["id"]:
+                existing_by_id[s["id"]] = {"date": s["datetime"] or s["date"] or "", "path": out_path}
 
-        with open(os.path.join(pdir, fname), "w") as out:
+        with open(out_path, "w", encoding="utf-8") as out:
             out.write(f"# {s['title']}\n\n")
             out.write(f"<!-- date: {s['datetime']} | id: {s['id']} | project: {proj} | source: codex | archived: {str(s['archived']).lower()} -->\n\n")
             out.write("\n".join(s["blocks"]))

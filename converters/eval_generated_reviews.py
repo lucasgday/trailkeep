@@ -233,11 +233,51 @@ def load_sessions(backup_dir):
             sessions.append(parse_markdown(path, backup_dir))
         except Exception:
             continue
+    sessions = canonical_sessions(sessions)
     by_key = {}
     for session in sessions:
+        stable_key = session_stable_key(session)
+        if stable_key:
+            by_key[stable_key] = session
         by_key[session["id"]] = session
         by_key[session["relpath"]] = session
     return sessions, by_key
+
+
+def session_stable_key(session):
+    sid = text_value(as_dict(session).get("id"))
+    source = text_value(as_dict(session).get("source"))
+    if not sid or not source:
+        return ""
+    return f"{source}:{sid}"
+
+
+def session_newer_than(left, right):
+    left_key = (
+        text_value(left.get("date")),
+        text_value(left.get("content_hash")),
+        text_value(left.get("relpath")),
+    )
+    right_key = (
+        text_value(right.get("date")),
+        text_value(right.get("content_hash")),
+        text_value(right.get("relpath")),
+    )
+    return left_key > right_key
+
+
+def canonical_sessions(sessions):
+    best_by_key = {}
+    without_key = []
+    for session in sessions:
+        key = session_stable_key(session)
+        if not key:
+            without_key.append(session)
+            continue
+        current = best_by_key.get(key)
+        if current is None or session_newer_than(session, current):
+            best_by_key[key] = session
+    return without_key + list(best_by_key.values())
 
 
 def sidecar_path(backup_dir, name):
@@ -361,6 +401,30 @@ def append_instruction_text_failure(failures, context, text):
 def append_instruction_ref_failure(failures, context, refs):
     if has_instruction_context_evidence(refs):
         failures.append(f"{context} uses instruction_context evidence for product work")
+
+
+def project_review_text_fields(review):
+    fields = [
+        ("summary", review.get("summary")),
+        ("standing_context", review.get("standing_context")),
+        ("next_step", review.get("next_step")),
+        ("roadmap_status", review.get("roadmap_status")),
+        ("suggested_next_prompt", review.get("suggested_next_prompt")),
+    ]
+    design = as_dict(review.get("design_system"))
+    if design:
+        fields.append(("design_system.summary", design.get("summary")))
+        for idx, value in enumerate(as_list(design.get("rules"))):
+            fields.append((f"design_system.rules[{idx}]", value))
+        for idx, value in enumerate(as_list(design.get("components"))):
+            fields.append((f"design_system.components[{idx}]", value))
+    for idx, question in enumerate(as_list(review.get("open_questions"))):
+        fields.append((f"open_questions[{idx}]", question))
+    for idx, task in enumerate(as_list(review.get("tasks"))):
+        fields.append((f"tasks[{idx}]", task))
+    for idx, update in enumerate(as_list(review.get("recommended_repo_doc_updates"))):
+        fields.append((f"recommended_repo_doc_updates[{idx}]", update))
+    return fields
 
 
 def selected_projects(plan):
@@ -657,6 +721,35 @@ def check_conversation_summary_quality(data):
     return result("conversation_summary_quality", failures, warnings, stats)
 
 
+def check_project_review_quality(data):
+    failures = []
+    warnings = []
+    reviews = as_dict(as_dict(data.get(PROJECT_REVIEWS_FILE)).get("projects"))
+    checked_fields = 0
+    for project_name, review in reviews.items():
+        if not isinstance(review, dict):
+            continue
+        for field, value in project_review_text_fields(review):
+            text = text_value(value)
+            if not text:
+                continue
+            checked_fields += 1
+            context = f"{project_name}.{field}"
+            if SUMMARY_BOILERPLATE_RE.search(text):
+                failures.append(f"{context} contains bootstrap/boilerplate review text")
+            if ROLE_MARKER_POLLUTION_RE.search(text):
+                failures.append(f"{context} contains role-marker pollution")
+            if SUMMARY_SERIALIZED_OBJECT_RE.search(text):
+                failures.append(f"{context} looks like a serialized object, not readable review text")
+            if RAW_TOOL_OUTPUT_RE.search(text):
+                failures.append(f"{context} includes raw tool output")
+        next_step = text_value(review.get("next_step"))
+        summary = text_value(review.get("summary"))
+        if summary and next_step and summary == next_step:
+            warnings.append(f"{project_name} summary and next_step are identical")
+    return result("project_review_quality", failures, warnings, {"checked_fields": checked_fields})
+
+
 def check_checkpoint_integrity(data):
     failures = []
     plan = review_plan(data)
@@ -786,6 +879,102 @@ def check_source_precedence(data):
         if not text_value(review.get("roadmap_status")) and not text_value(review.get("standing_context")):
             warnings.append(f"{project_name} selected repo docs but generated no roadmap/status context")
     return result("source_precedence", failures, warnings)
+
+
+def check_incrementality(data):
+    failures = []
+    warnings = []
+    plan = review_plan(data)
+    planned = planned_project_names(plan)
+    latest = latest_update_run(data.get(UPDATE_LOG_FILE))
+    run_projects = {
+        str(name)
+        for name in as_list(as_dict(latest).get("projects"))
+        if str(name or "").strip()
+    } if latest else set()
+    if planned and run_projects:
+        unexpected = sorted(run_projects - planned)
+        if unexpected:
+            failures.append(
+                "latest update log includes project(s) outside the selected review plan: "
+                + ", ".join(unexpected)
+            )
+    elif planned and latest:
+        warnings.append("latest update log has no affected projects")
+    return result(
+        "incrementality",
+        failures,
+        warnings,
+        {"planned_projects": len(planned), "run_projects": len(run_projects)},
+    )
+
+
+def selected_manifest_items(plan):
+    items = []
+    manifest = as_list(as_dict(plan).get("input_manifest"))
+    items.extend(item for item in manifest if isinstance(item, dict))
+    for _project, item in iter_selected_inputs(plan):
+        if isinstance(item, dict):
+            items.append(item)
+    return items
+
+
+def check_no_full_dump(data):
+    failures = []
+    warnings = []
+    plan = review_plan(data)
+    has_work = bool(selected_projects(plan))
+    manifest = as_dict(plan).get("input_manifest")
+    if has_work and not isinstance(manifest, list):
+        failures.append("review plan missing input_manifest")
+    items = selected_manifest_items(plan)
+    if has_work and not items:
+        failures.append("review plan has no scoped selected inputs")
+    for idx, item in enumerate(items):
+        context = f"input_manifest[{idx}]"
+        item_type = text_value(item.get("type")).lower()
+        reason = text_value(item.get("reason"))
+        identity = text_value(item.get("id_or_path") or item.get("path") or item.get("relative_path"))
+        if item_type in {"backup_dir", "full_backup", "archive", "folder_dump", "unscoped_dump"}:
+            failures.append(f"{context} has unscoped dump type: {item_type}")
+        if re.search(r"(?i)\b(zip|tar|archive|entire backup|full backup|whole backup|all markdowns)\b", identity):
+            failures.append(f"{context} appears to reference an archive/full backup dump")
+        if not identity:
+            failures.append(f"{context} missing id_or_path/path/relative_path")
+        if not reason:
+            failures.append(f"{context} missing selection reason")
+    return result("no_full_dump", failures, warnings, {"inputs": len(items)})
+
+
+def check_token_estimate(data):
+    failures = []
+    warnings = []
+    plan = review_plan(data)
+    for project in selected_projects(plan):
+        project_name = project.get("name") or "(unknown project)"
+        selected = [item for item in as_list(project.get("selected_inputs")) if isinstance(item, dict)]
+        estimate_obj = as_dict(project.get("estimate"))
+        input_tokens = estimate_obj.get("input_tokens")
+        total_tokens = estimate_obj.get("total_tokens")
+        if not isinstance(input_tokens, int) or input_tokens < 0:
+            failures.append(f"{project_name} missing nonnegative estimate.input_tokens")
+            continue
+        if not isinstance(total_tokens, int) or total_tokens < input_tokens:
+            failures.append(f"{project_name} missing valid estimate.total_tokens")
+        selected_tokens = 0
+        for idx, item in enumerate(selected):
+            tokens = item.get("estimated_input_tokens")
+            if not isinstance(tokens, int) or tokens < 0:
+                failures.append(f"{project_name}.selected_inputs[{idx}] missing nonnegative estimated_input_tokens")
+            else:
+                selected_tokens += tokens
+        if selected and input_tokens < selected_tokens:
+            failures.append(
+                f"{project_name} estimate.input_tokens is lower than selected input token sum"
+            )
+        if selected and input_tokens > selected_tokens * 3 + 1000:
+            warnings.append(f"{project_name} estimate.input_tokens is much larger than selected input token sum")
+    return result("token_estimate", failures, warnings)
 
 
 def check_evidence_grounding(data):
@@ -1148,10 +1337,14 @@ def run_checks(data, errors, sessions, session_by_key):
         check_schema(data),
         check_referential_integrity(data, sessions, session_by_key),
         check_conversation_summary_quality(data),
+        check_project_review_quality(data),
         check_checkpoint_integrity(data),
         check_task_stability(data),
         check_privacy(data),
         check_source_precedence(data),
+        check_incrementality(data),
+        check_no_full_dump(data),
+        check_token_estimate(data),
         check_evidence_grounding(data),
         check_tool_evidence_policy(data),
         check_instruction_context_policy(data),
