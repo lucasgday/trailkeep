@@ -473,7 +473,7 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
             "possible_secret": True,
         })
     else:
-        updated["possible_secret"] = bool(item.get("possible_secret"))
+        updated["possible_secret"] = False
     if instruction_contexts:
         updated.update({
             "instruction_context": True,
