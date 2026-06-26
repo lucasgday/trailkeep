@@ -153,7 +153,9 @@ Después del setup, reportá:
 
 Use this only when refreshing one project immediately instead of waiting for the
 daily post-backup automation. The viewer fills the placeholders with the
-selected project's metadata, ledger stats, and recent backed-up conversations.
+selected project's metadata and ledger stats. The model context comes from
+`_review_effective_plan.json` after the pre gate passes, not from a recent
+conversation list in the prompt.
 
 ```text
 Update the incremental trailkeep review for this project.
@@ -170,9 +172,6 @@ Known facts:
 
 Activity:
 <ledger_activity>
-
-Recent backed-up conversations:
-<recent_conversation_list>
 
 Instructions:
 - Follow docs/generative-layer.md from the local trailkeep repo if available.
@@ -196,7 +195,7 @@ Instructions:
 - If roadmap/backlog/todo/design docs are stale, duplicated, or contradictory, add focused recommendations to recommended_repo_doc_updates with file, reason, action, confidence, evidence_refs, and requires_user_approval=true. Never modify repo planning docs automatically during recurring runs.
 - Ground every durable claim in this project entry with evidence_refs. summary, standing_context, next_step, roadmap_status, tasks, open_questions, and recommended_repo_doc_updates must cite selected conversations, conversation summaries, repo docs, metadata, repo sync, tool turns, or prior sidecars. Treat tool turns as execution evidence, not narrative: cite type:"tool" evidence for implemented/fixed/verified/test/build/pass/fail claims, and never paste long raw tool output into generated sidecars. Treat AGENTS/global/system/developer instruction blocks as constraints, not user intent: do not create product tasks, next_step, roadmap_status, open_questions, or recommended_repo_doc_updates from instruction_context alone; use it only for repo conventions, agent profile, constraints, or verification/security rules. Do not create tasks or conclusions without evidence; use unknown or an evidence-backed open_question when evidence is insufficient.
 - Run design-system review daily, but incrementally: skip projects without UI/design changes; use design docs and component files as source of truth; use new conversations only as evidence for changes or undocumented decisions; update design_system only with new evidence; set needs_deep_design_review=true for broad or conflicting changes instead of rereading the full project automatically.
-- Use these conversations as supporting evidence for recent decisions, completed work, and blockers.
+- Use selected inputs from _review_effective_plan.json as supporting evidence for recent decisions, completed work, and blockers. Do not use UI conversation titles as evidence.
 - Do not re-read everything if unnecessary: compare against _project_reviews.json and process only deltas.
 - Update or create this project's entry in _project_reviews.json.
 - Preserve stable task ids unless there is clear evidence.
