@@ -223,6 +223,7 @@ def build_run(args, status, report, warnings=None):
         "model_provider": args.model_provider or "",
         "model_used": args.model_used or "unknown",
         "model_routing": args.model_routing or "",
+        "output_language": args.output_language or "",
         "outputs": generated_outputs(args.backup_dir),
         "repo_sync": repo_sync_summary(args.backup_dir, projects),
         "eval_report": REPORT_FILE,
@@ -241,6 +242,7 @@ def main():
     parser.add_argument("--model-provider", default="")
     parser.add_argument("--model-used", default="")
     parser.add_argument("--model-routing", default="")
+    parser.add_argument("--output-language", choices=("en", "es"), default="")
     parser.add_argument("--title", default="Trailkeep project review")
     args = parser.parse_args()
 

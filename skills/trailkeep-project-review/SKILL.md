@@ -71,15 +71,16 @@ For a project-scoped test run, do not ask the user to hand-edit
 real global backup folder. Prepare an isolated sandbox first:
 
 ```sh
-<review_gate_cmd> --skill-dir <skill_dir> prepare-test --backup-dir <backup_dir> --project <project_name>
+<review_gate_cmd> --skill-dir <skill_dir> prepare-test --backup-dir <backup_dir> --project <project_name> --output-language <en|es>
 ```
 
 Use the returned `sandbox_dir` as `backup_dir` for the test. Paste the generated
 `project-review-test-prompt.txt` into the coding agent. All generated sidecars
-for that test must be written to the sandbox root. Promote nothing back to the
-real backup folder automatically; if the test output is good, rerun the real
-manual project refresh or the recurring automation against the real backup
-folder.
+for that test must be written to the sandbox root. The generated prose must use
+the requested `output_language`; JSON schema keys stay in English. Promote
+nothing back to the real backup folder automatically; if the test output is
+good, rerun the real manual project refresh or the recurring automation against
+the real backup folder.
 
 1. Read `<backup_dir>/_review_run_plan.json`.
 2. Read `<backup_dir>/_review_eval_report.json`.
@@ -167,7 +168,7 @@ effective-plan generation.
 12. After writing sidecars, run the wrapper finalizer:
 
 ```sh
-<review_gate_cmd> --skill-dir <skill_dir> finalize --backup-dir <backup_dir>
+<review_gate_cmd> --skill-dir <skill_dir> finalize --backup-dir <backup_dir> --output-language <en|es>
 ```
 
 The finalizer runs trailkeep's generated-output evals, writes
@@ -177,9 +178,9 @@ not be trusted. It may mark a passing run as `needs_attention` when generated
 evals have warnings or the concrete model used is unknown; that is a non-fatal
 warning state, not a failed run.
 
-Pass `--model-provider`, `--model-routing`, and `--model-used` when the agent
-knows them; otherwise the finalizer records unknown/unavailable values and may
-finish as `needs_attention`.
+Pass `--model-provider`, `--model-routing`, `--model-used`, and
+`--output-language` when the agent knows them; otherwise the finalizer records
+unknown/unavailable values and may finish as `needs_attention`.
 
 The skill must not reimplement generated-output checks in prompts or ad hoc
 logic. Those checks live in
@@ -208,6 +209,10 @@ that repo runner and records the result in `_review_update_log.json`.
   contain "Bootstrap summary for", "Evidence clusters around", repeated role
   markers such as "Claude You Claude", redaction/preprocessing notes as the main
   content, or serialized object/dict text instead of readable prose.
+  Treat `task_hints` as conversation-level candidates, not project backlog
+  tasks. They may capture possible pending work with evidence, but they must be
+  promoted, merged, or rejected by the project review before appearing in
+  `_project_reviews.json.tasks`.
 - Treat initial coding-agent instruction/header blocks as constraints, not user
   intent. Codex conversations may include AGENTS.md, global instructions,
   developer context, environment data, permissions, or skill/plugin headers in
@@ -242,6 +247,12 @@ that repo runner and records the result in `_review_update_log.json`.
   `requires_user_approval: true`. Never modify `ROADMAP.md`, `BACKLOG.md`,
   `TODO.md`, `docs/design.md`, or equivalent repo docs automatically during
   recurring runs.
+  Project `tasks` are consolidated backlog items. Every project task must map to
+  repo planning docs, a prior project task, or one or more conversation-summary
+  `task_hints`, blockers, or decisions. Do not create orphan tasks. If a
+  candidate is duplicated, low-signal, or conflicts with the repo roadmap, merge
+  it, capture an evidence-backed open question, or omit it with checkpointed
+  rationale.
 - Reject and regenerate project reviews whose `summary`, `next_step`,
   `roadmap_status`, tasks, open questions, design-system notes, or recommended
   repo-doc updates contain bootstrap boilerplate such as "Bootstrap summary
@@ -257,6 +268,11 @@ that repo runner and records the result in `_review_update_log.json`.
   tasks also need `confidence` and `reason` and must remain candidate work. If
   evidence is insufficient, write `unknown` or an evidence-backed open question
   instead of promoting the guess into a task, next step, or roadmap status.
+- Generated prose fields must be plain strings written in `output_language` for
+  that run. The setup/manual/test prompts set `output_language` explicitly.
+  Keep JSON schema keys in English. Do not create bilingual sidecar objects
+  unless the user explicitly asks for that format in a future run. Record
+  `output_language` in `_review_update_log.json`.
 - Treat tool turns as execution evidence, not narrative. Use user/assistant
   turns for intent and decisions; use tool turns only to prove files changed,
   commands ran, tests/builds passed or failed, errors happened, git state
@@ -301,9 +317,9 @@ that repo runner and records the result in `_review_update_log.json`.
   or "choose the highest-priority next step" unless those phrases are followed
   by a concrete target and action.
 - `_review_update_log.json`: record the automation result, provider/routing
-  metadata when known, concrete `model_used`, repo-sync summary, affected
-  projects, outputs, eval report path, semantic quality sampling result,
-  warnings, and errors.
+  metadata when known, concrete `model_used`, `output_language`, repo-sync
+  summary, affected projects, outputs, eval report path, semantic quality
+  sampling result, warnings, and errors.
   Keep it as one global chronological log in `backup_dir`; do not create
   per-project review logs unless trailkeep later needs them for size or
   performance.

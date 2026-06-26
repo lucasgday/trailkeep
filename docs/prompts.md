@@ -29,6 +29,7 @@ Context:
 - If this agent uses a remote model provider, selected project context may be sent to that provider as part of the review.
 - If this agent cannot prove the model is local/on-device, treat it as remote.
 - Use the strongest available model with extremely high reasoning/effort for bootstrap, deep-review, design-system extraction, and global agent profile generation. If this agent cannot select reasoning effort or submodes directly, use its strongest available model/profile and record the actual model used.
+- Set output_language for this automation to "en" because this setup prompt is English. Use output_language for all recurring generated sidecar prose and record it in _review_update_log.json for each run. Keep JSON schema keys in English.
 - Only send context selected by _review_run_plan.json unless I explicitly approve a wider deep-review scope.
 - Remote-provider approval happens once during setup. Daily runs should not ask again merely because the provider is remote; they should ask only when the gate reports unresolved requires_approval, or when provider/model, scope, schedule, or output files materially change. possible_secret inputs with preprocessed_ref are already redacted locally.
 - The optional automation may run git fetch in local project repos to check whether remote changes make a review stale. It must never run git pull or modify a worktree without my explicit approval.
@@ -66,7 +67,7 @@ Your tasks:
    - _agent_profile.json
    - _review_repo_sync.json
    - _review_update_log.json
-21. After writing sidecars, run: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown>
+21. After writing sidecars, run: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown> --output-language en
 22. If the finalizer fails, do not mark the review run ok. If it records needs_attention, treat the run as completed with warnings and surface those warnings. Use _review_generated_eval_report.json and _review_update_log.json as the evidence.
 23. Do not write generated sidecars into project repos, source-tool raw folders, markdown-* folders, or the trailkeep repo.
 24. Never transmit the entire backup folder as an archive or unscoped dump. Use the _review_run_plan.json input manifest first.
@@ -96,6 +97,7 @@ Contexto:
 - Si este agente usa un proveedor remoto de modelos, el contexto seleccionado de proyectos puede enviarse a ese proveedor como parte de la review.
 - Si este agente no puede probar que el modelo es local/on-device, tratalo como remoto.
 - Usá el modelo más fuerte disponible con razonamiento/esfuerzo extremely high para bootstrap, deep-review, extracción de design system y generación del perfil global del agente. Si este agente no puede elegir esfuerzo de razonamiento o submodos directamente, usá su modelo/perfil más fuerte disponible y registrá el modelo real usado.
+- Seteá output_language para esta automatización como "es" porque este prompt de setup está en español. Usá output_language para todo el contenido generado recurrente de sidecars y registralo en _review_update_log.json en cada run. Mantené las claves del schema JSON en inglés.
 - Enviá solo el contexto seleccionado por _review_run_plan.json salvo que yo apruebe explícitamente un alcance más amplio de deep-review.
 - La aprobación de proveedor remoto ocurre una sola vez durante el setup. Los runs diarios no deberían volver a preguntar solo porque el proveedor es remoto; solo deben preguntar cuando el gate reporte requires_approval sin resolver, o cuando cambien materialmente provider/model, alcance, schedule o archivos de output. Los inputs possible_secret con preprocessed_ref ya están redactados localmente.
 - La automatización opcional puede correr git fetch en repos locales de proyectos para revisar si cambios remotos vuelven stale una review. Nunca debe correr git pull ni modificar un worktree sin mi aprobación explícita.
@@ -133,7 +135,7 @@ Tus tareas:
    - _agent_profile.json
    - _review_repo_sync.json
    - _review_update_log.json
-21. Después de escribir sidecars, corré: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown>
+21. Después de escribir sidecars, corré: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown> --output-language es
 22. Si el finalizer falla, no marques el run de review como ok. Si registra needs_attention, tratá el run como completado con warnings y mostrale esos warnings al usuario. Usá _review_generated_eval_report.json y _review_update_log.json como evidencia.
 23. No escribas sidecars generados dentro de repos de proyectos, carpetas raw de herramientas fuente, carpetas markdown-* ni el repo de trailkeep.
 24. Nunca transmitas la carpeta completa de backups como archivo comprimido ni como dump sin scope. Usá primero el input manifest de _review_run_plan.json.
@@ -176,6 +178,7 @@ Activity:
 Instructions:
 - Follow docs/generative-layer.md from the local trailkeep repo if available.
 - Follow skills/trailkeep-project-review/SKILL.md if the repo skill is available.
+- output_language: "en". Write generated sidecar prose for this run in English. Keep JSON schema keys in English.
 - Resolve backup_dir as the folder containing markdown-* folders and the _review_run_plan.json for this run. If ambiguous, ask.
 - Resolve skill_dir as the installed trailkeep-project-review skill path, or fallback to <trailkeep_repo>/skills/trailkeep-project-review.
 - Resolve review_gate_cmd as <trailkeep_repo>/scripts/run-project-review-agent-gates.sh. Use this wrapper for all gates. If skill_dir is outside the repo, pass --skill-dir <skill_dir> to the wrapper.
@@ -184,7 +187,7 @@ Instructions:
 - If the wrapper pre command exits 2, resolve approval through _review_gate_decisions.json, rerun <review_gate_cmd> pre --backup-dir <backup_dir>, and then use _review_effective_plan.json for model context.
 - Before model calls for a project with a local git repo, run <review_gate_cmd> repo-sync --backup-dir <backup_dir>. It may run git fetch to update remote-tracking refs, but must never pull or modify worktrees. If _review_repo_sync.json marks repo_may_be_stale or sync_uncertain, reflect that in the project review.
 - Write generated sidecars only at the root of backup_dir, especially backup_dir/_project_reviews.json.
-- After writing sidecars, run <review_gate_cmd> finalize --backup-dir <backup_dir>.
+- After writing sidecars, run <review_gate_cmd> finalize --backup-dir <backup_dir> --output-language en.
 - If the finalizer fails, do not mark the review run ok. If it records needs_attention, treat the run as completed with warnings.
 - Do not write generated sidecars into project repos, source-tool raw folders, markdown-* folders, or the trailkeep repo.
 - First inspect the local repo if it exists.
@@ -203,6 +206,60 @@ Instructions:
 - If context is insufficient, set needs_deep_review or needs_deep_design_review instead of inventing.
 
 Return/write only the updated JSON entry for this project, compatible with the backup_dir/_project_reviews.json sidecar.
+```
+
+## Manual Project Review (Spanish)
+
+Versión localizada del prompt manual de proyecto. Usalo solo para refrescar un
+proyecto ahora, sin esperar la automatización diaria post-backup.
+
+```text
+Actualizá la review incremental de trailkeep para este proyecto.
+
+Proyecto: <project_name>
+
+Datos conocidos:
+- path: <project_path_or_virtual>
+- repo: <repo_url_or_none>
+- git: <branch_commit_dirty_or_none>
+- stack: <detected_stack_or_none>
+- estado: <active_inactive_gone_or_unknown>
+- conversaciones: <conversation_count>
+
+Actividad:
+<ledger_activity>
+
+Instrucciones:
+- Seguí docs/generative-layer.md del repo local de trailkeep si está disponible.
+- Seguí skills/trailkeep-project-review/SKILL.md si la skill del repo está disponible.
+- output_language: "es". Escribí el contenido generado de sidecars para este run en español. Mantené las claves del schema JSON en inglés.
+- Resolvé backup_dir como la carpeta que contiene carpetas markdown-* y el _review_run_plan.json de este run. Si es ambiguo, preguntá.
+- Resolvé skill_dir como el path de la skill trailkeep-project-review instalada, o usá como fallback <trailkeep_repo>/skills/trailkeep-project-review.
+- Resolvé review_gate_cmd como <trailkeep_repo>/scripts/run-project-review-agent-gates.sh. Usá este wrapper para todos los gates. Si skill_dir está fuera del repo, pasá --skill-dir <skill_dir> al wrapper.
+- Antes de cualquier model call, corré <review_gate_cmd> pre --backup-dir <backup_dir>. También confirma que plan/eval estén actualizados y alineados, y que backup_dir/log.json tenga un último backup de menos de 24 horas. Continuá solo si sale 0; exit 0 puede ser parcial, así que usá solo _review_effective_plan.json.
+- Si el comando pre del wrapper sale 0 con partial=true o pending_projects, continuá solo con el effective plan seguro y mostrale al usuario el batch pendiente de aprobación; no envíes proyectos ni inputs salteados al modelo.
+- Si el comando pre del wrapper sale 2, resolvé la aprobación mediante _review_gate_decisions.json, corré de nuevo <review_gate_cmd> pre --backup-dir <backup_dir>, y después usá _review_effective_plan.json como contexto del modelo.
+- Antes de model calls para un proyecto con repo git local, corré <review_gate_cmd> repo-sync --backup-dir <backup_dir>. Puede correr git fetch para actualizar refs remote-tracking, pero nunca debe hacer pull ni modificar worktrees. Si _review_repo_sync.json marca repo_may_be_stale o sync_uncertain, reflejalo en la review del proyecto.
+- Escribí sidecars generados solo en la raíz de backup_dir, especialmente backup_dir/_project_reviews.json.
+- Después de escribir sidecars, corré <review_gate_cmd> finalize --backup-dir <backup_dir> --output-language es.
+- Si el finalizer falla, no marques el run de review como ok. Si registra needs_attention, tratá el run como completado con warnings.
+- No escribas sidecars generados dentro de repos de proyectos, carpetas raw de herramientas fuente, carpetas markdown-* ni el repo de trailkeep.
+- Primero inspeccioná el repo local si existe.
+- Si existen ROADMAP.md, BACKLOG.md, TODO.md, docs/product-progress.md, docs/project-progress.md, docs/agent-handoff.md, docs/design-patterns.md, docs/design.md, design.md, AGENTS.md con instrucciones de continuidad/producto, issues/configs locales o equivalentes, tratá esos archivos como fuente de verdad.
+- Para próximo paso, roadmap y tasks, ganan roadmap/backlog/product-progress. Para extracción de design system, ganan docs de diseño y componentes reales. Las conversaciones solo explican decisiones recientes o cambios no documentados.
+- Preservá la prioridad/orden existente del usuario en roadmap/backlog. Los próximos pasos sugeridos deben avanzar el roadmap existente cuando exista.
+- Si las conversaciones revelan trabajo legítimo nuevo que no está en el roadmap, agregalo como task pendiente/candidata u open question con evidencia. No lo promociones silenciosamente por encima de las prioridades existentes del roadmap.
+- Si roadmap/backlog/todo/design docs están stale, duplicados o contradictorios, agregá recomendaciones enfocadas a recommended_repo_doc_updates con file, reason, action, confidence, evidence_refs y requires_user_approval=true. Nunca modifiques docs de planificación del repo automáticamente durante runs recurrentes.
+- Fundamentá cada claim durable de esta entrada de proyecto con evidence_refs. summary, standing_context, next_step, roadmap_status, tasks, open_questions y recommended_repo_doc_updates deben citar conversaciones seleccionadas, conversation summaries, docs del repo, metadata, repo sync, tool turns o sidecars previos. Tratá los tool turns como evidencia de ejecución, no narrativa: citá evidencia type:"tool" para claims de implementado/arreglado/verificado/test/build/pass/fail, y nunca pegues output raw largo de tools en sidecars generados. Tratá bloques AGENTS/global/system/developer como constraints, no intención del usuario: no crees product tasks, next_step, roadmap_status, open_questions ni recommended_repo_doc_updates desde instruction_context solo; usalo solo para convenciones de repo, agent profile, constraints o reglas de verificación/seguridad. No crees tasks ni conclusiones sin evidencia; usá unknown o una open_question con evidencia cuando la evidencia no alcance.
+- Corré design-system review diariamente, pero incrementalmente: salteá proyectos sin cambios UI/diseño; usá docs de diseño y componentes como fuente de verdad; usá conversaciones nuevas solo como evidencia de cambios o decisiones no documentadas; actualizá design_system solo con evidencia nueva; seteá needs_deep_design_review=true para cambios amplios o conflictivos en vez de releer todo el proyecto automáticamente.
+- Usá inputs seleccionados desde _review_effective_plan.json como evidencia de soporte para decisiones recientes, trabajo completado y bloqueos. No uses títulos de conversaciones de la UI como evidencia.
+- No releas todo si no hace falta: compará contra _project_reviews.json y procesá solo deltas.
+- Actualizá o creá la entrada de este proyecto en _project_reviews.json.
+- Preservá task ids estables salvo que haya evidencia clara.
+- Si hay contradicciones, agregalas a open_questions con evidence_refs.
+- Si el contexto es insuficiente, seteá needs_deep_review o needs_deep_design_review en vez de inventar.
+
+Devolvé/escribí solo la entrada JSON actualizada para este proyecto, compatible con el sidecar backup_dir/_project_reviews.json.
 ```
 
 ## Approval Intervention

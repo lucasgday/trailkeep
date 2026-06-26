@@ -98,7 +98,8 @@ function htmlPrompts(relPath) {
   return {
     setup: templateLiteralAfterReturn(html, "projectReviewSetupPromptEn"),
     setupEs: templateLiteralProperty(html, "project_review_setup_prompt"),
-    manual: canonicalizeManualPrompt(templateLiteralAfterReturn(html, "projectReviewPrompt")),
+    manual: canonicalizeManualPrompt(templateLiteralAfterReturn(html, "projectReviewPromptEn")),
+    manualEs: canonicalizeManualPrompt(templateLiteralAfterReturn(html, "projectReviewPromptEs")),
   };
 }
 
@@ -108,6 +109,7 @@ function main() {
     setup: fencedPrompt(docs, "Initial Setup"),
     setupEs: fencedPrompt(docs, "Initial Setup (Spanish)"),
     manual: fencedPrompt(docs, "Manual Project Review"),
+    manualEs: fencedPrompt(docs, "Manual Project Review (Spanish)"),
   };
 
   const viewer = htmlPrompts("viewer.html");
@@ -119,9 +121,12 @@ function main() {
   assertSame("docs/index.html setup prompt es", canonical.setupEs, demo.setupEs);
   assertSame("viewer.html manual project prompt", canonical.manual, viewer.manual);
   assertSame("docs/index.html manual project prompt", canonical.manual, demo.manual);
+  assertSame("viewer.html manual project prompt es", canonical.manualEs, viewer.manualEs);
+  assertSame("docs/index.html manual project prompt es", canonical.manualEs, demo.manualEs);
   assertSame("viewer.html and docs/index.html setup prompts", viewer.setup, demo.setup);
   assertSame("viewer.html and docs/index.html setup prompts es", viewer.setupEs, demo.setupEs);
   assertSame("viewer.html and docs/index.html manual prompts", viewer.manual, demo.manual);
+  assertSame("viewer.html and docs/index.html manual prompts es", viewer.manualEs, demo.manualEs);
 
   console.log("Prompt drift check passed.");
 }

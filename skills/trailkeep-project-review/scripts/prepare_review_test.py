@@ -310,6 +310,7 @@ def render_test_prompt(args, sandbox_dir, project, linked_markdowns):
     review_gate_cmd = Path(args.trailkeep_repo) / "scripts" / "run-project-review-agent-gates.sh"
     quoted_gate_cmd = shlex.quote(str(review_gate_cmd))
     quoted_sandbox_dir = shlex.quote(str(sandbox_dir))
+    output_language = args.output_language
     prompt_lines = [
         "Run a project-scoped trailkeep review test.",
         "",
@@ -317,6 +318,7 @@ def render_test_prompt(args, sandbox_dir, project, linked_markdowns):
         f"- project: {project.get('name')}",
         f"- backup_dir: {sandbox_dir}",
         f"- trailkeep_repo: {args.trailkeep_repo}",
+        f"- output_language: \"{output_language}\"",
         "- this is an isolated test sandbox; do not write generated sidecars to the real backup folder",
         "",
         "Known facts:",
@@ -335,6 +337,7 @@ def render_test_prompt(args, sandbox_dir, project, linked_markdowns):
             "Instructions:",
             "- Follow docs/generative-layer.md from the local trailkeep repo.",
             "- Follow skills/trailkeep-project-review/SKILL.md from the local trailkeep repo.",
+            f"- Write all generated sidecar prose for this test in output_language: \"{output_language}\". Keep JSON schema keys in English.",
             f"- Use review_gate_cmd: {review_gate_cmd}",
             f"- Before any model call, run: {quoted_gate_cmd} pre --backup-dir {quoted_sandbox_dir}",
             "- Continue only if the pre gate exits 0. Use only _review_effective_plan.json from this sandbox.",
@@ -342,7 +345,7 @@ def render_test_prompt(args, sandbox_dir, project, linked_markdowns):
             "- For selected inputs with preprocessed_ref, read sanitized text from this sandbox's _review_preprocessed_inputs.json instead of raw markdown.",
             "- Write generated sidecars only at this sandbox root: _conversation_summaries.json, _project_reviews.json, _agent_profile.json, _review_repo_sync.json, and _review_update_log.json.",
             "- Validate every conversation summary before merging it by running validate-summary through review_gate_cmd.",
-            "- After writing sidecars, run finalize through review_gate_cmd with the concrete model metadata.",
+            f"- After writing sidecars, run finalize through review_gate_cmd with the concrete model metadata and --output-language {output_language}.",
             "- If finalize fails, report the failure and do not mark this test ok.",
             "- Do not modify source markdown backups, project repos, or the real backup folder.",
             "",
@@ -421,6 +424,7 @@ def main():
     parser.add_argument("--trailkeep-repo", required=True)
     parser.add_argument("--skill-dir", required=True)
     parser.add_argument("--output-dir", help="Optional destination folder. Defaults to a new /tmp folder.")
+    parser.add_argument("--output-language", choices=("en", "es"), default="en", help="Language for generated sidecar prose in the test prompt. JSON schema keys remain English.")
     parser.add_argument("--copy-files", action="store_true", help="Copy selected markdown files instead of symlinking them.")
     parser.add_argument("--skip-gate", action="store_true", help="Prepare files without running planner eval/pre gate in the sandbox.")
     args = parser.parse_args()
@@ -515,6 +519,7 @@ def main():
         "linked_markdowns": len(linked_markdowns),
         "selected_inputs": len(scoped_project.get("selected_inputs") or []),
         "estimated_input_tokens": scoped_project.get("estimate", {}).get("input_tokens", 0),
+        "output_language": args.output_language,
         "eval": eval_output,
         "gate": json.loads(gate_output) if gate_output else {},
         "message": "Paste project-review-test-prompt.txt into the coding agent to test this project without touching the real backup folder.",

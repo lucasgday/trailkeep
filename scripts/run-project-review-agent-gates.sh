@@ -31,18 +31,20 @@ Commands:
              runs planner eval + pre gate inside the sandbox, and writes a
              project-review-test-prompt.txt file.
              Usually: --backup-dir <backup_dir> --project <project_name>
+             Optional: --output-language <en|es> for generated sidecar prose.
 
   finalize   Run generated-output evals and write the review update log.
              Passes options through to finalize_review_run.py, usually:
              --backup-dir <backup_dir> --model-provider <provider>
              --model-routing <available|unavailable> --model-used <model>
+             --output-language <en|es>
 
 Examples:
   scripts/run-project-review-agent-gates.sh pre --backup-dir /path/to/backups
   scripts/run-project-review-agent-gates.sh repo-sync --backup-dir /path/to/backups
   scripts/run-project-review-agent-gates.sh validate-summary --summary-json /tmp/summary.json
-  scripts/run-project-review-agent-gates.sh prepare-test --backup-dir /path/to/backups --project agentlog
-  scripts/run-project-review-agent-gates.sh finalize --backup-dir /path/to/backups --model-used gpt-5
+  scripts/run-project-review-agent-gates.sh prepare-test --backup-dir /path/to/backups --project agentlog --output-language es
+  scripts/run-project-review-agent-gates.sh finalize --backup-dir /path/to/backups --model-used gpt-5 --output-language es
 USAGE
 }
 

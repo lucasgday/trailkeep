@@ -20,7 +20,8 @@ Implemented in trailkeep:
   `scripts/run-project-review-agent-gates.sh validate-summary`.
 - Project-scoped review testing is available through
   `scripts/run-project-review-agent-gates.sh prepare-test`, which creates an
-  isolated sandbox for one project before model calls.
+  isolated sandbox for one project before model calls and writes an explicit
+  `output_language` into the generated test prompt.
 - `skills/trailkeep-project-review/` contains the repo-versioned skill and its
   deterministic finalizer script.
 - `skills/trailkeep-project-review/scripts/check_repo_sync.py` checks local git
@@ -369,6 +370,10 @@ For `administrative`, `low_signal`, and `context_dependent`, set
 Checkpoint the conversation so it is not retried forever, but do not invent
 decisions, blockers, or task hints. For short but meaningful conversations,
 summarize only the durable decision or task that is actually present.
+`task_hints` are conversation-level candidates, not consolidated backlog items.
+They capture possible pending work with evidence, but they are not project tasks
+until the project review promotes, merges, or rejects them against repo docs and
+prior project tasks.
 
 Before writing a conversation summary, reject:
 
@@ -423,6 +428,13 @@ session for that project. It must name a concrete file, section, view,
 component, or flow; identify the selected follow-up task; include the
 verification step; and state the expected output or sidecar/doc update. Missing,
 placeholder, or boilerplate prompts are eval failures.
+
+Generated prose fields should be plain strings written in the run's explicit
+`output_language`. Setup, manual review, and project-scoped test prompts set
+`output_language` directly (`"es"` or `"en"`), and the finalizer records it in
+`_review_update_log.json`. JSON schema keys stay in English. The viewer does not
+translate generated sidecars; Spanish runs should produce Spanish prose, and
+English runs should produce English prose.
 
 ```json
 {
@@ -502,6 +514,12 @@ placeholder, or boilerplate prompts are eval failures.
 
 Tasks must have stable ids. Do not change a task id unless evidence closes,
 splits, merges, or materially changes that task.
+Project `tasks` are the consolidated backlog for the project. Each task must map
+to repo planning docs, a prior project task, or one or more conversation-summary
+`task_hints`, blockers, or decisions. If a candidate is duplicated, low-signal,
+or conflicts with the repo roadmap, the project review should merge it, leave an
+evidence-backed open question, or omit it with checkpointed rationale instead of
+creating an orphan task.
 
 ### Evidence Grounding
 
@@ -631,6 +649,7 @@ unless a real size or performance problem appears.
       "model_provider": "",
       "model_used": "",
       "model_routing": "available | unavailable",
+      "output_language": "en | es",
       "warnings": [],
       "semantic_quality_review": {
         "status": "pass | needs_attention | skipped",
@@ -1105,7 +1124,7 @@ Recommended daily sequence:
    evidence; skip projects without UI/design changes.
 10. Update global agent profile from compact project reviews.
 11. Run
-   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir>`.
+   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir> --output-language <en|es>`.
 12. Confirm `_review_update_log.json` and `_review_generated_eval_report.json`
     reflect the final status.
 
@@ -1129,7 +1148,7 @@ prompt:
 
 The wrapper finalizer wraps that runner:
 
-`scripts/run-project-review-agent-gates.sh finalize --backup-dir <backup_dir>`
+`scripts/run-project-review-agent-gates.sh finalize --backup-dir <backup_dir> --output-language <en|es>`
 
 Do not duplicate generated-output checks inside the skill prompt or automation
 instructions. The executable checks live in
@@ -1225,7 +1244,7 @@ The wrapper is the required deterministic interface for agent gates:
 ```sh
 <trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> pre --backup-dir <backup_dir>
 <trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> repo-sync --backup-dir <backup_dir>
-<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir>
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh --skill-dir <skill_dir> finalize --backup-dir <backup_dir> --output-language <en|es>
 ```
 
 The Python scripts inside `skills/trailkeep-project-review/scripts/` are
@@ -1237,7 +1256,7 @@ Use this flow when you want to evaluate one project's generated review quality
 before trusting a real bootstrap or daily run.
 
 ```sh
-<trailkeep_repo>/scripts/run-project-review-agent-gates.sh prepare-test --backup-dir <backup_dir> --project <project_name>
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh prepare-test --backup-dir <backup_dir> --project <project_name> --output-language <en|es>
 ```
 
 The command creates a temporary `sandbox_dir` that contains:
@@ -1250,9 +1269,11 @@ The command creates a temporary `sandbox_dir` that contains:
 - `project-review-test-prompt.txt` for the coding agent to paste/run.
 
 The test sandbox is the `backup_dir` for that run. Generated sidecars must be
-written only in the sandbox root. Do not copy sandbox sidecars into the real
-backup folder automatically. If the output is good enough, rerun the real manual
-project refresh or recurring automation against the real backup folder.
+written only in the sandbox root, and generated prose must use the requested
+`output_language`; JSON schema keys stay in English. Do not copy sandbox
+sidecars into the real backup folder automatically. If the output is good
+enough, rerun the real manual project refresh or recurring automation against
+the real backup folder.
 
 This flow exists to test generated quality and eval behavior without mutating the
 global daily plan, global effective plan, or real backup sidecars.
