@@ -66,6 +66,21 @@ for every required gate. If this skill is installed outside the repo, pass
 `--skill-dir <skill_dir>` to the wrapper. Direct Python scripts are implementation
 details behind the wrapper.
 
+For a project-scoped test run, do not ask the user to hand-edit
+`_review_effective_plan.json` and do not run a one-project model call against the
+real global backup folder. Prepare an isolated sandbox first:
+
+```sh
+<review_gate_cmd> --skill-dir <skill_dir> prepare-test --backup-dir <backup_dir> --project <project_name>
+```
+
+Use the returned `sandbox_dir` as `backup_dir` for the test. Paste the generated
+`project-review-test-prompt.txt` into the coding agent. All generated sidecars
+for that test must be written to the sandbox root. Promote nothing back to the
+real backup folder automatically; if the test output is good, rerun the real
+manual project refresh or the recurring automation against the real backup
+folder.
+
 1. Read `<backup_dir>/_review_run_plan.json`.
 2. Read `<backup_dir>/_review_eval_report.json`.
 3. Before any model call, run the wrapper pre gate:

@@ -25,6 +25,13 @@ Commands:
              Passes options through to validate_conversation_summary.py, usually:
              --summary-json <path-or-> --session-id <id>
 
+  prepare-test
+            Prepare an isolated project-scoped review test sandbox.
+             Copies/scopes deterministic sidecars, links selected markdowns,
+             runs planner eval + pre gate inside the sandbox, and writes a
+             project-review-test-prompt.txt file.
+             Usually: --backup-dir <backup_dir> --project <project_name>
+
   finalize   Run generated-output evals and write the review update log.
              Passes options through to finalize_review_run.py, usually:
              --backup-dir <backup_dir> --model-provider <provider>
@@ -34,6 +41,7 @@ Examples:
   scripts/run-project-review-agent-gates.sh pre --backup-dir /path/to/backups
   scripts/run-project-review-agent-gates.sh repo-sync --backup-dir /path/to/backups
   scripts/run-project-review-agent-gates.sh validate-summary --summary-json /tmp/summary.json
+  scripts/run-project-review-agent-gates.sh prepare-test --backup-dir /path/to/backups --project agentlog
   scripts/run-project-review-agent-gates.sh finalize --backup-dir /path/to/backups --model-used gpt-5
 USAGE
 }
@@ -99,6 +107,11 @@ case "$COMMAND" in
     SCRIPT="$SKILL_DIR/scripts/validate_conversation_summary.py"
     [[ -f "$SCRIPT" ]] || die "missing conversation summary validator script: $SCRIPT"
     exec "$PYTHON_BIN" "$SCRIPT" "$@"
+    ;;
+  prepare-test|test)
+    SCRIPT="$SKILL_DIR/scripts/prepare_review_test.py"
+    [[ -f "$SCRIPT" ]] || die "missing review test preparation script: $SCRIPT"
+    exec "$PYTHON_BIN" "$SCRIPT" --trailkeep-repo "$TRAILKEEP_REPO" --skill-dir "$SKILL_DIR" "$@"
     ;;
   finalize|post)
     SCRIPT="$SKILL_DIR/scripts/finalize_review_run.py"

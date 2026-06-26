@@ -18,6 +18,9 @@ Implemented in trailkeep:
   low-signal conversations that invent tasks.
 - Per-summary deterministic validation is available through the wrapper command
   `scripts/run-project-review-agent-gates.sh validate-summary`.
+- Project-scoped review testing is available through
+  `scripts/run-project-review-agent-gates.sh prepare-test`, which creates an
+  isolated sandbox for one project before model calls.
 - `skills/trailkeep-project-review/` contains the repo-versioned skill and its
   deterministic finalizer script.
 - `skills/trailkeep-project-review/scripts/check_repo_sync.py` checks local git
@@ -1227,6 +1230,32 @@ The wrapper is the required deterministic interface for agent gates:
 
 The Python scripts inside `skills/trailkeep-project-review/scripts/` are
 implementation details behind that wrapper.
+
+## Project-Scoped Test Runs
+
+Use this flow when you want to evaluate one project's generated review quality
+before trusting a real bootstrap or daily run.
+
+```sh
+<trailkeep_repo>/scripts/run-project-review-agent-gates.sh prepare-test --backup-dir <backup_dir> --project <project_name>
+```
+
+The command creates a temporary `sandbox_dir` that contains:
+
+- a scoped `_review_run_plan.json` for only that project;
+- a fresh `_review_eval_report.json` for the scoped plan;
+- a scoped `_review_effective_plan.json` written by the pre-model gate;
+- filtered metadata/preprocessed sidecars;
+- selected markdown conversations linked or copied from the source backup;
+- `project-review-test-prompt.txt` for the coding agent to paste/run.
+
+The test sandbox is the `backup_dir` for that run. Generated sidecars must be
+written only in the sandbox root. Do not copy sandbox sidecars into the real
+backup folder automatically. If the output is good enough, rerun the real manual
+project refresh or recurring automation against the real backup folder.
+
+This flow exists to test generated quality and eval behavior without mutating the
+global daily plan, global effective plan, or real backup sidecars.
 
 ## Manual Project Refresh
 

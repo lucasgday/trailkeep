@@ -146,7 +146,7 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
-- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
 - Prompt drift: `node scripts/check-prompt-drift.cjs`
