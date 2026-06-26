@@ -75,6 +75,26 @@ def msg_to_md(role, content):
     label = "You" if role == "user" else "Codex"
     return f"### {label}\n\n{txt}\n"
 
+def instruction_context_title(s):
+    if not s:
+        return False
+    first = next((line.strip() for line in str(s).strip().splitlines() if line.strip()), "")
+    return bool(re.match(r"^#?\s*AGENTS\.md instructions for\b", first, re.I))
+
+def clean_title(s):
+    if not s:
+        return None
+    if instruction_context_title(s):
+        return None
+    first = next((line.strip() for line in str(s).strip().splitlines() if line.strip()), "")
+    first = re.sub(r"^#+\s*", "", first).strip()
+    if not first or instruction_context_title(first):
+        return None
+    if len(first) > 70:
+        cut = first[:70].rsplit(" ", 1)[0]
+        first = (cut or first[:70]) + "…"
+    return first
+
 def parse_session(path, index, archived=False):
     sid = None
     sess_ts = None
@@ -126,16 +146,15 @@ def parse_session(path, index, archived=False):
 
     # title: from the index if present, else first user message, else date
     meta = index.get(sid, {}) if sid else {}
-    title = meta.get("title")
+    title = clean_title(meta.get("title"))
     updated = meta.get("updated_at") or sess_ts
     if not title:
         # look for the first "### You"
         for b in blocks:
             if b.startswith("### You"):
-                first = b.split("\n\n", 1)[1] if "\n\n" in b else ""
-                first = first.strip().split("\n")[0]
-                if first:
-                    title = first[:70]
+                body = b.split("\n\n", 1)[1] if "\n\n" in b else ""
+                title = clean_title(body)
+                if title:
                     break
     if not title:
         title = "session-" + (sid or os.path.basename(path))[:20]

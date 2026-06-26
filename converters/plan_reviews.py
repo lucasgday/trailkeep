@@ -142,6 +142,34 @@ def instruction_context_doc(doc):
     return os.path.basename(rel) in INSTRUCTION_CONTEXT_DOCS
 
 
+def instruction_context_title(text):
+    if not text:
+        return False
+    first = next((line.strip() for line in str(text).strip().splitlines() if line.strip()), "")
+    return bool(re.match(r"^#?\s*AGENTS\.md instructions for\b", first, re.I))
+
+
+def clean_session_title(text):
+    if not text or instruction_context_title(text):
+        return ""
+    first = next((line.strip() for line in str(text).strip().splitlines() if line.strip()), "")
+    first = re.sub(r"^#+\s*", "", first).strip()
+    if not first or instruction_context_title(first):
+        return ""
+    if len(first) > 90:
+        cut = first[:90].rsplit(" ", 1)[0]
+        first = (cut or first[:90]) + "…"
+    return first
+
+
+def first_user_title_from_markdown(text):
+    for match in re.finditer(r"(?ims)^###\s+(You|Tú|Tu|User)\s*$\n+(.*?)(?=^###\s+|\Z)", text or ""):
+        title = clean_session_title(match.group(2))
+        if title:
+            return title
+    return ""
+
+
 def redact_secrets(text):
     redacted = text or ""
     replacements = []
@@ -176,10 +204,14 @@ def parse_markdown(path, backup_dir):
     text = open(path, encoding="utf-8", errors="ignore").read()
     comment = re.search(r"<!--(.*?)-->", text, re.S)
     body = comment.group(1) if comment else ""
-    title = os.path.splitext(os.path.basename(path))[0]
+    title = clean_session_title(os.path.splitext(os.path.basename(path))[0])
     m = re.search(r"^#\s+(.+)$", text, re.M)
     if m:
-        title = m.group(1).strip()
+        title = clean_session_title(m.group(1).strip())
+    if not title:
+        title = first_user_title_from_markdown(text)
+    if not title:
+        title = os.path.splitext(os.path.basename(path))[0]
     rel = os.path.relpath(path, backup_dir)
     return {
         "id": meta_value(body, "id") or rel,
