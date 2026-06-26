@@ -199,6 +199,11 @@
   .gen-warning{border:1px solid #e8c9a9;background:#fff8ee;color:#9a5c20;border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.45}
   .gen-list{margin:0;padding-left:18px;color:var(--ink);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
   .gen-list li{margin:3px 0}
+  .gen-task-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+  .gen-task-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;color:var(--ink);font-size:13px;line-height:1.45}
+  .gen-task-check{width:15px;height:15px;margin:2px 0 0;accent-color:var(--claude)}
+  .gen-task-text{min-width:0;overflow-wrap:anywhere}
+  .gen-task-status{font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap;background:var(--panel)}
   .gen-actions{display:flex;gap:8px;flex-wrap:wrap}
   .conv-summary-card{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 16px;margin:16px 0 8px;display:flex;flex-direction:column;gap:10px}
   .conv-summary-card h2{font-size:14px;margin:0;color:var(--ink)}
@@ -425,11 +430,16 @@
   .crumbs .src-pill.src-cowork{background:#d49a52;color:#fff}
   .crumbs .src-pill.src-opencode{background:#5b9bd8;color:#fff}
   .crumbs .src-pill.src-cursor{background:#d87093;color:#fff}
-  .doc-actions{display:flex;gap:8px;margin-top:12px}
+  .doc-title-row{display:flex;align-items:flex-start;gap:12px;margin:0 0 8px}
+  .doc-title-row h1{flex:1;min-width:0;margin:0}
+  .doc-nav{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex:0 0 auto}
+  .doc-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
   .mini{font:inherit;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-soft)}
   .mini:hover{background:var(--tool-bg)}
-  .mini.has-icon{display:inline-flex;align-items:center;gap:6px}
-  .mini.has-icon svg{width:14px;height:14px;flex:0 0 auto}
+  .mini:disabled{cursor:not-allowed;opacity:.45;background:var(--paper)}
+  .mini:disabled:hover{background:var(--paper)}
+  .has-icon{display:inline-flex;align-items:center;gap:6px;justify-content:center}
+  .has-icon svg{width:14px;height:14px;flex:0 0 auto}
   .mini.is-primary{background:var(--ink);border-color:var(--ink);color:#fff}
   .mini.is-primary:hover{background:var(--spine-2);color:#fff}
   .mini.is-disabled{cursor:not-allowed;opacity:.55;background:var(--paper);color:var(--ink-soft)}
@@ -445,8 +455,10 @@
   .turn[data-type="user"] .tag{background:var(--you)}
   .turn[data-type="assistant"] .tag{background:var(--claude)}
   .turn[data-type="tool"] .tag{background:var(--tool)}
+  .turn[data-kind="instruction"] .tag{background:#667a74}
   .turn-head .preview{font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px}
   .turn-copy{font:inherit;font-size:11px;color:var(--ink-soft);background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;opacity:0;transition:opacity .12s;margin-left:8px;white-space:nowrap}
+  .turn-copy svg{width:12px;height:12px}
   .turn:hover .turn-copy{opacity:1}
   .turn-copy:hover{background:var(--tool-bg);color:var(--ink)}
   .turn-copy.ok{color:var(--claude);border-color:var(--claude)}
@@ -509,6 +521,8 @@
     .sidebar{position:fixed;inset:auto 0 0 0;top:92px;max-height:64vh;z-index:20;display:none}
     .sidebar.open{display:flex}
     .doc{padding:20px 16px 100px}
+    .doc-title-row{align-items:stretch;flex-direction:column}
+    .doc-nav{justify-content:flex-start}
     .pj-sticky{top:0;margin:0 -28px 20px;padding:20px 28px 14px}
     .ph-head{grid-template-columns:1fr}
     .ph-top-metas,.ph-top-meta{align-items:flex-start}
@@ -635,7 +649,7 @@ const state = {
   sessions: [], projects: new Map(), sources: new Map(),
   activeId: null, defaultSessionId: null,
   types: { user:true, assistant:true, tool:true },
-  query: "", hideDone:true, hideArchived:true, collapseAll:false,
+  query: "", hideDone:true, hideArchived:true, collapseAll:true,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
   lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null, supersededSessions:[],
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
@@ -702,8 +716,8 @@ const I18N = {
     ph_plan_more_inputs:"more flagged inputs",
     ph_agent_updates:"Agent review updates", ph_agent_no_updates:"No agent review run is linked to this project yet.",
     gen_conversation_summary:"Conversation summary", gen_reviewed:"reviewed", gen_summary:"Summary", gen_context:"Context", gen_next_step:"Next step",
-    gen_roadmap:"Roadmap", gen_questions:"Open questions", gen_tasks:"Tasks", gen_design:"Design system",
-    gen_decisions:"Decisions", gen_blockers:"Blockers", gen_task_hints:"Task hints", gen_files:"Files / areas",
+    gen_roadmap:"Roadmap", gen_questions:"Open questions", gen_tasks:"Pending tasks", gen_design:"Design system",
+    gen_decisions:"Decisions", gen_blockers:"Blockers", gen_task_hints:"Possible pending items", gen_files:"Files / areas",
     gen_agent_profile:"Agent profile", gen_preferences:"Preferences", gen_working_style:"Working style",
     gen_repo_conventions:"Repo conventions", gen_prompting_patterns:"Prompting patterns", gen_copy_agents:"Copy AGENTS draft",
     gen_copy_claude:"Copy CLAUDE draft", gen_copy_next:"Copy next prompt", gen_no_details:"No generated details yet.",
@@ -713,7 +727,7 @@ const I18N = {
     ph_read_prompt:"View prompts", ph_hide_prompt:"Hide prompts", ph_prompt_panel_title:"Prompts", ph_setup_prompt:"Global setup", ph_review_prompt:"Project update",
     ph_setup_prompt_hint:"Global one-time setup for this backup folder. It installs/links the agent skill and recurring automation; it is not scoped to this project.",
     ph_review_prompt_hint:"Project-specific manual prompt: copy this only when you want to refresh this project now, without waiting for the daily run. The daily automation uses this same template for changed projects.",
-    filters:"Filters", show_blocks:"Show blocks", you:"You", assistant:"Agent", tools:"Tools",
+    filters:"Filters", show_blocks:"Show blocks", you:"You", assistant:"Agent", tools:"Tools", context_tag:"Context",
     view:"View", hide_done:"Hide marked conversations", hide_archived:"Hide archived",
     collapse_turns:"Collapse all turns", group_by:"Group by:", by_tool:"Tool", by_project:"Project",
     runs_title:"Latest runs", runs_empty:"No record yet. Backups and optional agent reviews appear here.",
@@ -739,6 +753,7 @@ const I18N = {
     top_projects:"Projects by", top_projects_more:"View more", top_projects_less:"View less", no_activity:"no activity", total:"total", period_total:"period total",
     archived_badge:"archived", n_turns:"turns", mark_reviewed:"Mark as reviewed",
     project_pill:"Project", back_to_project:"← Project", copy_conv:"Copy conversation",
+    prev_project_conv:"Previous", next_project_conv:"Next",
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
     collapse_expand:"Collapse/expand all", copy:"copy", copied:"✓ copied",
     mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool",
@@ -814,8 +829,8 @@ const I18N = {
     ph_plan_more_inputs:"inputs marcados más",
     ph_agent_updates:"Corridas de review del agente", ph_agent_no_updates:"Todavía no hay una corrida de review del agente asociada a este proyecto.",
     gen_conversation_summary:"Resumen de conversación", gen_reviewed:"revisado", gen_summary:"Resumen", gen_context:"Contexto", gen_next_step:"Próximo paso",
-    gen_roadmap:"Roadmap", gen_questions:"Preguntas abiertas", gen_tasks:"Tasks", gen_design:"Design system",
-    gen_decisions:"Decisiones", gen_blockers:"Bloqueos", gen_task_hints:"Hints de tareas", gen_files:"Archivos / áreas",
+    gen_roadmap:"Roadmap", gen_questions:"Preguntas abiertas", gen_tasks:"Tareas pendientes", gen_design:"Design system",
+    gen_decisions:"Decisiones", gen_blockers:"Bloqueos", gen_task_hints:"Posibles pendientes", gen_files:"Archivos / áreas",
     gen_agent_profile:"Perfil del agente", gen_preferences:"Preferencias", gen_working_style:"Forma de trabajo",
     gen_repo_conventions:"Convenciones de repo", gen_prompting_patterns:"Patrones de prompts", gen_copy_agents:"Copiar draft AGENTS",
     gen_copy_claude:"Copiar draft CLAUDE", gen_copy_next:"Copiar próximo prompt", gen_no_details:"Todavía no hay detalles generados.",
@@ -833,6 +848,7 @@ Contexto:
 - Si este agente usa un proveedor remoto de modelos, el contexto seleccionado de proyectos puede enviarse a ese proveedor como parte de la review.
 - Si este agente no puede probar que el modelo es local/on-device, tratalo como remoto.
 - Usá el modelo más fuerte disponible con razonamiento/esfuerzo extremely high para bootstrap, deep-review, extracción de design system y generación del perfil global del agente. Si este agente no puede elegir esfuerzo de razonamiento o submodos directamente, usá su modelo/perfil más fuerte disponible y registrá el modelo real usado.
+- Seteá output_language para esta automatización como "es" porque este prompt de setup está en español. Usá output_language para todo el contenido generado recurrente de sidecars y registralo en _review_update_log.json en cada run. Mantené las claves del schema JSON en inglés.
 - Enviá solo el contexto seleccionado por _review_run_plan.json salvo que yo apruebe explícitamente un alcance más amplio de deep-review.
 - La aprobación de proveedor remoto ocurre una sola vez durante el setup. Los runs diarios no deberían volver a preguntar solo porque el proveedor es remoto; solo deben preguntar cuando el gate reporte requires_approval sin resolver, o cuando cambien materialmente provider/model, alcance, schedule o archivos de output. Los inputs possible_secret con preprocessed_ref ya están redactados localmente.
 - La automatización opcional puede correr git fetch en repos locales de proyectos para revisar si cambios remotos vuelven stale una review. Nunca debe correr git pull ni modificar un worktree sin mi aprobación explícita.
@@ -870,7 +886,7 @@ Tus tareas:
    - _agent_profile.json
    - _review_repo_sync.json
    - _review_update_log.json
-21. Después de escribir sidecars, corré: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown>
+21. Después de escribir sidecars, corré: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown> --output-language es
 22. Si el finalizer falla, no marques el run de review como ok. Si registra needs_attention, tratá el run como completado con warnings y mostrale esos warnings al usuario. Usá _review_generated_eval_report.json y _review_update_log.json como evidencia.
 23. No escribas sidecars generados dentro de repos de proyectos, carpetas raw de herramientas fuente, carpetas markdown-* ni el repo de trailkeep.
 24. Nunca transmitas la carpeta completa de backups como archivo comprimido ni como dump sin scope. Usá primero el input manifest de _review_run_plan.json.
@@ -884,7 +900,7 @@ Después del setup, reportá:
 - comportamiento de repo sync y repos stale/uncertain;
 - sidecars que se van a escribir;
 - aprobaciones o decisiones sin resolver.`,
-    filters:"Filtros", show_blocks:"Mostrar bloques", you:"Tú", assistant:"Agente", tools:"Herramientas",
+    filters:"Filtros", show_blocks:"Mostrar bloques", you:"Tú", assistant:"Agente", tools:"Herramientas", context_tag:"Contexto",
     view:"Vista", hide_done:"Ocultar conversaciones marcadas", hide_archived:"Ocultar archivadas",
     collapse_turns:"Colapsar todos los turnos", group_by:"Agrupar por:", by_tool:"Herramienta", by_project:"Proyecto",
     runs_title:"Últimas corridas", runs_empty:"Sin registro todavía. Los respaldos y reviews opcionales aparecen acá.",
@@ -910,6 +926,7 @@ Después del setup, reportá:
     top_projects:"Proyectos por", top_projects_more:"Ver más", top_projects_less:"Ver menos", no_activity:"sin actividad", total:"total", period_total:"total del período",
     archived_badge:"archivada", n_turns:"turnos", mark_reviewed:"Marcar como revisada",
     project_pill:"Proyecto", back_to_project:"← proyecto", copy_conv:"Copiar conversación",
+    prev_project_conv:"Anterior", next_project_conv:"Siguiente",
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
     collapse_expand:"Colapsar/expandir todos", copy:"copiar", copied:"✓ copiado",
     mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.",
@@ -1404,6 +1421,48 @@ function previewText(t){
   s=s.replace(/[#*`>\-]/g," ").replace(/```[a-z]*/g,"").replace(/\s+/g," ").trim();
   return s.slice(0,90);
 }
+function instructionContextTitle(text){
+  const first=String(text||"").trim().split(/\n/).map(s=>s.trim()).find(Boolean)||"";
+  return /^#?\s*AGENTS\.md instructions for\b/i.test(first);
+}
+function instructionContextTurn(turn){
+  if(!turn || turn.type!=="user") return false;
+  const md=String(turn.md||"");
+  return instructionContextTitle(md)
+    || /<INSTRUCTIONS>[\s\S]*?<\/INSTRUCTIONS>/i.test(md)
+    || /<(permissions instructions|environment_context|app-context|apps_instructions|skills_instructions|plugins_instructions|collaboration_mode)>/i.test(md);
+}
+function cleanSessionTitleCandidate(text){
+  if(!text||instructionContextTitle(text)) return "";
+  let first=String(text).trim().split(/\n/).map(s=>s.trim()).find(Boolean)||"";
+  first=first.replace(/^#+\s*/,"").trim();
+  if(!first||instructionContextTitle(first)) return "";
+  if(first.length>90){
+    const cut=first.slice(0,90).replace(/\s+\S*$/,"");
+    first=(cut||first.slice(0,90))+"…";
+  }
+  return first;
+}
+function displaySessionTitle(rawTitle, turns, fallback){
+  const title=cleanSessionTitleCandidate(rawTitle);
+  if(title) return title;
+  for(const turn of turns||[]){
+    if(turn.type!=="user") continue;
+    const candidate=cleanSessionTitleCandidate(turn.md);
+    if(candidate) return candidate;
+  }
+  return fallback||String(rawTitle||"").trim()||"session";
+}
+function projectConversationNav(s){
+  const rows=state.sessions
+    .filter(x=>x.project===s.project)
+    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"") || String(a.title||"").localeCompare(String(b.title||""),"es"));
+  const idx=rows.findIndex(x=>x.id===s.id);
+  return {
+    previous: idx>0 ? rows[idx-1] : null,
+    next: idx>=0 && idx<rows.length-1 ? rows[idx+1] : null,
+  };
+}
 
 function stableSessionKey(s){
   const sid=String((s&&s.sessionId)||"").trim();
@@ -1559,8 +1618,9 @@ async function handleFiles(fileList){
     const text=await f.text();
     const meta=parseMeta(text);
     const tm=text.match(/^#\s+(.+)$/m);
-    const title=tm?tm[1].trim():f.name.replace(/\.md$/,"");
     const turns=parseTurns(text);
+    const rawTitle=tm?tm[1].trim():f.name.replace(/\.md$/,"");
+    const title=displaySessionTitle(rawTitle, turns, f.name.replace(/\.md$/,""));
     const fuente=meta.fuente || (rel.toLowerCase().includes("codex")?"codex":"claude-code");
     const segs=rel.split("/");
     const folder=segs.length>=2?segs[segs.length-2]:"";
@@ -1912,6 +1972,30 @@ function genSection(title, value, options){
   if(items.length===1) return `<div class="gen-section"><h4>${escapeHtml(title)}</h4><p>${escapeHtml(items[0])}</p></div>`;
   return `<div class="gen-section"><h4>${escapeHtml(title)}</h4><ul class="gen-list">${items.map(i=>`<li>${escapeHtml(i)}</li>`).join("")}</ul></div>`;
 }
+function taskStatus(value){
+  return String(value&&typeof value==="object" ? value.status||"" : "").trim();
+}
+function taskDone(value){
+  const status=taskStatus(value).toLowerCase();
+  return ["done","closed","complete","completed","resolved","reviewed"].includes(status);
+}
+function taskLabel(value){
+  if(!value||typeof value!=="object") return genText(value);
+  const primary=value.title||value.task||value.text||value.summary||value.name||"";
+  const bits=[];
+  if(value.id) bits.push(`#${value.id}`);
+  if(primary) bits.push(primary);
+  if(value.detail&&value.detail!==primary) bits.push(value.detail);
+  return bits.join(" ") || genText(value);
+}
+function projectTasksSection(value){
+  const items=asArray(value).filter(v=>genText(v));
+  if(!items.length) return "";
+  return `<div class="gen-section"><h4>${escapeHtml(t("gen_tasks"))}</h4><ul class="gen-task-list">${items.map(item=>{
+    const status=taskStatus(item);
+    return `<li class="gen-task-item"><input class="gen-task-check" type="checkbox" disabled ${taskDone(item)?"checked":""}><span class="gen-task-text">${escapeHtml(taskLabel(item))}</span>${status?`<span class="gen-task-status">${escapeHtml(status)}</span>`:""}</li>`;
+  }).join("")}</ul></div>`;
+}
 function repoDocUpdateText(update){
   if(!update||typeof update!=="object") return genText(update);
   const parts=[];
@@ -1957,7 +2041,7 @@ function projectReviewDetails(name){
     genSection(t("gen_roadmap"), entry.roadmap_status, {markdown:true}),
     repoDocUpdatesSection(name, entry),
     genSection(t("gen_questions"), entry.open_questions),
-    genSection(t("gen_tasks"), entry.tasks),
+    projectTasksSection(entry.tasks),
     genSection(t("gen_design"), [ds.summary, ...(asArray(ds.components)), ...(asArray(ds.rules))].filter(Boolean)),
     genSection(t("ph_review_prompt"), entry.suggested_next_prompt, {markdown:true}),
   ].filter(Boolean).join("");
@@ -2175,6 +2259,7 @@ Context:
 - If this agent uses a remote model provider, selected project context may be sent to that provider as part of the review.
 - If this agent cannot prove the model is local/on-device, treat it as remote.
 - Use the strongest available model with extremely high reasoning/effort for bootstrap, deep-review, design-system extraction, and global agent profile generation. If this agent cannot select reasoning effort or submodes directly, use its strongest available model/profile and record the actual model used.
+- Set output_language for this automation to "en" because this setup prompt is English. Use output_language for all recurring generated sidecar prose and record it in _review_update_log.json for each run. Keep JSON schema keys in English.
 - Only send context selected by _review_run_plan.json unless I explicitly approve a wider deep-review scope.
 - Remote-provider approval happens once during setup. Daily runs should not ask again merely because the provider is remote; they should ask only when the gate reports unresolved requires_approval, or when provider/model, scope, schedule, or output files materially change. possible_secret inputs with preprocessed_ref are already redacted locally.
 - The optional automation may run git fetch in local project repos to check whether remote changes make a review stale. It must never run git pull or modify a worktree without my explicit approval.
@@ -2212,7 +2297,7 @@ Your tasks:
    - _agent_profile.json
    - _review_repo_sync.json
    - _review_update_log.json
-21. After writing sidecars, run: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown>
+21. After writing sidecars, run: <review_gate_cmd> finalize --backup-dir <backup_dir> --model-provider <provider_or_agent> --model-routing <available_or_unavailable> --model-used <concrete_model_or_alias_or_unknown> --output-language en
 22. If the finalizer fails, do not mark the review run ok. If it records needs_attention, treat the run as completed with warnings and surface those warnings. Use _review_generated_eval_report.json and _review_update_log.json as the evidence.
 23. Do not write generated sidecars into project repos, source-tool raw folders, markdown-* folders, or the trailkeep repo.
 24. Never transmit the entire backup folder as an archive or unscoped dump. Use the _review_run_plan.json input manifest first.
@@ -2230,7 +2315,7 @@ After setup, report:
 function projectReviewSetupPrompt(){
   return state.lang==="es" ? t("project_review_setup_prompt") : projectReviewSetupPromptEn();
 }
-function projectReviewPrompt(name, sessions, meta, ledger){
+function projectReviewPromptEn(name, sessions, meta, ledger){
   const stack=(meta.stack&&meta.stack.length) ? meta.stack.join(", ") : t("ph_stack_none");
   const git=meta.git&&meta.git.branch ? `${meta.git.branch}${meta.git.last_commit_date?` · ${meta.git.last_commit_date}`:""}${meta.git.dirty?` · ${t("pj_dirty")}`:""}` : t("ph_git_none");
   const repo=meta.repo_url||t("ph_repo_none");
@@ -2258,6 +2343,7 @@ ${activity}
 Instructions:
 - Follow docs/generative-layer.md from the local trailkeep repo if available.
 - Follow skills/trailkeep-project-review/SKILL.md if the repo skill is available.
+- output_language: "en". Write generated sidecar prose for this run in English. Keep JSON schema keys in English.
 - Resolve backup_dir as the folder containing markdown-* folders and the _review_run_plan.json for this run. If ambiguous, ask.
 - Resolve skill_dir as the installed trailkeep-project-review skill path, or fallback to <trailkeep_repo>/skills/trailkeep-project-review.
 - Resolve review_gate_cmd as <trailkeep_repo>/scripts/run-project-review-agent-gates.sh. Use this wrapper for all gates. If skill_dir is outside the repo, pass --skill-dir <skill_dir> to the wrapper.
@@ -2266,7 +2352,7 @@ Instructions:
 - If the wrapper pre command exits 2, resolve approval through _review_gate_decisions.json, rerun <review_gate_cmd> pre --backup-dir <backup_dir>, and then use _review_effective_plan.json for model context.
 - Before model calls for a project with a local git repo, run <review_gate_cmd> repo-sync --backup-dir <backup_dir>. It may run git fetch to update remote-tracking refs, but must never pull or modify worktrees. If _review_repo_sync.json marks repo_may_be_stale or sync_uncertain, reflect that in the project review.
 - Write generated sidecars only at the root of backup_dir, especially backup_dir/_project_reviews.json.
-- After writing sidecars, run <review_gate_cmd> finalize --backup-dir <backup_dir>.
+- After writing sidecars, run <review_gate_cmd> finalize --backup-dir <backup_dir> --output-language en.
 - If the finalizer fails, do not mark the review run ok. If it records needs_attention, treat the run as completed with warnings.
 - Do not write generated sidecars into project repos, source-tool raw folders, markdown-* folders, or the trailkeep repo.
 - First inspect the local repo if it exists.
@@ -2286,11 +2372,85 @@ Instructions:
 
 Return/write only the updated JSON entry for this project, compatible with the backup_dir/_project_reviews.json sidecar.`;
 }
+function projectReviewPromptEs(name, sessions, meta, ledger){
+  const stack=(meta.stack&&meta.stack.length) ? meta.stack.join(", ") : t("ph_stack_none");
+  const git=meta.git&&meta.git.branch ? `${meta.git.branch}${meta.git.last_commit_date?` · ${meta.git.last_commit_date}`:""}${meta.git.dirty?` · ${t("pj_dirty")}`:""}` : t("ph_git_none");
+  const repo=meta.repo_url||t("ph_repo_none");
+  const path=meta.virtual ? t("ph_virtual") : (meta.path||t("ph_no_path"));
+  const activity=ledger ? [
+    ledger.user_messages!=null ? `- prompts: ${ledger.user_messages}` : "",
+    ledger.tool_calls!=null ? `- tool calls: ${ledger.tool_calls}` : "",
+    ledger.files_modified!=null ? `- files modified: ${ledger.files_modified}` : "",
+  ].filter(Boolean).join("\n") : "- no hay estadísticas de ledger";
+  return `Actualizá la review incremental de trailkeep para este proyecto.
+
+Proyecto: ${name}
+
+Datos conocidos:
+- path: ${path}
+- repo: ${repo}
+- git: ${git}
+- stack: ${stack}
+- estado: ${projectStatusLabel(meta.status)||"-"}
+- conversaciones: ${sessions.length}
+
+Actividad:
+${activity}
+
+Instrucciones:
+- Seguí docs/generative-layer.md del repo local de trailkeep si está disponible.
+- Seguí skills/trailkeep-project-review/SKILL.md si la skill del repo está disponible.
+- output_language: "es". Escribí el contenido generado de sidecars para este run en español. Mantené las claves del schema JSON en inglés.
+- Resolvé backup_dir como la carpeta que contiene carpetas markdown-* y el _review_run_plan.json de este run. Si es ambiguo, preguntá.
+- Resolvé skill_dir como el path de la skill trailkeep-project-review instalada, o usá como fallback <trailkeep_repo>/skills/trailkeep-project-review.
+- Resolvé review_gate_cmd como <trailkeep_repo>/scripts/run-project-review-agent-gates.sh. Usá este wrapper para todos los gates. Si skill_dir está fuera del repo, pasá --skill-dir <skill_dir> al wrapper.
+- Antes de cualquier model call, corré <review_gate_cmd> pre --backup-dir <backup_dir>. También confirma que plan/eval estén actualizados y alineados, y que backup_dir/log.json tenga un último backup de menos de 24 horas. Continuá solo si sale 0; exit 0 puede ser parcial, así que usá solo _review_effective_plan.json.
+- Si el comando pre del wrapper sale 0 con partial=true o pending_projects, continuá solo con el effective plan seguro y mostrale al usuario el batch pendiente de aprobación; no envíes proyectos ni inputs salteados al modelo.
+- Si el comando pre del wrapper sale 2, resolvé la aprobación mediante _review_gate_decisions.json, corré de nuevo <review_gate_cmd> pre --backup-dir <backup_dir>, y después usá _review_effective_plan.json como contexto del modelo.
+- Antes de model calls para un proyecto con repo git local, corré <review_gate_cmd> repo-sync --backup-dir <backup_dir>. Puede correr git fetch para actualizar refs remote-tracking, pero nunca debe hacer pull ni modificar worktrees. Si _review_repo_sync.json marca repo_may_be_stale o sync_uncertain, reflejalo en la review del proyecto.
+- Escribí sidecars generados solo en la raíz de backup_dir, especialmente backup_dir/_project_reviews.json.
+- Después de escribir sidecars, corré <review_gate_cmd> finalize --backup-dir <backup_dir> --output-language es.
+- Si el finalizer falla, no marques el run de review como ok. Si registra needs_attention, tratá el run como completado con warnings.
+- No escribas sidecars generados dentro de repos de proyectos, carpetas raw de herramientas fuente, carpetas markdown-* ni el repo de trailkeep.
+- Primero inspeccioná el repo local si existe.
+- Si existen ROADMAP.md, BACKLOG.md, TODO.md, docs/product-progress.md, docs/project-progress.md, docs/agent-handoff.md, docs/design-patterns.md, docs/design.md, design.md, AGENTS.md con instrucciones de continuidad/producto, issues/configs locales o equivalentes, tratá esos archivos como fuente de verdad.
+- Para próximo paso, roadmap y tasks, ganan roadmap/backlog/product-progress. Para extracción de design system, ganan docs de diseño y componentes reales. Las conversaciones solo explican decisiones recientes o cambios no documentados.
+- Preservá la prioridad/orden existente del usuario en roadmap/backlog. Los próximos pasos sugeridos deben avanzar el roadmap existente cuando exista.
+- Si las conversaciones revelan trabajo legítimo nuevo que no está en el roadmap, agregalo como task pendiente/candidata u open question con evidencia. No lo promociones silenciosamente por encima de las prioridades existentes del roadmap.
+- Si roadmap/backlog/todo/design docs están stale, duplicados o contradictorios, agregá recomendaciones enfocadas a recommended_repo_doc_updates con file, reason, action, confidence, evidence_refs y requires_user_approval=true. Nunca modifiques docs de planificación del repo automáticamente durante runs recurrentes.
+- Fundamentá cada claim durable de esta entrada de proyecto con evidence_refs. summary, standing_context, next_step, roadmap_status, tasks, open_questions y recommended_repo_doc_updates deben citar conversaciones seleccionadas, conversation summaries, docs del repo, metadata, repo sync, tool turns o sidecars previos. Tratá los tool turns como evidencia de ejecución, no narrativa: citá evidencia type:"tool" para claims de implementado/arreglado/verificado/test/build/pass/fail, y nunca pegues output raw largo de tools en sidecars generados. Tratá bloques AGENTS/global/system/developer como constraints, no intención del usuario: no crees product tasks, next_step, roadmap_status, open_questions ni recommended_repo_doc_updates desde instruction_context solo; usalo solo para convenciones de repo, agent profile, constraints o reglas de verificación/seguridad. No crees tasks ni conclusiones sin evidencia; usá unknown o una open_question con evidencia cuando la evidencia no alcance.
+- Corré design-system review diariamente, pero incrementalmente: salteá proyectos sin cambios UI/diseño; usá docs de diseño y componentes como fuente de verdad; usá conversaciones nuevas solo como evidencia de cambios o decisiones no documentadas; actualizá design_system solo con evidencia nueva; seteá needs_deep_design_review=true para cambios amplios o conflictivos en vez de releer todo el proyecto automáticamente.
+- Usá inputs seleccionados desde _review_effective_plan.json como evidencia de soporte para decisiones recientes, trabajo completado y bloqueos. No uses títulos de conversaciones de la UI como evidencia.
+- No releas todo si no hace falta: compará contra _project_reviews.json y procesá solo deltas.
+- Actualizá o creá la entrada de este proyecto en _project_reviews.json.
+- Preservá task ids estables salvo que haya evidencia clara.
+- Si hay contradicciones, agregalas a open_questions con evidence_refs.
+- Si el contexto es insuficiente, seteá needs_deep_review o needs_deep_design_review en vez de inventar.
+
+Devolvé/escribí solo la entrada JSON actualizada para este proyecto, compatible con el sidecar backup_dir/_project_reviews.json.`;
+}
+function projectReviewPrompt(name, sessions, meta, ledger){
+  return state.lang==="es" ? projectReviewPromptEs(name, sessions, meta, ledger) : projectReviewPromptEn(name, sessions, meta, ledger);
+}
 function projectPromptPreviewText(kind, name, sessions, meta, ledger){
   return kind==="review" ? projectReviewPrompt(name, sessions, meta, ledger) : projectReviewSetupPrompt();
 }
+function iconSvg(name){
+  const icons={
+    copy:`<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>`,
+    check:`<path d="M20 6 9 17l-5-5"></path>`,
+    x:`<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>`,
+    chevronsUpDown:`<path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path>`,
+    chevronLeft:`<path d="m15 18-6-6 6-6"></path>`,
+    chevronRight:`<path d="m9 18 6-6-6-6"></path>`,
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||""}</svg>`;
+}
+function iconLabel(icon,label){
+  return `${iconSvg(icon)}<span>${escapeHtml(label)}</span>`;
+}
 function copyIcon(){
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`;
+  return iconSvg("copy");
 }
 function copyPromptButtonHtml(kind){
   const label=kind==="review" ? t("ph_copy_project_review") : t("ph_copy_review_setup");
@@ -3136,21 +3296,23 @@ function openSession(id){
   renderSidebar();
   const reader=document.getElementById("reader"); const pr=prog(id);
   const counts={user:0,assistant:0,tool:0}; s.turns.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const nav=projectConversationNav(s);
 
   let turnsHtml="";
   s.turns.forEach((t,idx)=>{
     if(!state.types[t.type]) return;
     const asstName = s.fuente==="codex"?"Codex":s.fuente==="opencode"?"OpenCode":s.fuente==="cursor"?"Cursor":"Claude";
-    const tagText=t.type==="user"?T("you"):t.type==="assistant"?asstName:T("tool_tag");
+    const isInstruction=instructionContextTurn(t);
+    const tagText=isInstruction?T("context_tag"):t.type==="user"?T("you"):t.type==="assistant"?asstName:T("tool_tag");
     const tdone=!!pr.turns[idx];
     const collapsed=state.collapseAll;
     let body=(t.type==="tool"&&t.label)?`<span class="toollabel">${escapeHtml(t.label)}</span>`+renderMarkdown(t.md||""):renderMarkdown(t.md||"");
-    turnsHtml+=`<div class="turn ${collapsed?'collapsed':''} ${tdone?'done':''}" data-type="${t.type}" data-idx="${idx}">
+    turnsHtml+=`<div class="turn ${collapsed?'collapsed':''} ${tdone?'done':''}" data-type="${t.type}" ${isInstruction?'data-kind="instruction"':''} data-idx="${idx}">
       <div class="turn-head">
         <input type="checkbox" class="tcheck" ${tdone?'checked':''} title="${T('mark_turn')}">
-        <span class="tag">${tagText}</span>
+        <span class="tag">${escapeHtml(tagText)}</span>
         <span class="preview">${escapeHtml(previewText(t))}</span>
-        <button class="turn-copy" data-idx="${idx}" title="${T('copy_turn')}">${T('copy')}</button>
+        <button class="turn-copy has-icon" data-idx="${idx}" title="${T('copy_turn')}">${iconLabel("copy", T("copy"))}</button>
       </div>
       <div class="turn-body">${body}</div>
     </div>`;
@@ -3171,7 +3333,13 @@ function openSession(id){
     <article class="doc">
       ${reviewUnreadBannerHtml()}
       <div class="doc-head">
-        <h1>${escapeHtml(s.title)}</h1>
+        <div class="doc-title-row">
+          <h1>${escapeHtml(s.title)}</h1>
+          <div class="doc-nav" aria-label="${escapeHtml(s.project)}">
+            <button class="mini has-icon" id="prevProjectConv" ${nav.previous?"":'disabled'} title="${nav.previous?escapeHtml(nav.previous.title):""}">${iconLabel("chevronLeft", t("prev_project_conv"))}</button>
+            <button class="mini has-icon" id="nextProjectConv" ${nav.next?"":'disabled'} title="${nav.next?escapeHtml(nav.next.title):""}">${iconLabel("chevronRight", t("next_project_conv"))}</button>
+          </div>
+        </div>
         <div class="crumbs">
           <span class="pill src-pill src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>
           <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></button>
@@ -3179,9 +3347,9 @@ function openSession(id){
           <span class="pill"><b>${s.turns.length}</b> ${t("n_turns")}</span>
         </div>
         <div class="doc-actions">
-          <button class="mini" id="copyConv">${t("copy_conv")}</button>
-          <button class="mini" id="markDone">${pr.done?t("unmark_conv"):t("mark_conv")}</button>
-          <button class="mini" id="toggleAllTurns">${t("collapse_expand")}</button>
+          <button class="mini has-icon" id="copyConv">${iconLabel("copy", t("copy_conv"))}</button>
+          <button class="mini has-icon" id="markDone">${iconLabel(pr.done?"x":"check", pr.done?t("unmark_conv"):t("mark_conv"))}</button>
+          <button class="mini has-icon" id="toggleAllTurns">${iconLabel("chevronsUpDown", t("collapse_expand"))}</button>
         </div>
       </div>
       ${conversationSummaryCard(s)}
@@ -3193,24 +3361,26 @@ function openSession(id){
   // listeners de turnos
   reader.querySelectorAll(".turn").forEach(el=>{
     const idx=+el.dataset.idx;
-    el.querySelector(".turn-head").addEventListener("click",e=>{ if(e.target.classList.contains("tcheck")||e.target.classList.contains("turn-copy"))return; el.classList.toggle("collapsed"); });
+    el.querySelector(".turn-head").addEventListener("click",e=>{ if(e.target.classList.contains("tcheck")||e.target.closest(".turn-copy"))return; el.classList.toggle("collapsed"); });
     el.querySelector(".tcheck").addEventListener("change",e=>{ e.stopPropagation(); pr.turns[idx]=e.target.checked; el.classList.toggle("done",e.target.checked); saveProgress(); });
     el.querySelector(".turn-copy").addEventListener("click",e=>{
       e.stopPropagation();
       const t=s.turns[idx];
       const txt=turnToText(t,s);
-      copyText(txt, e.target);
+      copyText(txt, e.currentTarget);
     });
   });
   document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(id); });
   document.getElementById("cbBackProject").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("crumbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
+  document.getElementById("prevProjectConv").addEventListener("click",()=>{ if(nav.previous) openSession(nav.previous.id); });
+  document.getElementById("nextProjectConv").addEventListener("click",()=>{ if(nav.next) openSession(nav.next.id); });
   document.getElementById("toggleAllTurns").addEventListener("click",()=>{ const allC=[...reader.querySelectorAll(".turn")].every(t=>t.classList.contains("collapsed")); reader.querySelectorAll(".turn").forEach(t=>t.classList.toggle("collapsed",!allC)); });
   document.getElementById("copyConv").addEventListener("click",e=>{
     const srcName = niceSource(s.fuente);
     const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${srcName} · ${s.project}`, ""];
     s.turns.forEach(t=>lines.push(turnToText(t,s),""));
-    copyText(lines.join("\n"), e.target);
+    copyText(lines.join("\n"), e.currentTarget);
   });
 
   renderSidebar();
@@ -3219,13 +3389,13 @@ function openSession(id){
 
 function turnToText(t,s){
   const toolWord = state.lang==="es" ? "Herramienta" : "Tool";
-  const who = t.type==="user" ? T("you") : t.type==="assistant" ? (s.fuente==="claude-code"||s.fuente==="cowork"?"Claude":niceSource(s.fuente)) : toolWord;
+  const who = instructionContextTurn(t) ? T("context_tag") : t.type==="user" ? T("you") : t.type==="assistant" ? (s.fuente==="claude-code"||s.fuente==="cowork"?"Claude":niceSource(s.fuente)) : toolWord;
   let body = (t.type==="tool"&&t.label) ? (t.label+"\n"+(t.md||"")) : (t.md||"");
   return `### ${who}\n${body.trim()}`;
 }
 
 function copyText(txt, btn){
-  const done=()=>{ if(btn){ const o=btn.textContent; btn.textContent=t("copied"); btn.classList.add("ok"); setTimeout(()=>{btn.textContent=o;btn.classList.remove("ok");},1200); } };
+  const done=()=>{ if(btn){ const o=btn.innerHTML; btn.textContent=t("copied"); btn.classList.add("ok"); setTimeout(()=>{btn.innerHTML=o;btn.classList.remove("ok");},1200); } };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done));
   } else { fallbackCopy(txt,done); }
@@ -3284,6 +3454,7 @@ document.getElementById("btnCloseRuns").addEventListener("click",hideRuns);
 document.getElementById("btnProjects").addEventListener("click",showProjects);
 document.getElementById("hideArchived").addEventListener("change",e=>{ state.hideArchived=e.target.checked; renderSidebar(); });
 document.getElementById("collapseAll").addEventListener("change",e=>{ state.collapseAll=e.target.checked; if(state.activeId)openSession(state.activeId); });
+document.getElementById("collapseAll").checked=state.collapseAll;
 document.getElementById("menuToggle").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
 // Collapsible filters (remembered across sessions)
 (function(){
