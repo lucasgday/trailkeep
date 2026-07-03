@@ -202,7 +202,9 @@
   .gen-task-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
   .gen-task-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;color:var(--ink);font-size:13px;line-height:1.45}
   .gen-task-check{width:15px;height:15px;margin:2px 0 0;accent-color:var(--claude)}
+  .gen-task-body{min-width:0;display:flex;flex-direction:column;gap:2px}
   .gen-task-text{min-width:0;overflow-wrap:anywhere}
+  .gen-task-trace{font-size:11px;color:var(--ink-soft);overflow-wrap:anywhere}
   .gen-task-status{font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap;background:var(--panel)}
   .gen-actions{display:flex;gap:8px;flex-wrap:wrap}
   .conv-summary-card{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 16px;margin:16px 0 8px;display:flex;flex-direction:column;gap:10px}
@@ -716,8 +718,10 @@ const I18N = {
     ph_plan_more_inputs:"more flagged inputs",
     ph_agent_updates:"Agent review updates", ph_agent_no_updates:"No agent review run is linked to this project yet.",
     gen_conversation_summary:"Conversation summary", gen_reviewed:"reviewed", gen_summary:"Summary", gen_context:"Context", gen_next_step:"Next step",
-    gen_roadmap:"Roadmap", gen_questions:"Open questions", gen_tasks:"Pending tasks", gen_design:"Design system",
-    gen_decisions:"Decisions", gen_blockers:"Blockers", gen_task_hints:"Possible pending items", gen_files:"Files / areas",
+    gen_roadmap:"Roadmap", gen_questions:"Open questions", gen_tasks:"Pending tasks", gen_discarded_candidates:"Discarded candidates", gen_design:"Design system",
+    gen_user_intents:"User intents", gen_decisions:"Decisions", gen_implemented:"Implemented changes", gen_verification:"Verification",
+    gen_blockers:"Blockers", gen_task_hints:"Possible pending items", gen_ignored:"Ignored / low signal",
+    gen_files:"Files / areas", gen_coverage:"Coverage", gen_trace_candidate:"from candidate",
     gen_agent_profile:"Agent profile", gen_preferences:"Preferences", gen_working_style:"Working style",
     gen_repo_conventions:"Repo conventions", gen_prompting_patterns:"Prompting patterns", gen_copy_agents:"Copy AGENTS draft",
     gen_copy_claude:"Copy CLAUDE draft", gen_copy_next:"Copy next prompt", gen_no_details:"No generated details yet.",
@@ -829,8 +833,10 @@ const I18N = {
     ph_plan_more_inputs:"inputs marcados más",
     ph_agent_updates:"Corridas de review del agente", ph_agent_no_updates:"Todavía no hay una corrida de review del agente asociada a este proyecto.",
     gen_conversation_summary:"Resumen de conversación", gen_reviewed:"revisado", gen_summary:"Resumen", gen_context:"Contexto", gen_next_step:"Próximo paso",
-    gen_roadmap:"Roadmap", gen_questions:"Preguntas abiertas", gen_tasks:"Tareas pendientes", gen_design:"Design system",
-    gen_decisions:"Decisiones", gen_blockers:"Bloqueos", gen_task_hints:"Posibles pendientes", gen_files:"Archivos / áreas",
+    gen_roadmap:"Roadmap", gen_questions:"Preguntas abiertas", gen_tasks:"Tareas pendientes", gen_discarded_candidates:"Candidatos descartados", gen_design:"Design system",
+    gen_user_intents:"Intenciones del usuario", gen_decisions:"Decisiones", gen_implemented:"Cambios implementados", gen_verification:"Verificación",
+    gen_blockers:"Bloqueos", gen_task_hints:"Posibles pendientes", gen_ignored:"Ignorado / baja señal",
+    gen_files:"Archivos / áreas", gen_coverage:"Cobertura", gen_trace_candidate:"desde candidato",
     gen_agent_profile:"Perfil del agente", gen_preferences:"Preferencias", gen_working_style:"Forma de trabajo",
     gen_repo_conventions:"Convenciones de repo", gen_prompting_patterns:"Patrones de prompts", gen_copy_agents:"Copiar draft AGENTS",
     gen_copy_claude:"Copiar draft CLAUDE", gen_copy_next:"Copiar próximo prompt", gen_no_details:"Todavía no hay detalles generados.",
@@ -848,10 +854,16 @@ Contexto:
 - Si este agente usa un proveedor remoto de modelos, el contexto seleccionado de proyectos puede enviarse a ese proveedor como parte de la review.
 - Si este agente no puede probar que el modelo es local/on-device, tratalo como remoto.
 - Usá el modelo más fuerte disponible con razonamiento/esfuerzo extremely high para bootstrap, deep-review, extracción de design system y generación del perfil global del agente. Si este agente no puede elegir esfuerzo de razonamiento o submodos directamente, usá su modelo/perfil más fuerte disponible y registrá el modelo real usado.
-- Seteá output_language para esta automatización como "es" porque este prompt de setup está en español. Usá output_language para todo el contenido generado recurrente de sidecars y registralo en _review_update_log.json en cada run. Mantené las claves del schema JSON en inglés.
+- Seteá output_language para esta automatización:
+  - Si este prompt de setup está en español, seteá output_language: "es".
+  - Si este prompt de setup está en inglés, seteá output_language: "en".
+  - Usá output_language para todo el contenido generado de sidecars en runs recurrentes.
+  - Registrá output_language en _review_update_log.json en cada run.
+  - Mantené las claves del schema JSON en inglés.
 - Enviá solo el contexto seleccionado por _review_run_plan.json salvo que yo apruebe explícitamente un alcance más amplio de deep-review.
 - La aprobación de proveedor remoto ocurre una sola vez durante el setup. Los runs diarios no deberían volver a preguntar solo porque el proveedor es remoto; solo deben preguntar cuando el gate reporte requires_approval sin resolver, o cuando cambien materialmente provider/model, alcance, schedule o archivos de output. Los inputs possible_secret con preprocessed_ref ya están redactados localmente.
 - La automatización opcional puede correr git fetch en repos locales de proyectos para revisar si cambios remotos vuelven stale una review. Nunca debe correr git pull ni modificar un worktree sin mi aprobación explícita.
+- No inicies caffeinate, no cambies pmset ni desactives el salvapantallas. Esta automatización de review no necesita cambios de energía del sistema; dejá intacto el comportamiento de sleep y salvapantallas del usuario.
 - No envíes secretos, API keys, tokens, credenciales, archivos env privados ni datos no relacionados del repo.
 - No agregues llamadas a modelos dentro de update-backup.sh ni viewer.html.
 
@@ -879,7 +891,7 @@ Tus tareas:
 16. No releas conversaciones raw completas solo porque pasó tiempo. Los raw reads completos están permitidos solo para modos bootstrap/deep-review, acotados al proyecto salvo que yo apruebe un full-archive pass global. Escalá solo por cambios amplios/conflictivos, baja confianza, checkpoints stale con evidencia, commits remotos ahead o cambios grandes de metadata.
 17. Preservá task ids estables, notas de review y conclusiones previas salvo que nueva evidencia las cambie. Usá tiers de modelos más baratos para clasificación/summarization y tiers más fuertes solo para deep project review o extracción de design system.
 18. Respetá requires_approval, possible_secret, preprocessed_ref, instruction_context, needs_deep_review, needs_deep_design_review, repo_may_be_stale y sync_uncertain exactamente como describe docs/generative-layer.md. Fundamentá cada claim generado durable con evidence_refs desde conversaciones seleccionadas, conversation summaries, docs del repo, metadata, repo sync, tool turns o sidecars previos. Tratá los tool turns como evidencia de ejecución, no narrativa: citá evidencia type:"tool" para claims de implementado/arreglado/verificado/test/build/pass/fail, y nunca pegues output largo raw de tools en sidecars generados. Tratá los bloques AGENTS/global/system/developer como constraints, no intención del usuario: no crees summaries, decisiones, tasks, next_step, roadmap_status, open_questions ni recommended repo-doc updates desde instruction_context solo; usalo solo para convenciones de repo, agent profile, constraints o reglas de verificación/seguridad. No crees tasks, decisiones, próximos pasos, roadmap status, open questions ni recommended repo-doc updates sin evidencia; usá unknown o una open_question con evidencia cuando la evidencia no alcance.
-19. Para runs bootstrap o deep-review, escribí checkpoints continuamente. No mantengas todo el output generado solo en memoria hasta el final. Antes de escribir cada conversation summary, seteá summary_quality_version: "actionable-v2" y corré <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. Después de cada conversation summary válida, mergeá atómicamente backup_dir/_conversation_summaries.json usando archivo temporal y rename cuando sea posible. Corré sampling semántico/LLM al menos una vez cada 25 summaries generadas, y siempre para summaries de baja confianza, context-dependent, con tasks/decisions/blockers, muy largas, preprocesadas/saneadas o usadas en el project rollup. Registrá ese sample en _review_update_log.json.semantic_quality_review; si se saltea porque no hay acceso a modelo, marcá el run needs_attention. Después de cada project review, mergeá atómicamente backup_dir/_project_reviews.json. Si límites de uso/tiempo/contexto/provider frenan el run, actualizá backup_dir/_review_update_log.json con status needs_attention, conteos pendientes y metadata suficiente para reanudar. El próximo run debe reanudar desde checkpoints con content_hash y summary_quality_version coincidentes y saltear conversaciones ya resumidas.
+19. Para runs bootstrap o deep-review, escribí checkpoints continuamente. No mantengas todo el output generado solo en memoria hasta el final. Antes de escribir cada conversation summary, seteá summary_quality_version: "actionable-v3", incluí los campos de matriz de cobertura de docs/generative-layer.md, y corré <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. Después de cada conversation summary válida, mergeá atómicamente backup_dir/_conversation_summaries.json usando archivo temporal y rename cuando sea posible. Corré sampling semántico/LLM al menos una vez cada 25 summaries generadas, y siempre para summaries de baja confianza, context-dependent, con task_candidates/decisions/blockers, muy largas, preprocesadas/saneadas o usadas en el project rollup. Registrá ese sample en _review_update_log.json.semantic_quality_review; si se saltea porque no hay acceso a modelo, marcá el run needs_attention. Después de cada project review, mergeá atómicamente backup_dir/_project_reviews.json. Si límites de uso/tiempo/contexto/provider frenan el run, actualizá backup_dir/_review_update_log.json con status needs_attention, conteos pendientes y metadata suficiente para reanudar. El próximo run debe reanudar desde checkpoints con content_hash y summary_quality_version coincidentes y saltear conversaciones ya resumidas.
 20. Escribí sidecars generados solo en la raíz de backup_dir:
    - _conversation_summaries.json
    - _project_reviews.json
@@ -1954,6 +1966,11 @@ function genText(value){
   if(typeof value==="string") return cleanGeneratedText(value);
   if(typeof value==="number"||typeof value==="boolean") return String(value);
   if(typeof value==="object"){
+    if(value.path||value.area||value.role){
+      const target=value.path||value.area||"area";
+      const role=value.role ? ` (${value.role})` : "";
+      return `${target}${role}`;
+    }
     const primary=value.title||value.task||value.text||value.summary||value.question||value.name||value.next_step||"";
     const bits=[];
     if(value.id) bits.push(`#${value.id}`);
@@ -1988,13 +2005,50 @@ function taskLabel(value){
   if(value.detail&&value.detail!==primary) bits.push(value.detail);
   return bits.join(" ") || genText(value);
 }
+function taskCandidateIdFromRef(ref){
+  if(!ref||typeof ref!=="object") return "";
+  if(ref.task_candidate_id) return String(ref.task_candidate_id);
+  const field=String(ref.field||"");
+  const match=field.match(/task_candidates(?::|\.|\[)([A-Za-z0-9._:-]+)\]?/);
+  return match ? match[1] : "";
+}
+function taskTraceLabel(value){
+  if(!value||typeof value!=="object") return "";
+  const candidates=asArray(value.evidence_refs).map(taskCandidateIdFromRef).filter(Boolean);
+  if(candidates.length) return `${t("gen_trace_candidate")} #${candidates[0]}`;
+  return "";
+}
 function projectTasksSection(value){
   const items=asArray(value).filter(v=>genText(v));
   if(!items.length) return "";
   return `<div class="gen-section"><h4>${escapeHtml(t("gen_tasks"))}</h4><ul class="gen-task-list">${items.map(item=>{
     const status=taskStatus(item);
-    return `<li class="gen-task-item"><input class="gen-task-check" type="checkbox" disabled ${taskDone(item)?"checked":""}><span class="gen-task-text">${escapeHtml(taskLabel(item))}</span>${status?`<span class="gen-task-status">${escapeHtml(status)}</span>`:""}</li>`;
+    const trace=taskTraceLabel(item);
+    return `<li class="gen-task-item"><input class="gen-task-check" type="checkbox" disabled ${taskDone(item)?"checked":""}><span class="gen-task-body"><span class="gen-task-text">${escapeHtml(taskLabel(item))}</span>${trace?`<span class="gen-task-trace">${escapeHtml(trace)}</span>`:""}</span>${status?`<span class="gen-task-status">${escapeHtml(status)}</span>`:""}</li>`;
   }).join("")}</ul></div>`;
+}
+function discardedCandidateText(value){
+  if(!value||typeof value!=="object") return genText(value);
+  const id=value.candidate_id||value.id||"";
+  const reason=value.not_promoted_reason||value.reason||"";
+  const text=value.text||value.title||"";
+  return [`${id?`#${id}`:""}`, text, reason].filter(Boolean).join(" · ") || genText(value);
+}
+function discardedCandidatesSection(value){
+  const items=asArray(value).map(discardedCandidateText).filter(Boolean);
+  if(!items.length) return "";
+  return `<div class="gen-section"><h4>${escapeHtml(t("gen_discarded_candidates"))}</h4><ul class="gen-list">${items.map(i=>`<li>${escapeHtml(i)}</li>`).join("")}</ul></div>`;
+}
+function coverageText(value){
+  if(!value||typeof value!=="object") return genText(value);
+  const bits=[];
+  if(value.status) bits.push(String(value.status));
+  const uncovered=asArray(value.uncovered_items).map(genText).filter(Boolean);
+  const discarded=asArray(value.discarded_items).map(genText).filter(Boolean);
+  if(uncovered.length) bits.push(`uncovered: ${uncovered.join("; ")}`);
+  if(discarded.length) bits.push(`discarded: ${discarded.join("; ")}`);
+  if(value.notes) bits.push(String(value.notes));
+  return bits.join(" · ");
 }
 function repoDocUpdateText(update){
   if(!update||typeof update!=="object") return genText(update);
@@ -2042,6 +2096,7 @@ function projectReviewDetails(name){
     repoDocUpdatesSection(name, entry),
     genSection(t("gen_questions"), entry.open_questions),
     projectTasksSection(entry.tasks),
+    discardedCandidatesSection(entry.discarded_candidates),
     genSection(t("gen_design"), [ds.summary, ...(asArray(ds.components)), ...(asArray(ds.rules))].filter(Boolean)),
     genSection(t("ph_review_prompt"), entry.suggested_next_prompt, {markdown:true}),
   ].filter(Boolean).join("");
@@ -2053,10 +2108,15 @@ function conversationSummaryCard(s){
   const reviewed=entry.reviewed_at ? `<span class="conv-summary-meta">${escapeHtml(t("gen_reviewed"))}: ${escapeHtml(formatDate(entry.reviewed_at,true))}</span>` : "";
   const sections=[
     genSection(t("gen_summary"), entry.summary, {markdown:true}),
+    genSection(t("gen_user_intents"), entry.user_intents),
     genSection(t("gen_decisions"), entry.decisions),
+    genSection(t("gen_implemented"), entry.implemented_changes),
+    genSection(t("gen_verification"), entry.verification),
     genSection(t("gen_blockers"), entry.blockers),
-    genSection(t("gen_task_hints"), entry.task_hints),
+    genSection(t("gen_task_hints"), entry.task_candidates || entry.task_hints),
+    genSection(t("gen_ignored"), entry.ignored_or_low_signal),
     genSection(t("gen_files"), entry.files_or_areas),
+    genSection(t("gen_coverage"), coverageText(entry.coverage_check)),
   ].filter(Boolean).join("");
   if(!sections) return "";
   return `<div class="conv-summary-card">
@@ -2259,10 +2319,16 @@ Context:
 - If this agent uses a remote model provider, selected project context may be sent to that provider as part of the review.
 - If this agent cannot prove the model is local/on-device, treat it as remote.
 - Use the strongest available model with extremely high reasoning/effort for bootstrap, deep-review, design-system extraction, and global agent profile generation. If this agent cannot select reasoning effort or submodes directly, use its strongest available model/profile and record the actual model used.
-- Set output_language for this automation to "en" because this setup prompt is English. Use output_language for all recurring generated sidecar prose and record it in _review_update_log.json for each run. Keep JSON schema keys in English.
+- Set output_language for this automation:
+  - If this setup prompt is Spanish, set output_language: "es".
+  - If this setup prompt is English, set output_language: "en".
+  - Use output_language for all generated sidecar prose in recurring runs.
+  - Record output_language in _review_update_log.json for each run.
+  - Keep JSON schema keys in English.
 - Only send context selected by _review_run_plan.json unless I explicitly approve a wider deep-review scope.
 - Remote-provider approval happens once during setup. Daily runs should not ask again merely because the provider is remote; they should ask only when the gate reports unresolved requires_approval, or when provider/model, scope, schedule, or output files materially change. possible_secret inputs with preprocessed_ref are already redacted locally.
 - The optional automation may run git fetch in local project repos to check whether remote changes make a review stale. It must never run git pull or modify a worktree without my explicit approval.
+- Do not start caffeinate, change pmset, or disable the screen saver. This review automation does not need host power-management changes; leave the user's sleep and screen-saver behavior untouched.
 - Do not send secrets, API keys, tokens, credentials, private env files, or unrelated repo data.
 - Do not add model calls to update-backup.sh or viewer.html.
 
@@ -2290,7 +2356,7 @@ Your tasks:
 16. Do not reread full raw conversations just because time passed. Full raw reads are allowed only for bootstrap/deep-review modes, scoped to the project unless I approve a global full-archive pass. Escalate only for broad/conflicting changes, low confidence, evidence-backed stale checkpoints, remote commits ahead, or major metadata changes.
 17. Preserve stable task ids, review notes, and previous conclusions unless new evidence changes them. Use cheaper model tiers for classification/summarization and stronger tiers only for deep project review or design-system extraction.
 18. Respect requires_approval, possible_secret, preprocessed_ref, instruction_context, needs_deep_review, needs_deep_design_review, repo_may_be_stale, and sync_uncertain exactly as described in docs/generative-layer.md. Ground every durable generated claim with evidence_refs from selected conversations, conversation summaries, repo docs, metadata, repo sync, tool turns, or prior sidecars. Treat tool turns as execution evidence, not narrative: cite type:"tool" evidence for implemented/fixed/verified/test/build/pass/fail claims, and never paste long raw tool output into generated sidecars. Treat AGENTS/global/system/developer instruction blocks as constraints, not user intent: do not create summaries, decisions, tasks, next_step, roadmap_status, open_questions, or recommended repo-doc updates from instruction_context alone; use it only for repo conventions, agent profile, constraints, or verification/security rules. Do not create tasks, decisions, next steps, roadmap status, open questions, or recommended repo-doc updates without evidence; use unknown or an evidence-backed open_question when evidence is insufficient.
-19. For bootstrap or deep-review runs, checkpoint continuously. Do not keep generated output only in memory until the end. Before writing each conversation summary, set summary_quality_version: "actionable-v2" and run <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. After each valid conversation summary, atomically merge backup_dir/_conversation_summaries.json using a temporary file and rename when possible. Run semantic/LLM quality sampling at least once every 25 generated summaries, and always for low-confidence, context-dependent, task/decision/blocker-producing, very long, preprocessed/redacted, or project-rollup summaries. Record the semantic sample in _review_update_log.json.semantic_quality_review; if it is skipped because model access is unavailable, mark the run needs_attention. After each project review, atomically merge backup_dir/_project_reviews.json. If usage/time/context/provider limits stop the run, update backup_dir/_review_update_log.json with status needs_attention, pending counts, and enough checkpoint metadata to resume. Next run must resume from matching content_hash and summary_quality_version checkpoints and skip already summarized conversations.
+19. For bootstrap or deep-review runs, checkpoint continuously. Do not keep generated output only in memory until the end. Before writing each conversation summary, set summary_quality_version: "actionable-v3", include the coverage matrix fields from docs/generative-layer.md, and run <review_gate_cmd> validate-summary --summary-json <summary-entry.json> --session-id <session-id> --expected-content-hash <content-hash>. After each valid conversation summary, atomically merge backup_dir/_conversation_summaries.json using a temporary file and rename when possible. Run semantic/LLM quality sampling at least once every 25 generated summaries, and always for low-confidence, context-dependent, task_candidate/decision/blocker-producing, very long, preprocessed/redacted, or project-rollup summaries. Record the semantic sample in _review_update_log.json.semantic_quality_review; if it is skipped because model access is unavailable, mark the run needs_attention. After each project review, atomically merge backup_dir/_project_reviews.json. If usage/time/context/provider limits stop the run, update backup_dir/_review_update_log.json with status needs_attention, pending counts, and enough checkpoint metadata to resume. Next run must resume from matching content_hash and summary_quality_version checkpoints and skip already summarized conversations.
 20. Write generated sidecars only at the root of backup_dir:
    - _conversation_summaries.json
    - _project_reviews.json
