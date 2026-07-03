@@ -18,7 +18,7 @@ import sys
 
 PLAN_VERSION = 1
 ESTIMATOR = "chars_div_4"
-SUMMARY_QUALITY_VERSION = "actionable-v2"
+SUMMARY_QUALITY_VERSION = "actionable-v3"
 PREPROCESSED_INPUTS_FILE = "_review_preprocessed_inputs.json"
 OUTPUT_FILES = [
     "_conversation_summaries.json",

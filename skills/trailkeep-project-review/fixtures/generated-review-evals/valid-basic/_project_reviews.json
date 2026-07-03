@@ -58,11 +58,14 @@
             {
               "type": "conversation_summary",
               "id_or_path": "session-1",
+              "field": "task_candidates:settings-regression-test",
+              "task_candidate_id": "settings-regression-test",
               "content_hash": "fixture-session-hash-1"
             }
           ]
         }
       ],
+      "discarded_candidates": [],
       "suggested_next_prompt": "Open demo-project, inspect the settings panel flow, add one focused regression test, run the relevant test command, and update the trailkeep review sidecar with the result.",
       "repo_may_be_stale": false,
       "needs_deep_review": false,
@@ -79,7 +82,7 @@
         "reviewed_sessions": {
           "session-1": {
             "content_hash": "fixture-session-hash-1",
-            "summary_quality_version": "actionable-v2",
+            "summary_quality_version": "actionable-v3",
             "reviewed_at": "2026-06-23T12:05:00Z"
           }
         },

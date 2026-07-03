@@ -1,0 +1,15 @@
+{
+  "description": "Conversation summaries must store files_or_areas as structured evidence objects, not loose strings.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": ["schema"],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "files_or_areas": ["settings panel"]
+        }
+      }
+    }
+  }
+}

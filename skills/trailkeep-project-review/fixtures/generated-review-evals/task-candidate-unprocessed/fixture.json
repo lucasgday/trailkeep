@@ -1,0 +1,19 @@
+{
+  "description": "Conversation task candidates must be promoted, questioned, or explicitly discarded in the project review.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "task_candidate_rollup"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "open_questions": [],
+          "tasks": [],
+          "discarded_candidates": []
+        }
+      }
+    }
+  }
+}

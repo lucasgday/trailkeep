@@ -1,0 +1,15 @@
+{
+  "description": "Durable summaries must record verification, even when no check ran.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": ["conversation_coverage"],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "verification": []
+        }
+      }
+    }
+  }
+}

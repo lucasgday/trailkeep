@@ -1,0 +1,16 @@
+{
+  "description": "Pending or follow-up work mentioned in the summary must become a task_candidate or blocker.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": ["conversation_coverage"],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "summary": "The session added a settings panel and left a pending regression test as follow-up.",
+          "task_candidates": []
+        }
+      }
+    }
+  }
+}

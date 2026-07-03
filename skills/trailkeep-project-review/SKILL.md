@@ -20,6 +20,10 @@ running `git fetch` through the bundled repo-sync script. That can contact git
 remotes and update remote-tracking refs, but it must never run `git pull`, change
 the worktree, or write generated sidecars into project repos.
 
+Do not start `caffeinate`, change `pmset`, or disable the screen saver.
+Trailkeep's generative review does not need host power-management changes; leave
+the user's sleep and screen-saver behavior untouched.
+
 If the recurring automation uses a remote or unproven-local provider, get user
 approval once during setup with the schedule, scope, provider, model/alias,
 local output files, repo remote-check behavior, and remote-context risk. Do not
@@ -191,15 +195,19 @@ that repo runner and records the result in `_review_update_log.json`.
 
 - `_conversation_summaries.json`: update only new, changed, or stale-quality
   conversations by session id and preserve existing valid entries. The current
-  `summary_quality_version` is `actionable-v2`; summaries without that version
+  `summary_quality_version` is `actionable-v3`; summaries without that version
   or matching `evidence_refs` are stale even if their `content_hash` still
   matches. Each summary must include `summary_quality_version`, `signal_level`,
-  and `include_in_project_rollup`.
+  `include_in_project_rollup`, `user_intents`, `implemented_changes`,
+  `verification`, `task_candidates`, `ignored_or_low_signal`, `files_or_areas`,
+  and `coverage_check`.
   Allowed signal levels are `administrative`, `low_signal`,
   `context_dependent`, `decision`, `implementation`, and `blocker`.
   Administrative/low-signal/context-dependent conversations should be
   checkpointed with `include_in_project_rollup: false` and empty
-  `decisions`/`blockers`/`task_hints` unless there is explicit durable evidence.
+  `decisions`/`blockers`/`task_candidates`/`implemented_changes`/`verification`
+  unless there is explicit durable evidence. They should set
+  `not_rollup_reason` and explain the omission in `ignored_or_low_signal`.
   Do not invent full summaries for short or low-signal conversations.
   Each summary must include `evidence_refs` with at least one `conversation`
   reference carrying the summarized input `content_hash`.
@@ -209,10 +217,27 @@ that repo runner and records the result in `_review_update_log.json`.
   contain "Bootstrap summary for", "Evidence clusters around", repeated role
   markers such as "Claude You Claude", redaction/preprocessing notes as the main
   content, or serialized object/dict text instead of readable prose.
-  Treat `task_hints` as conversation-level candidates, not project backlog
-  tasks. They may capture possible pending work with evidence, but they must be
-  promoted, merged, or rejected by the project review before appearing in
-  `_project_reviews.json.tasks`.
+  `actionable-v3` summaries are a coverage matrix, not just prose. Use:
+  `user_intents` for explicit user asks, `decisions` for durable decisions,
+  `implemented_changes` for concrete changes with tool evidence, `verification`
+  for checks run or explicitly not run, `blockers` for real blockers,
+  `task_candidates` for possible pending work, `ignored_or_low_signal` for
+  intentionally discarded/administrative material, `files_or_areas` for touched
+  surfaces, and `coverage_check` to state whether anything important was left
+  uncovered.
+  `files_or_areas` must be structured evidence, not loose strings. Each item
+  needs either `path` for a concrete file/doc or `area` for a product/code area
+  when no single file is known, a `role` from
+  `mentioned | discussed | reviewed | changed | created | removed | tested |
+  configured | designed | blocked | unknown`, and short `evidence_refs`.
+  Use `mentioned` or `discussed` for weak references; use stronger roles only
+  when selected conversation/tool evidence supports the claim.
+  Treat `task_candidates` as conversation-level candidates, not project backlog
+  tasks. Each candidate must have a stable `id`, `status`, text, and
+  `evidence_refs`. They may capture possible pending work with evidence, but
+  they must be promoted, merged, questioned, or rejected by the project review
+  before appearing in `_project_reviews.json.tasks`. `task_hints` is a legacy
+  v2 field and must not be written by actionable-v3 summaries.
 - Treat initial coding-agent instruction/header blocks as constraints, not user
   intent. Codex conversations may include AGENTS.md, global instructions,
   developer context, environment data, permissions, or skill/plugin headers in
@@ -228,7 +253,7 @@ that repo runner and records the result in `_review_update_log.json`.
   checkpointing. Semantic/LLM quality review is sampled, not run for every
   summary by default: sample at least one out of every 25 generated summaries,
   and always review summaries with low confidence, `context_dependent` signal,
-  non-empty `decisions`/`blockers`/`task_hints`, very long source
+  non-empty `decisions`/`blockers`/`task_candidates`, very long source
   conversations, preprocessed/redacted input, or direct use in a project review
   rollup. Batch this semantic judge when possible. Record the result in
   `_review_update_log.json.semantic_quality_review` with `status`,
@@ -249,10 +274,25 @@ that repo runner and records the result in `_review_update_log.json`.
   recurring runs.
   Project `tasks` are consolidated backlog items. Every project task must map to
   repo planning docs, a prior project task, or one or more conversation-summary
-  `task_hints`, blockers, or decisions. Do not create orphan tasks. If a
-  candidate is duplicated, low-signal, or conflicts with the repo roadmap, merge
-  it, capture an evidence-backed open question, or omit it with checkpointed
-  rationale.
+  `task_candidates`, blockers, decisions, or implemented changes. Do not create
+  orphan tasks. Legacy v2 `task_hints` may be read as stale evidence during
+  migration, but new project reviews should prefer `task_candidates`.
+  Every relevant `task_candidates[]` item from a conversation summary with
+  `include_in_project_rollup: true` must end in one durable project-review
+  outcome:
+  - promoted or merged into `tasks`;
+  - represented as an evidence-backed `open_questions[]` item;
+  - recorded in `discarded_candidates[]` with `conversation_id`, `candidate_id`,
+    `not_promoted_reason`, and `evidence_refs`.
+  For conversation-derived tasks or open questions, cite the exact candidate in
+  `evidence_refs` with `type: "conversation_summary"`,
+  `field: "task_candidates:<candidate-id>"`, and
+  `task_candidate_id: "<candidate-id>"`. Conversation-derived tasks must match
+  the cited conversation-summary item; do not cite an unrelated candidate,
+  blocker, decision, or implemented change just to satisfy evidence shape. If a
+  candidate is duplicated, low-signal, already done, not now, or conflicts with
+  the repo roadmap, merge it, capture an evidence-backed open question, or put
+  it in `discarded_candidates[]` with a concrete `not_promoted_reason`.
 - Reject and regenerate project reviews whose `summary`, `next_step`,
   `roadmap_status`, tasks, open questions, design-system notes, or recommended
   repo-doc updates contain bootstrap boilerplate such as "Bootstrap summary
@@ -273,6 +313,10 @@ that repo runner and records the result in `_review_update_log.json`.
   Keep JSON schema keys in English. Do not create bilingual sidecar objects
   unless the user explicitly asks for that format in a future run. Record
   `output_language` in `_review_update_log.json`.
+  The setup prompt owns the recurring automation language: if the setup prompt is
+  Spanish, set `output_language: "es"`; if it is English, set
+  `output_language: "en"`. Use that value for all generated sidecar prose in
+  recurring runs and keep JSON schema keys in English.
 - Treat tool turns as execution evidence, not narrative. Use user/assistant
   turns for intent and decisions; use tool turns only to prove files changed,
   commands ran, tests/builds passed or failed, errors happened, git state

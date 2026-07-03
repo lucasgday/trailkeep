@@ -1,0 +1,35 @@
+{
+  "description": "Conversation-derived project tasks must match the cited conversation task candidate.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "task_lineage",
+    "task_candidate_rollup"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "tasks": [
+            {
+              "id": "demo-project-settings-test",
+              "status": "open",
+              "title": "Document invoice export analytics",
+              "source": "conversation",
+              "evidence_refs": [
+                {
+                  "type": "conversation_summary",
+                  "id_or_path": "session-1",
+                  "field": "task_candidates:settings-regression-test",
+                  "task_candidate_id": "settings-regression-test",
+                  "content_hash": "fixture-session-hash-1"
+                }
+              ]
+            }
+          ],
+          "discarded_candidates": []
+        }
+      }
+    }
+  }
+}

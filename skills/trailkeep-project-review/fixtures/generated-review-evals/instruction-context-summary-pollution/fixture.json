@@ -14,8 +14,19 @@
           "decisions": [
             "Follow the Global verification standard."
           ],
-          "task_hints": [
-            "Apply Evidence before claims."
+          "task_candidates": [
+            {
+              "id": "instruction-context-evidence",
+              "text": "Apply Evidence before claims.",
+              "status": "candidate",
+              "evidence_refs": [
+                {
+                  "type": "instruction_context",
+                  "id_or_path": "session-1",
+                  "content_hash": "fixture-session-hash-1"
+                }
+              ]
+            }
           ],
           "signal_level": "implementation",
           "include_in_project_rollup": true

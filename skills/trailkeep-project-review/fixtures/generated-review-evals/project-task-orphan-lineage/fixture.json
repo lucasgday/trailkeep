@@ -1,0 +1,32 @@
+{
+  "description": "Project tasks must cite repo docs, metadata, prior project reviews, or exact conversation summary task candidates.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": [
+    "task_lineage"
+  ],
+  "overrides": {
+    "_project_reviews.json": {
+      "projects": {
+        "demo-project": {
+          "tasks": [
+            {
+              "id": "demo-project-settings-test",
+              "status": "open",
+              "title": "Add settings panel regression test",
+              "source": "conversation",
+              "evidence_refs": [
+                {
+                  "type": "conversation",
+                  "id_or_path": "session-1",
+                  "content_hash": "fixture-session-hash-1"
+                }
+              ]
+            }
+          ],
+          "discarded_candidates": []
+        }
+      }
+    }
+  }
+}

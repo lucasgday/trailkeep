@@ -30,7 +30,7 @@ AGENT_PROFILE_FILE = "_agent_profile.json"
 REVIEW_UPDATE_LOG_FILE = "_review_update_log.json"
 BACKUP_LOG_FILE = "log.json"
 EFFECTIVE_PLAN_FILE = "_review_effective_plan.json"
-SUMMARY_QUALITY_VERSION = "actionable-v2"
+SUMMARY_QUALITY_VERSION = "actionable-v3"
 
 
 def now():

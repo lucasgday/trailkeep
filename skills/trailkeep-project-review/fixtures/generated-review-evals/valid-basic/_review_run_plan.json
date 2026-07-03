@@ -2,7 +2,7 @@
   "version": 1,
   "generated_at": "2026-06-23T12:00:00Z",
   "estimator": "fixture",
-  "summary_quality_version": "actionable-v2",
+  "summary_quality_version": "actionable-v3",
   "model_tiers": {
     "daily_project_update": "default"
   },
@@ -17,7 +17,7 @@
       "words": 36,
       "estimated_input_tokens": 58,
       "content_hash": "fixture-session-hash-1",
-      "summary_quality_version_required": "actionable-v2",
+      "summary_quality_version_required": "actionable-v3",
       "possible_secret": false
     },
     {
@@ -50,7 +50,7 @@
           "words": 36,
           "estimated_input_tokens": 58,
           "content_hash": "fixture-session-hash-1",
-          "summary_quality_version_required": "actionable-v2",
+          "summary_quality_version_required": "actionable-v3",
           "possible_secret": false
         },
         {

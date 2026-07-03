@@ -1,0 +1,15 @@
+{
+  "description": "A durable selected conversation must capture explicit user intents.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": ["conversation_coverage"],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "user_intents": []
+        }
+      }
+    }
+  }
+}

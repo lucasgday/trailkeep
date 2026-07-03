@@ -1,0 +1,26 @@
+{
+  "description": "Implemented changes require tool evidence, not only conversation prose.",
+  "expectedExitCode": 1,
+  "expectedStatus": "fail",
+  "expectedFailureChecks": ["schema", "conversation_coverage", "tool_evidence_policy"],
+  "overrides": {
+    "_conversation_summaries.json": {
+      "conversations": {
+        "session-1": {
+          "implemented_changes": [
+            {
+              "text": "Implemented a settings panel without citing tool evidence.",
+              "evidence_refs": [
+                {
+                  "type": "conversation",
+                  "id_or_path": "session-1",
+                  "content_hash": "fixture-session-hash-1"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

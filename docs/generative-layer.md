@@ -13,7 +13,7 @@ Implemented in trailkeep:
 - `converters/eval_generated_reviews.py` validates generated review sidecars and
   writes `_review_generated_eval_report.json`.
 - Generated conversation summaries require
-  `summary_quality_version: "actionable-v2"` and deterministic quality checks
+  `summary_quality_version: "actionable-v3"` and deterministic quality checks
   reject bootstrap boilerplate, role-marker pollution, stale versions, and
   low-signal conversations that invent tasks.
 - Per-summary deterministic validation is available through the wrapper command
@@ -88,6 +88,9 @@ Flow rules:
 - The automation should run in a dedicated coding-agent automation thread or
   subagent. The main user-visible thread is only for setup, batch approvals, and
   failures that need intervention.
+- Do not start `caffeinate`, change `pmset`, or disable the screen saver.
+  Trailkeep's generative review does not need host power-management changes;
+  leave the user's sleep and screen-saver behavior untouched.
 - The automation should call
   `<trailkeep_repo>/scripts/run-project-review-agent-gates.sh` for all required
   gates. Direct Python scripts are implementation details behind this wrapper.
@@ -336,21 +339,107 @@ conversation.
           "content_hash": ""
         }
       ],
-      "summary_quality_version": "actionable-v2",
+      "summary_quality_version": "actionable-v3",
       "signal_level": "administrative | low_signal | context_dependent | decision | implementation | blocker",
       "include_in_project_rollup": true,
       "summary": "",
+      "user_intents": [
+        {
+          "text": "What the user explicitly asked for.",
+          "outcome": "addressed | deferred | blocked | unknown",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-id",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
       "decisions": [],
+      "implemented_changes": [
+        {
+          "text": "Concrete change made in the conversation.",
+          "evidence_refs": [
+            {
+              "type": "tool",
+              "id_or_path": "session-id",
+              "tool_name": "Edit | apply_patch | Bash | ...",
+              "status": "file changed | command passed | ...",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
+      "verification": [
+        {
+          "text": "Verification run or explicitly not run.",
+          "status": "passed | failed | not_run | manual | blocked | unknown",
+          "evidence_refs": [
+            {
+              "type": "conversation | tool",
+              "id_or_path": "session-id",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
       "blockers": [],
-      "task_hints": [],
-      "files_or_areas": [],
+      "task_candidates": [
+        {
+          "id": "stable-candidate-id",
+          "text": "Possible pending work surfaced by this conversation.",
+          "status": "candidate | todo | blocked | discarded | unknown",
+          "evidence_refs": [
+            {
+              "type": "conversation | tool",
+              "id_or_path": "session-id",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
+      "ignored_or_low_signal": [
+        {
+          "text": "Low-signal or intentionally ignored material.",
+          "reason": "administrative | duplicate | instruction_context | no durable project signal | ...",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-id",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
+      "files_or_areas": [
+        {
+          "path": "viewer.html",
+          "area": "Project Home review panel",
+          "role": "mentioned | discussed | reviewed | changed | created | removed | tested | configured | designed | blocked | unknown",
+          "evidence_refs": [
+            {
+              "type": "conversation | tool",
+              "id_or_path": "session-id",
+              "content_hash": ""
+            }
+          ]
+        }
+      ],
+      "not_rollup_reason": "",
+      "coverage_check": {
+        "status": "complete | partial | low_signal | context_dependent | unknown",
+        "covered_items": [],
+        "uncovered_items": [],
+        "discarded_items": []
+      },
       "reviewed_at": ""
     }
   }
 }
 ```
 
-Current summary quality version: `actionable-v2`.
+Current summary quality version: `actionable-v3`.
 
 The automation must validate every conversation summary before checkpointing it.
 A useful summary is not necessarily long; it is honest about the amount of
@@ -368,12 +457,32 @@ signal in the conversation. Each entry must classify `signal_level`:
 For `administrative`, `low_signal`, and `context_dependent`, set
 `include_in_project_rollup: false` unless there is explicit durable evidence.
 Checkpoint the conversation so it is not retried forever, but do not invent
-decisions, blockers, or task hints. For short but meaningful conversations,
+decisions, blockers, or task candidates. When `include_in_project_rollup` is
+`false`, write `not_rollup_reason` so the project review can explain why this
+conversation did not feed the rollup. For short but meaningful conversations,
 summarize only the durable decision or task that is actually present.
-`task_hints` are conversation-level candidates, not consolidated backlog items.
+`task_candidates` are conversation-level candidates, not consolidated backlog
+items. Each candidate needs a stable `id`, `status`, text, and evidence refs.
 They capture possible pending work with evidence, but they are not project tasks
-until the project review promotes, merges, or rejects them against repo docs and
-prior project tasks.
+until the project review promotes, merges, questions, or rejects them against
+repo docs and prior project tasks. `task_hints` is a legacy v2 field and must
+not be used in `actionable-v3` summaries.
+
+`actionable-v3` summaries are a coverage matrix, not just prose. They must cover
+the user's explicit intents, durable decisions, implemented changes,
+verification, blockers, pending task candidates, intentionally ignored
+low-signal material, touched files/areas, and a `coverage_check`. A summary can
+be short, but it must make omissions explicit. If something important from the
+selected conversation is not represented in the matrix, it belongs in
+`coverage_check.uncovered_items` or `ignored_or_low_signal` with a reason.
+
+`files_or_areas` must be structured evidence, not loose strings. Each item needs
+either `path` for a concrete file/doc or `area` for a product/code area when no
+single file is known, a `role` from the allowed enum, and short
+`evidence_refs`. Use `role: "mentioned"` or `"discussed"` when the conversation
+only talked about the area; use stronger roles like `"changed"`, `"tested"`, or
+`"configured"` only when the selected context supports that claim. Do not include
+long raw tool output in the evidence.
 
 Before writing a conversation summary, reject:
 
@@ -385,7 +494,7 @@ Before writing a conversation summary, reject:
 - serialized dict/object output instead of readable text
 
 If a previous summary has the same `content_hash` but lacks
-`summary_quality_version: "actionable-v2"` or matching `evidence_refs`, treat it
+`summary_quality_version: "actionable-v3"` or matching `evidence_refs`, treat it
 as stale and regenerate it. Project checkpoints that record reviewed sessions
 must also store the same `summary_quality_version`, so project reviews based on
 old summaries do not look current.
@@ -406,7 +515,7 @@ large daily runs, sample at least one out of every 25 generated summaries, and
 always include summaries that:
 
 - have low confidence or `signal_level: "context_dependent"`;
-- create non-empty `decisions`, `blockers`, or `task_hints`;
+- create non-empty `decisions`, `blockers`, or `task_candidates`;
 - are used directly in a project review rollup;
 - come from very long conversations;
 - use preprocessed/redacted input.
@@ -435,6 +544,14 @@ Generated prose fields should be plain strings written in the run's explicit
 `_review_update_log.json`. JSON schema keys stay in English. The viewer does not
 translate generated sidecars; Spanish runs should produce Spanish prose, and
 English runs should produce English prose.
+
+The setup prompt owns the recurring automation language:
+
+- If the setup prompt is Spanish, set `output_language: "es"`.
+- If the setup prompt is English, set `output_language: "en"`.
+- Use `output_language` for all generated sidecar prose in recurring runs.
+- Record `output_language` in `_review_update_log.json` for each run.
+- Keep JSON schema keys in English.
 
 ```json
 {
@@ -478,6 +595,14 @@ English runs should produce English prose.
           "reason": "Required only when source is inferred."
         }
       ],
+      "discarded_candidates": [
+        {
+          "conversation_id": "session-id",
+          "candidate_id": "stable-candidate-id",
+          "not_promoted_reason": "duplicate | conflicts_with_roadmap | already_done | low_signal | not_now | ...",
+          "evidence_refs": []
+        }
+      ],
       "suggested_next_prompt": "",
       "repo_may_be_stale": false,
       "needs_deep_review": false,
@@ -516,10 +641,40 @@ Tasks must have stable ids. Do not change a task id unless evidence closes,
 splits, merges, or materially changes that task.
 Project `tasks` are the consolidated backlog for the project. Each task must map
 to repo planning docs, a prior project task, or one or more conversation-summary
-`task_hints`, blockers, or decisions. If a candidate is duplicated, low-signal,
-or conflicts with the repo roadmap, the project review should merge it, leave an
-evidence-backed open question, or omit it with checkpointed rationale instead of
-creating an orphan task.
+`task_candidates`, blockers, decisions, or implemented changes. Legacy v2
+`task_hints` may be read as stale evidence during migration, but new project
+reviews should prefer `task_candidates`.
+
+Every relevant `task_candidates[]` item from a conversation summary with
+`include_in_project_rollup: true` must end in one durable project-review outcome:
+
+- promoted or merged into `tasks`;
+- represented as an evidence-backed `open_questions[]` item;
+- recorded in `discarded_candidates[]` with `conversation_id`, `candidate_id`,
+  `not_promoted_reason`, and `evidence_refs`.
+
+For conversation-derived tasks or open questions, cite the exact candidate with
+an evidence ref like:
+
+```json
+{
+  "type": "conversation_summary",
+  "id_or_path": "session-id",
+  "field": "task_candidates:stable-candidate-id",
+  "task_candidate_id": "stable-candidate-id",
+  "content_hash": "sha256..."
+}
+```
+
+Conversation-derived tasks must also match the cited conversation-summary item
+at a basic lexical level. A task cannot cite an unrelated candidate, blocker,
+decision, or implemented change just to satisfy evidence shape. This is a
+deterministic guardrail, not a substitute for semantic review.
+
+If a candidate is duplicated, low-signal, already done, not now, or conflicts
+with the repo roadmap, the project review should merge it, leave an
+evidence-backed open question, or put it in `discarded_candidates[]` with a
+checkpointed `not_promoted_reason` instead of creating an orphan task.
 
 ### Evidence Grounding
 
@@ -763,7 +918,7 @@ Recommended shape:
     "reviewed_sessions": {
         "session-id-1": {
           "content_hash": "sha256...",
-          "summary_quality_version": "actionable-v2",
+          "summary_quality_version": "actionable-v3",
           "date": "2026-06-21T18:12:00-03:00",
           "source": "claude-code",
           "title": "Fix dashboard cards"
@@ -1176,8 +1331,14 @@ Minimum checks:
 - `schema`: JSON is valid and required fields exist.
 - `conversation_summary_quality`: each conversation summary has the current
   `summary_quality_version`, a valid `signal_level`, a truthful rollup flag, no
-  bootstrap boilerplate, no role-marker pollution, and no invented tasks for
-  low-signal conversations.
+  bootstrap boilerplate, no role-marker pollution, structured `files_or_areas`
+  entries with `path` or `area`, `role`, and `evidence_refs`, and no invented
+  tasks for low-signal conversations.
+- `conversation_coverage`: every selected conversation summary uses the
+  `actionable-v3` matrix (`user_intents`, `implemented_changes`,
+  `verification`, `task_candidates`, `ignored_or_low_signal`, and
+  `coverage_check`) so important requests, changes, checks, pending items, and
+  omissions are either represented or explicitly discarded.
 - `project_review_quality`: project summaries, next steps, roadmap status,
   tasks, open questions, design-system notes, and recommended repo-doc updates
   contain readable review text, not bootstrap boilerplate, role-marker
@@ -1187,6 +1348,13 @@ Minimum checks:
 - `referential_integrity`: project names and session ids exist.
 - `checkpoint_integrity`: reviewed session/doc hashes match selected inputs.
 - `task_stability`: task ids remain stable unless evidence justifies a change.
+- `task_lineage`: every project task maps to repo docs, metadata, prior project
+  review state, or a concrete conversation-summary field; conversation-derived
+  tasks cannot be orphan backlog and must match the cited conversation-summary
+  item at a basic lexical level.
+- `task_candidate_rollup`: every relevant conversation `task_candidates[]`
+  item is promoted/merged into project tasks, represented as an open question,
+  or recorded in `discarded_candidates[]` with a reason.
 - `privacy`: generated output does not include secret-looking literals, tokens,
   private emails, or `.env` values; fixtures with fake secrets must never appear
   in output.

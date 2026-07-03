@@ -21,21 +21,100 @@
           "content_hash": "fixture-session-hash-1"
         }
       ],
-      "summary_quality_version": "actionable-v2",
+      "summary_quality_version": "actionable-v3",
       "signal_level": "implementation",
       "include_in_project_rollup": true,
       "summary": "The session added a settings panel and left a focused regression test as follow-up.",
-      "reviewed_at": "2026-06-23T12:05:00Z",
+      "user_intents": [
+        {
+          "text": "Add a settings panel.",
+          "outcome": "addressed",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      ],
       "decisions": [
         "Keep the settings panel scoped to the current dashboard shell."
       ],
-      "blockers": [],
-      "task_hints": [
-        "Add a regression test for the settings panel."
+      "implemented_changes": [
+        {
+          "text": "Implemented the settings panel.",
+          "evidence_refs": [
+            {
+              "type": "tool",
+              "id_or_path": "session-1",
+              "tool_name": "Edit",
+              "status": "file changed",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
       ],
+      "verification": [
+        {
+          "text": "No regression test was run in this conversation; the test remains pending.",
+          "status": "not_run",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      ],
+      "blockers": [],
+      "task_candidates": [
+        {
+          "id": "settings-regression-test",
+          "text": "Add a regression test for the settings panel.",
+          "status": "candidate",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      ],
+      "ignored_or_low_signal": [],
       "files_or_areas": [
-        "settings panel"
-      ]
+        {
+          "area": "settings panel",
+          "role": "changed",
+          "evidence_refs": [
+            {
+              "type": "conversation",
+              "id_or_path": "session-1",
+              "content_hash": "fixture-session-hash-1"
+            },
+            {
+              "type": "tool",
+              "id_or_path": "session-1",
+              "tool_name": "Edit",
+              "status": "file changed",
+              "content_hash": "fixture-session-hash-1"
+            }
+          ]
+        }
+      ],
+      "coverage_check": {
+        "status": "complete",
+        "covered_items": [
+          "user intent",
+          "implemented change",
+          "pending regression test"
+        ],
+        "uncovered_items": [],
+        "discarded_items": []
+      },
+      "reviewed_at": "2026-06-23T12:05:00Z"
     }
   }
 }
