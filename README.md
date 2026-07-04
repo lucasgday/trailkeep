@@ -33,8 +33,9 @@ format, hard to revisit, and your tools don't keep it forever:**
   last activity). It's **configurable**: raising `cleanupPeriodDays` in
   `~/.claude/settings.json` extends retention a lot, or effectively disables it.
   But if you never touched it, you're on the default and old sessions disappear.
-- **Codex** only lists recent conversations; older ones stop showing up even if
-  they linger on disk for a while.
+- **Codex** stores local session files, but the app's project/sidebar grouping
+  can change over time. A Markdown backup gives you a stable, searchable copy
+  outside the app UI.
 - Each tool has its own policy, format and scope. And if you reinstall, switch
   machines, run an `rm` or a database gets corrupted, that history is gone
   **without warning** and without a trash bin.

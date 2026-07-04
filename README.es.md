@@ -35,8 +35,9 @@ siempre:**
   `~/.claude/settings.json` podés extender mucho la retención o, en la práctica,
   desactivarla. Pero si no lo tocaste, estás en el default y las sesiones viejas
   desaparecen.
-- **Codex** solo lista las conversaciones recientes; las viejas dejan de aparecer
-  aunque por un tiempo sigan en disco.
+- **Codex** guarda archivos locales de sesión, pero el agrupamiento por proyecto
+  y sidebar de la app puede cambiar con el tiempo. Un backup en Markdown te deja
+  una copia estable y buscable fuera de la UI.
 - Cada herramienta tiene su propia política, su propio formato y su propio
   alcance. Y si reinstalás, cambiás de máquina, corrés un `rm` o se corrompe una
   base de datos, ese historial se va **sin aviso** y sin papelera.
