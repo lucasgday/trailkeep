@@ -54,6 +54,9 @@ itself still makes no network calls and never uploads your backups.
 ## Done
 
 - Multi-tool backup (Claude Code, Codex, Cursor, OpenCode, Cowork) → Markdown
+- **Codex subagent hierarchy** — child rollouts remain durable Markdown files,
+  carry parent/path/status metadata, and render recursively inside the parent
+  timeline with searchable, navigable orphan fallbacks
 - Standalone, bilingual (EN/ES) viewer with grouping, search, analytics
 - Incremental + cumulative; daily automatic backup; portable Markdown history
 - **macOS & Linux** — per-OS source paths; `launchd` (macOS) / `cron` (Linux)

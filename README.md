@@ -94,6 +94,11 @@ writes local Markdown. Nothing, raw or derived, leaves your machine.
   tool removes the original conversation.
 - **Markdown conversion.** Each session becomes a `.md` with title, date, id,
   project and source, and separated turns (`### You` / `### Claude`, etc.).
+  Codex subagents keep their own durable files and appear inline, recursively,
+  inside their parent conversation in the viewer. If a backup catches a newly
+  spawned child before any safely separable child-authored turn exists, the
+  parent spawn marker is kept and that child transcript is deferred until the
+  rollout grows; inherited parent history is never mislabeled as the child.
 - **Portable history.** Because it's plain Markdown, you can copy a whole
   conversation (the viewer has a one-click button) and paste it into a *different*
   model or tool to continue with full context — your history isn't locked to one
@@ -148,11 +153,11 @@ Set up trailkeep in this repository for me. It's a local, offline backup +
 viewer for AI-coding-tool conversations. Please:
 1. Read README.md and `./update-backup.sh --help` to understand the flags.
 2. `chmod +x update-backup.sh *.command`.
-3. Run a first backup with `./update-backup.sh` and report how many
-   conversations each source produced.
+3. Run a first backup with `./update-backup.sh`, report the `backup_dir` it uses
+   and how many conversations each source produced.
 4. If it looks good, install the daily automatic task by running
    `./install-auto.command` (ask me first if you're unsure of the time).
-5. Tell me how to open viewer.html and point it at the backup folder.
+5. Tell me how to open viewer.html and point it at the reported `backup_dir`.
 
 Hard rule: everything stays local. Don't add any network calls, don't commit
 my conversations (they're gitignored on purpose), and don't send my data
@@ -248,8 +253,14 @@ chmod +x update-backup.sh *.command
 ./update-backup.sh
 ```
 
-By default the base is the folder where the script lives. You can pass another
-path as the first argument to store the markdowns elsewhere:
+By default trailkeep creates and uses **`~/trailkeep-backups`**, keeping private
+data outside the cloned repository. `install-auto.command` remembers the chosen
+path in `~/.config/trailkeep/backup_dir`, and later manual runs reuse it. You can
+still pass another path as the first argument:
+
+Existing installations that already contain repo-local `markdown-*` folders
+keep using that legacy location automatically; trailkeep never moves private
+data silently.
 
 ```bash
 ./update-backup.sh ~/my-backups
@@ -267,14 +278,16 @@ You can also **double-click** `update-backup.command`.
 ### Enable the automatic backup (daily, 12:00)
 
 Double-click `install-auto.command` (macOS) — or run it from the terminal. It
-installs a daily task: a **`launchd`** agent on macOS, a **`cron`** entry on Linux.
-By default it runs every day at noon.
+installs a daily task and remembers its backup folder: a **`launchd`** agent on
+macOS, a **`cron`** entry on Linux. By default it runs every day at noon and
+writes to `~/trailkeep-backups`.
 
 Prefer a different time (or on Linux)? Run it from the terminal with an hour (24h):
 
 ```bash
 ./install-auto.command 22       # every day at 22:00
 ./install-auto.command 7:30     # every day at 07:30
+./install-auto.command 7:30 ~/my-backups
 ```
 
 To remove it: double-click (or run) `uninstall-auto.command`.
@@ -287,8 +300,15 @@ To remove it: double-click (or run) `uninstall-auto.command`.
 ## Using the viewer
 
 Open **`viewer.html`** with a double-click (it opens in your browser as
-`file://`) and point it at the folder with your `markdown-*` backups (the same
-base folder). From there you can browse, filter, copy and see the analytics.
+`file://`) and point it at `~/trailkeep-backups`, or the custom `backup_dir`
+reported by the installer. In supported browsers the viewer remembers that
+folder after the first approval. It reads only valid trailkeep conversations
+inside `markdown-*` folders.
+
+Here, “valid” means the file has trailkeep identity metadata (`id`,
+`project`/legacy `proyecto`, and `source`/legacy `fuente`) plus at least one
+recognized conversation turn. `date` remains optional when reading so older
+backups without a source timestamp stay visible.
 
 By default it groups by **project**, hides archived and already-reviewed
 conversations, and opens the most recent active conversation. You can change the
@@ -370,6 +390,10 @@ and writes the same standard Markdown the others do —
 Once the converter produces that format, the viewer and the rest of the flow
 pick it up without changes. Look at any of the `converters/convert_*.py` files as
 a reference. Bug reports, viewer improvements and ideas in general are welcome too.
+
+Codex subagent files add optional relationship metadata (`parent_id`,
+`agent_path`, depth and snapshot status). The base format remains compatible
+with older backups and every other source.
 
 Working on trailkeep with an AI agent? See [AGENTS.md](AGENTS.md) for the
 conventions and the one hard rule: the viewer makes **zero network calls**.

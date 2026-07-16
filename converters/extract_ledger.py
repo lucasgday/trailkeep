@@ -34,6 +34,7 @@ below) only needs to be read ONCE to seed the tokens; after that the archive is
 optional. Nothing already measured is ever lost just because the raw went away.
 """
 import json, os, re, sys, glob, datetime
+from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -43,7 +44,7 @@ except Exception:
         parts = [p for p in folder.split("-") if p]
         return parts[-1] if parts else folder
 
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 
 # Recovered-raw archives often hold duplicate project folders with a localized
 # "(del respaldo)" / "(copy)" suffix; strip it so they map to the real project.
@@ -102,7 +103,9 @@ WEB_TOOLS = {"websearch", "webfetch", "web_search", "web_fetch", "webfetchtool"}
 def new_session(project):
     return {
         "id": None,
+        "parent_id": None,
         "project": project or "(no project)", "sessions": 1,
+        "subagent_runs": 0,
         "user_messages": 0, "assistant_messages": 0,
         "tool_calls": 0, "mcp_tool_calls": 0,
         "test_runs": 0, "build_runs": 0, "errors": 0, "web_searches": 0,
@@ -235,14 +238,51 @@ def _codex_cmd(args):
     try:
         a = json.loads(args) if isinstance(args, str) else args
     except Exception:
-        return ""
+        text = str(args or "")
+        match = re.search(r'\b(?:cmd|command)\s*:\s*"((?:\\.|[^"\\])*)"', text, re.S)
+        if not match:
+            return ""
+        try:
+            return json.loads('"' + match.group(1) + '"')
+        except Exception:
+            return match.group(1)
     if isinstance(a, dict):
-        cmd = a.get("command")
+        cmd = a.get("command", a.get("cmd"))
         if isinstance(cmd, list):
             return " ".join(map(str, cmd))
         if isinstance(cmd, str):
             return cmd
     return ""
+
+
+def _codex_subagent(source):
+    if not isinstance(source, dict):
+        return None
+    subagent = source.get("subagent")
+    spawn = subagent.get("thread_spawn") if isinstance(subagent, dict) else None
+    if not isinstance(spawn, dict) or not spawn.get("parent_thread_id"):
+        return None
+    return {"parent_id": str(spawn["parent_thread_id"]), "depth": spawn.get("depth")}
+
+
+def _codex_message_fingerprint(payload):
+    if not isinstance(payload, dict) or payload.get("type") != "message":
+        return ""
+    try:
+        return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    except Exception:
+        return ""
+
+
+def _jsonl(path):
+    for line_no, line in enumerate(open(path, errors="ignore"), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield line_no, json.loads(line)
+        except Exception:
+            continue
 
 
 # Codex edits files via `apply_patch` heredocs inside exec_command; recover the
@@ -260,24 +300,59 @@ def scan_codex(path, _plabel=None):
     s = new_session(None)
     model = None
     best_total = None  # codex reports cumulative usage; keep the largest snapshot
-    for line in open(path, errors="ignore"):
-        line = line.strip()
-        if not line:
+    child = None
+    boundary_line = None
+    first_meta = None
+    replayed_parent = False
+    last_task_started_line = None
+    last_line = 0
+    message_fingerprints = []
+    for line_no, d in _jsonl(path):
+        last_line = line_no
+        if d.get("type") == "session_meta" and first_meta is None:
+            first_meta = d
+            child = _codex_subagent((d.get("payload") or {}).get("source"))
+        elif child and d.get("type") == "session_meta":
+            first_id = str((first_meta.get("payload", {}) or {}).get("id") or "")
+            replay_id = str((d.get("payload", {}) or {}).get("id") or "")
+            if replay_id and replay_id != first_id:
+                replayed_parent = True
+        if child and d.get("type") == "response_item":
+            fingerprint = _codex_message_fingerprint(d.get("payload", {}) or {})
+            if fingerprint:
+                message_fingerprints.append((line_no, fingerprint))
+        if child and d.get("type") == "event_msg" \
+                and (d.get("payload", {}) or {}).get("type") == "task_started":
+            last_task_started_line = line_no
+        if child and d.get("type") == "inter_agent_communication_metadata":
+            boundary_line = line_no
+            break
+    if child and boundary_line is None and replayed_parent:
+        boundary_line = last_task_started_line or last_line
+    inherited_messages = Counter(
+        fingerprint for line_no, fingerprint in message_fingerprints
+        if boundary_line is not None and line_no <= boundary_line
+    )
+    if first_meta:
+        p = first_meta.get("payload", {}) or {}
+        cwd = p.get("cwd")
+        if cwd:
+            s["project"] = os.path.basename(cwd.rstrip("/")) or s["project"]
+        if p.get("id"):
+            s["id"] = p.get("id")
+        bump_time(s, p.get("timestamp") or first_meta.get("timestamp"))
+    if child:
+        s["parent_id"] = child["parent_id"]
+        s["subagent_runs"] = 1
+
+    for line_no, d in _jsonl(path):
+        if d.get("type") == "session_meta":
             continue
-        try:
-            d = json.loads(line)
-        except Exception:
+        if child and boundary_line is not None and line_no <= boundary_line:
             continue
         bump_time(s, d.get("timestamp"))
         p = d.get("payload", {}) or {}
         typ = d.get("type")
-        if typ == "session_meta":
-            cwd = p.get("cwd")
-            if cwd:
-                s["project"] = os.path.basename(cwd.rstrip("/")) or s["project"]
-            if p.get("id"):
-                s["id"] = p.get("id")  # matches the .md's id
-            bump_time(s, p.get("timestamp"))
         if isinstance(p, dict) and p.get("model"):
             model = p.get("model")
         # cumulative token usage lives on event_msg payloads (info.total_token_usage)
@@ -296,19 +371,25 @@ def scan_codex(path, _plabel=None):
                     s["user_messages"] += 1
                 elif role == "assistant":
                     s["assistant_messages"] += 1
-            elif ptype == "function_call":
-                cmd = _codex_cmd(p.get("arguments"))
+            elif ptype in ("function_call", "custom_tool_call"):
+                args = p.get("arguments") if p.get("arguments") is not None else p.get("input")
+                cmd = _codex_cmd(args)
                 record_tool(s, p.get("name", "tool"), cmd=cmd)
                 for fp in _codex_patch_files(cmd):
                     s["_files"].add(fp)
-            elif ptype == "function_call_output":
+            elif ptype in ("function_call_output", "custom_tool_call_output"):
                 out = p.get("output")
                 blob = json.dumps(out) if isinstance(out, (dict, list)) else str(out or "")
                 if '"success": false' in blob or '"exit_code": 1' in blob:
                     s["errors"] += 1
         elif typ == "compacted":
+            inherited_remaining = Counter(inherited_messages)
             for m in p.get("replacement_history", []):
                 if isinstance(m, dict) and m.get("type") == "message":
+                    fingerprint = _codex_message_fingerprint(m)
+                    if child and boundary_line is not None and inherited_remaining[fingerprint]:
+                        inherited_remaining[fingerprint] -= 1
+                        continue
                     if m.get("role") == "user":
                         s["user_messages"] += 1
                     elif m.get("role") == "assistant":
@@ -470,6 +551,18 @@ MD_TOOL_RE = re.compile(r"\[(?:tool|herramienta):\s*([^\]\n→]+?)(?:\s*→\s*([
 MD_BASH_RE = re.compile(r"```bash\n(.*?)\n```", re.S)
 
 
+def _markdown_meta_value(meta, *keys):
+    for key in keys:
+        match = re.search(
+            rf"(?:^|\|)\s*{re.escape(key)}\s*:\s*([^|]*?)\s*(?=\||$)",
+            meta,
+            re.I,
+        )
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+    return ""
+
+
 def scan_markdown(path):
     try:
         txt = open(path, errors="ignore").read()
@@ -478,14 +571,17 @@ def scan_markdown(path):
     s = new_session(None)
     cm = re.search(r"<!--(.*?)-->", txt, re.S)
     meta = cm.group(1) if cm else ""
-    mid = re.search(r"id:\s*([^|>\s]+)", meta)
-    s["id"] = mid.group(1).strip() if mid else None
-    md = re.search(r"(?:date|fecha):\s*([^|]+)", meta)
-    if md:
-        bump_time(s, md.group(1).strip())
-    mp = re.search(r"(?:project|proyecto):\s*([^|]+)", meta)
-    if mp:
-        s["project"] = mp.group(1).strip() or s["project"]
+    s["id"] = _markdown_meta_value(meta, "id") or None
+    date = _markdown_meta_value(meta, "date", "fecha")
+    if date:
+        bump_time(s, date)
+    project = _markdown_meta_value(meta, "project", "proyecto")
+    if project:
+        s["project"] = project
+    parent = _markdown_meta_value(meta, "parent_id")
+    if parent:
+        s["parent_id"] = parent
+        s["subagent_runs"] = 1
     s["user_messages"] = len(MD_USER_RE.findall(txt))
     s["assistant_messages"] = len(MD_ASSIST_RE.findall(txt))
     for tm in MD_TOOL_RE.finditer(txt):
@@ -575,7 +671,7 @@ def collect_markdown(out_dir, old):
 # --------------------------------------------------------------------------
 # Aggregate + cache
 # --------------------------------------------------------------------------
-SCALAR_KEYS = ("sessions", "user_messages", "assistant_messages", "tool_calls",
+SCALAR_KEYS = ("sessions", "subagent_runs", "user_messages", "assistant_messages", "tool_calls",
                "mcp_tool_calls", "test_runs", "build_runs", "errors", "web_searches")
 
 
@@ -635,9 +731,24 @@ def aggregate(sessions):
 def load_cache(path):
     try:
         c = json.load(open(path))
-        if isinstance(c, dict) and c.get("version") == CACHE_VERSION \
-                and isinstance(c.get("sessions"), dict):
+        if not isinstance(c, dict) or not isinstance(c.get("sessions"), dict):
+            return {}
+        version = c.get("version")
+        if version == CACHE_VERSION:
             return c["sessions"]
+        if version == 4:
+            # v4 metrics remain the only token/model evidence after raw pruning.
+            # Keep every entry available to the cumulative carry path, but make
+            # its signature intentionally stale so any raw/Markdown that still
+            # exists is rescanned once with the v5 parent/subagent fields.
+            migrated = {}
+            for key, value in c["sessions"].items():
+                if not isinstance(value, dict):
+                    continue
+                entry = dict(value)
+                entry["sig"] = "legacy-v4:" + str(value.get("sig") or "")
+                migrated[key] = entry
+            return migrated
     except Exception:
         pass
     return {}
@@ -732,6 +843,36 @@ FORMAT_BY_SOURCE = {"claude-code": "claude", "cowork": "claude",
                     "opencode": "opencode", "cursor": "cursor"}
 
 
+def assign_root_session_counts(sessions):
+    """Match the viewer's forest semantics for roots, orphans and cycles."""
+    by_id = {m.get("id"): m for m in sessions if m.get("id")}
+    for metrics in sessions:
+        parent_id = metrics.get("parent_id")
+        if not parent_id:
+            metrics["sessions"] = 1
+            continue
+        parent = by_id.get(parent_id)
+        if parent is None:
+            metrics["sessions"] = 1
+            continue
+
+        # A normal child is not another top-level conversation. A self-parent,
+        # cycle, or chain entering a cycle cannot be attached safely, so the
+        # viewer exposes it as an orphan root and the ledger must do the same.
+        seen = {id(metrics)}
+        current = parent
+        cyclic = False
+        while current is not None:
+            marker = id(current)
+            if marker in seen:
+                cyclic = True
+                break
+            seen.add(marker)
+            next_parent = current.get("parent_id")
+            current = by_id.get(next_parent) if next_parent else None
+        metrics["sessions"] = 1 if cyclic else 0
+
+
 def main():
     if len(sys.argv) < 4:
         print(__doc__)
@@ -756,6 +897,7 @@ def main():
     raw_ids = {m.get("id") for m in sessions if m.get("id")}
     md_cache, md_all, md_hits, md_misses = collect_markdown(out_dir, old)
     md_ids = {m.get("id") for m in md_all if m.get("id")}
+    md_by_id = {m.get("id"): m for m in md_all if m.get("id")}
     carried = 0
     for key, entry in old.items():
         if key.startswith("md\t") or key in new_cache:
@@ -765,8 +907,15 @@ def main():
             continue
         sid = m.get("id")
         if sid and sid in md_ids and sid not in raw_ids:
+            m = dict(m)
+            markdown_metrics = md_by_id.get(sid) or {}
+            parent_id = markdown_metrics.get("parent_id")
+            m["parent_id"] = parent_id or m.get("parent_id")
+            m["subagent_runs"] = 1 if m.get("parent_id") else m.get("subagent_runs", 0)
             sessions.append(m)        # keep its tokens
-            new_cache[key] = entry    # persist (cumulative)
+            carried_entry = dict(entry)
+            carried_entry["metrics"] = m
+            new_cache[key] = carried_entry  # persist (cumulative)
             raw_ids.add(sid)
             carried += 1
     md_sessions = [m for m in md_all if not (m.get("id") and m["id"] in raw_ids)]
@@ -777,6 +926,11 @@ def main():
     # matches what the Markdown converters emit (they skip empties too).
     sessions = [m for m in sessions
                 if m.get("user_messages") or m.get("assistant_messages") or m.get("tool_calls")]
+
+    # A backed-up child contributes its evidence to the conversation tree but
+    # not another root count. Missing parents and malformed cycles remain
+    # visible orphan roots, exactly as in the viewer.
+    assign_root_session_counts(sessions)
 
     ledger = aggregate(sessions)
     ledger["generated"] = datetime.datetime.now().astimezone().isoformat()

@@ -98,6 +98,12 @@ Markdown local. Nada, ni crudo ni derivado, sale de tu máquina.
   herramienta de origen borre la conversación original.
 - **Conversión a Markdown.** Cada sesión queda como un `.md` con título, fecha,
   id, proyecto y fuente, y los turnos separados (`### You` / `### Claude`, etc.).
+  Los subagentes de Codex conservan archivos propios y durables, y aparecen de
+  forma recursiva dentro de la conversación padre en el visor. Si el backup
+  encuentra un hijo recién iniciado antes de que exista un turno propio que se
+  pueda separar con seguridad, conserva el marcador de spawn del padre y difiere
+  esa transcripción hasta que el rollout crezca; nunca atribuye al hijo el
+  historial heredado del padre.
 - **Historial portable.** Como es Markdown plano, podés copiar una conversación
   entera (el visor tiene un botón de un clic) y pegarla en *otro* modelo o
   herramienta para seguir con todo el contexto — tu historial no queda atado a un
@@ -152,11 +158,11 @@ Configurá trailkeep en este repositorio. Es un backup + viewer local y offline
 de conversaciones con herramientas de coding con IA. Por favor:
 1. Leé README.es.md y `./update-backup.sh --help` para entender las flags.
 2. `chmod +x update-backup.sh *.command`.
-3. Corré un primer backup con `./update-backup.sh` y decime cuántas
-   conversaciones generó cada fuente.
+3. Corré un primer backup con `./update-backup.sh`, decime qué `backup_dir` usa
+   y cuántas conversaciones generó cada fuente.
 4. Si está todo bien, instalá la tarea automática diaria con
    `./install-auto.command` (preguntame el horario si tenés dudas).
-5. Explicame cómo abrir viewer.html y apuntarlo a la carpeta del backup.
+5. Explicame cómo abrir viewer.html y apuntarlo al `backup_dir` informado.
 
 Regla dura: todo queda local. No agregues llamadas de red, no commitees mis
 conversaciones (están gitignoreadas a propósito) y no mandes mis datos a
@@ -255,8 +261,14 @@ chmod +x update-backup.sh *.command
 ./update-backup.sh
 ```
 
-Por defecto la base es la carpeta donde vive el script. Podés pasar otra ruta
-como primer argumento si querés guardar los markdowns en otro lado:
+Por defecto trailkeep crea y usa **`~/trailkeep-backups`**, manteniendo los datos
+privados fuera del repo clonado. `install-auto.command` recuerda la ruta elegida
+en `~/.config/trailkeep/backup_dir`, y las corridas manuales siguientes la
+reutilizan. También podés pasar otra ruta como primer argumento:
+
+Las instalaciones existentes que ya tienen carpetas `markdown-*` junto al repo
+siguen usando automáticamente esa ubicación legacy; trailkeep nunca mueve datos
+privados en silencio.
 
 ```bash
 ./update-backup.sh ~/mis-respaldos
@@ -274,14 +286,16 @@ También podés hacer **doble clic** en `update-backup.command`.
 ### Activar el respaldo automático (diario, 12:00)
 
 Doble clic en `install-auto.command` (macOS) — o correlo desde la terminal.
-Instala una tarea diaria: un agente **`launchd`** en macOS, una entrada **`cron`**
-en Linux. Por defecto corre todos los días al mediodía.
+Instala una tarea diaria y recuerda su carpeta de backup: un agente **`launchd`**
+en macOS, una entrada **`cron`** en Linux. Por defecto corre todos los días al
+mediodía y escribe en `~/trailkeep-backups`.
 
 ¿Preferís otro horario (o estás en Linux)? Correlo desde la terminal con una hora (24h):
 
 ```bash
 ./install-auto.command 22       # todos los días a las 22:00
 ./install-auto.command 7:30     # todos los días a las 07:30
+./install-auto.command 7:30 ~/mis-respaldos
 ```
 
 Para quitarla: doble clic (o correr) `uninstall-auto.command`.
@@ -294,8 +308,15 @@ Para quitarla: doble clic (o correr) `uninstall-auto.command`.
 ## Usar el visor
 
 Abrí **`viewer.html`** con doble clic (se abre en el navegador como `file://`)
-y apuntalo a la carpeta donde están tus `markdown-*` (la misma carpeta base del
-respaldo). Desde ahí podés navegar, filtrar, copiar y ver las analíticas.
+y apuntalo a `~/trailkeep-backups`, o al `backup_dir` personalizado que informó
+el instalador. En navegadores compatibles el viewer recuerda esa carpeta después
+de la primera autorización. Sólo lee conversaciones válidas de trailkeep dentro
+de carpetas `markdown-*`.
+
+Acá “válida” significa que el archivo tiene metadata de identidad de trailkeep
+(`id`, `project` o el legacy `proyecto`, y `source` o el legacy `fuente`) más al
+menos un turno reconocido. `date` sigue siendo opcional al leer para no ocultar
+backups antiguos cuya fuente no tenía timestamp.
 
 Por defecto agrupa por **proyecto**, oculta las archivadas y las ya revisadas, y
 abre la conversación activa más reciente. Podés cambiar el agrupamiento (por
@@ -378,6 +399,10 @@ Una vez que el conversor produce ese formato, el visor y el resto del flujo lo
 toman sin cambios. Fijate en cualquiera de los `converters/convert_*.py` como
 referencia. También son bienvenidos reportes de bugs, mejoras al visor e ideas en
 general.
+
+Los archivos de subagentes de Codex agregan metadata relacional opcional
+(`parent_id`, `agent_path`, profundidad y estado al respaldar). El formato base
+sigue siendo compatible con respaldos anteriores y con todas las demás fuentes.
 
 ¿Trabajás en trailkeep con un agente de IA? Mirá [AGENTS.md](AGENTS.md) para las
 convenciones y la regla de oro: el visor hace **cero llamadas de red**.

@@ -24,7 +24,10 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
 ## Layout
 
 - `update-backup.sh` — orchestrator / CLI entrypoint (`--help`, `--only`,
-  `--dry-run`, optional `[OUTPUT_DIR]`). Reads each source, calls the converters.
+  `--dry-run`, optional `[OUTPUT_DIR]`). Default data location is
+  `~/trailkeep-backups`; `install-auto.command` remembers overrides in
+  `~/.config/trailkeep/backup_dir` (or `$XDG_CONFIG_HOME`). Reads each source,
+  calls the converters.
   **Loud health detection:** these tools store conversations in private, undocumented
   locations/formats, so a vendor moving a folder or changing a format must never fail
   silently. `run_convert` warns if a converter errors or — given new/changed raw —
@@ -34,6 +37,16 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   guards is NEW data silently not being captured.
 - `converters/convert_*.py` — one per source (claude/codex/opencode/cursor; cowork
   reuses convert_claude). Each reads its origin and writes the standard Markdown.
+  Codex subagent rollouts remain separate Markdown files for cumulative safety;
+  optional `parent_id` / `agent_*` metadata lets the viewer nest them inside the
+  parent conversation without duplicating or rewriting the child's content.
+  Child identity always comes from the first `session_meta`. Replayed parent
+  context is cut at `inter_agent_communication_metadata`, or conservatively at
+  the last `task_started` when a markerless rollout contains a different parent
+  `session_meta`. Never fall back to parsing that replay from line 1. A recognized
+  in-progress child with no child-authored turns is reported as deferred (healthy
+  and retried when its file grows); a completed unreadable child remains a loud
+  health warning.
 - `converters/extract_ledger.py` — **Evidence Ledger**: deterministic, $0, on-device
   metrics (token usage by model, tool/test/build counts, files modified, errors)
   read from each tool's RAW storage. One scanner per format (claude+cowork .jsonl,
@@ -107,7 +120,10 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   `_conversation_summaries.json` in conversation detail, `_project_reviews.json`
   in Project Home, `_agent_profile.json` in Analytics, and
   `_review_update_log.json` in Runs plus affected Project Homes. It never
-  generates those files and never calls a model.
+  generates those files and never calls a model. Conversation loading is limited
+  to `markdown-*` paths with trailkeep identity metadata and recognized turns.
+  When supported, the local viewer persists an approved directory handle in
+  IndexedDB; the hosted demo must not auto-open personal folders.
 - `*.command` — double-click launchers (install/uninstall the launchd task; run).
 - `docs/` — `index.html` (the GitHub Pages live demo, sample data baked in),
   screenshots, `hero.gif`, and `generative-layer.md` (the stable contract for
@@ -137,6 +153,13 @@ Tool calls render as `[tool: <name> → …]` / `[result]` blocks. If you change
 format, update **both** the converters and the viewer's parser, and keep reading
 the legacy Spanish keys (rule 2).
 
+Codex subagents may append `format_version`, `parent_id`, `agent_path`,
+`agent_nickname`, `agent_depth`, `agent_status`, and `completed_at` to the same
+metadata comment. These fields are optional; older and non-Codex Markdown keeps
+the base contract above. A `spawn_agent` tool marker anchors the child in the
+parent timeline, while an unmatched child still renders through the viewer's
+related-subagents fallback.
+
 ## Adding a source
 
 Write a `converters/convert_<tool>.py` that reads that tool's storage and emits the
@@ -146,8 +169,10 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
-- Converters/skills: `python3 -m py_compile converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Converters/skills: `python3 -m py_compile converters/atomic_io.py converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
+- Backup retry transaction: `node scripts/test-backup-retry.cjs`
+- Codex subagent hierarchy: `node scripts/test-codex-subagents.cjs`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
 - Prompt drift: `node scripts/check-prompt-drift.cjs`
 - Viewer Playwright QA (optional dev check, not used by backup):

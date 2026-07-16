@@ -195,6 +195,11 @@ Resolve `backup_dir` as the trailkeep backup folder that contains both:
 - `markdown-*` folders;
 - the `_review_run_plan.json` being consumed.
 
+When setup did not pass the path explicitly, first read the local remembered
+path from `~/.config/trailkeep/backup_dir` (or
+`$XDG_CONFIG_HOME/trailkeep/backup_dir`). Fall back to
+`~/trailkeep-backups`; do not guess among unrelated folders.
+
 Write all generated/runtime sidecars at the root of that `backup_dir`:
 
 - `<backup_dir>/_conversation_summaries.json`

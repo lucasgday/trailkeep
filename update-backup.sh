@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # update-backup.sh
 # Incremental, cumulative backup of LLM conversations (Claude Code, Codex, Cowork, OpenCode, Cursor).
-# - Base = the folder where this script lives (the whole folder can be moved).
+# - Base = ~/trailkeep-backups by default, or the path remembered by the installer.
 # - Optional override: pass a path as a positional argument.
 # - Incremental: only processes .jsonl that are new or changed in size since the last run.
 # - Cumulative: never deletes already-generated markdowns, even if the source removes them (cleanup).
@@ -12,11 +12,14 @@ set -uo pipefail
 
 # ---------- base location ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+BACKUP_DIR_FILE="$CONFIG_HOME/trailkeep/backup_dir"
+DEFAULT_BASE="$HOME/trailkeep-backups"
 
 # ---------- options ----------
 ONLY=""        # empty = all sources; otherwise a comma list: claude,codex,cowork,opencode,cursor
 DRY=0          # 1 = dry-run: report what would be processed, write nothing
-BASE=""        # output folder (defaults to SCRIPT_DIR)
+BASE=""        # output folder (defaults to remembered path or ~/trailkeep-backups)
 
 print_help() {
   cat <<EOF
@@ -27,7 +30,8 @@ USAGE:
 
 ARGUMENTS:
   OUTPUT_DIR        Where the markdown-*/ folders are written.
-                    Default: the folder where this script lives.
+                    Default: the path remembered by install-auto.command,
+                    otherwise ~/trailkeep-backups.
 
 OPTIONS:
   -h, --help        Show this help and exit.
@@ -45,7 +49,7 @@ SOURCES (auto-detected, skipped if absent):
   cursor    ~/Library/Application Support/Cursor/User/globalStorage/state.vscdb
 
 EXAMPLES:
-  update-backup.sh                       # back up everything here
+  update-backup.sh                       # back up to the remembered/default folder
   update-backup.sh ~/my-backups          # write markdowns elsewhere
   update-backup.sh --only claude         # just Claude Code
   update-backup.sh --dry-run             # preview, change nothing
@@ -63,7 +67,19 @@ while [ $# -gt 0 ]; do
     *) BASE="$1"; shift;;
   esac
 done
-BASE="${BASE:-$SCRIPT_DIR}"
+if [ -z "$BASE" ]; then
+  if [ -n "${TRAILKEEP_BACKUP_DIR:-}" ]; then
+    BASE="$TRAILKEEP_BACKUP_DIR"
+  elif [ -f "$BACKUP_DIR_FILE" ]; then
+    IFS= read -r BASE < "$BACKUP_DIR_FILE" || BASE=""
+  fi
+  if [ -z "$BASE" ]; then
+    for legacy_dir in "$SCRIPT_DIR"/markdown-*; do
+      if [ -d "$legacy_dir" ]; then BASE="$SCRIPT_DIR"; LEGACY_BASE=1; break; fi
+    done
+  fi
+  BASE="${BASE:-$DEFAULT_BASE}"
+fi
 
 # validate --only tokens
 if [ -n "$ONLY" ]; then
@@ -81,10 +97,17 @@ want() {
   return 1
 }
 
-cd "$BASE" || { echo "Could not enter $BASE"; exit 1; }
+if [ "$DRY" != "1" ]; then
+  mkdir -p "$BASE" || { echo "Could not create $BASE"; exit 1; }
+fi
+if [ -d "$BASE" ]; then
+  BASE="$(cd "$BASE" && pwd)"
+elif [[ "$BASE" != /* ]]; then
+  BASE="$PWD/${BASE#./}"
+fi
 
 STATE="$BASE/.sync-state"          # index of processed sizes (incremental)
-mkdir -p "$STATE"
+[ "$DRY" = "1" ] || mkdir -p "$STATE"
 TMP="$BASE/.sync-tmp"
 # The converters live in converters/ next to this script (SCRIPT_DIR), not in the
 # data folder, so the code and the markdowns can live in different folders.
@@ -112,23 +135,51 @@ if command -v shasum >/dev/null 2>&1; then HASHER="shasum"; else HASHER="sha1sum
 
 echo "== trailkeep backup =="
 echo "Base: $BASE"
+[ "${LEGACY_BASE:-0}" = "1" ] && echo "(existing repo-local backups detected; keeping their legacy location)"
 [ "$DRY" = "1" ] && echo "(dry-run: nothing will be written)"
 [ -n "$ONLY" ] && echo "(only: $ONLY)"
 echo ""
 
-# Function: is this .jsonl new or changed in size since last time?
-# Stores the size in $STATE/<hash>.size  (hash = encoded path). In dry-run it
-# detects changes but writes nothing.
+# Function: is this source new or changed in size since the last successful
+# conversion? An optional converter version forces one safe re-conversion when
+# parsing semantics change. Detection never mutates state. The caller commits
+# the signature only after the converter has produced valid output.
 need_process() {
-  local f="$1" key sz prev
+  local f="$1" version="${2:-}" key sz sig prev
   key=$(echo "$f" | "$HASHER" | cut -d' ' -f1)
   sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
+  sig="$sz${version:+:$version}"
+  DETECTED_SIZE="$sig"
   prev=$(cat "$STATE/$key.size" 2>/dev/null || echo "")
-  if [ "$sz" != "$prev" ]; then
-    [ "$DRY" = "1" ] || echo "$sz" > "$STATE/$key.size"
+  if [ "$sig" != "$prev" ]; then
     return 0   # process
   fi
   return 1     # unchanged, skip
+}
+
+# Commit one source signature atomically after successful conversion. If this
+# write fails, the source remains pending and will be retried next run.
+commit_processed() {
+  local f="$1" sz="$2" key tmp
+  key=$(echo "$f" | "$HASHER" | cut -d' ' -f1)
+  tmp="$STATE/$key.size.tmp.$$"
+  printf '%s\n' "$sz" > "$tmp" || { rm -f "$tmp"; return 1; }
+  mv "$tmp" "$STATE/$key.size"
+}
+
+commit_pending() {
+  local i failed=0
+  for ((i=0; i<${#pending_paths[@]}; i++)); do
+    if ! commit_processed "${pending_paths[$i]}" "${pending_sizes[$i]}"; then
+      echo "  !! Could not commit sync state for: ${pending_paths[$i]}"
+      failed=1
+    fi
+  done
+  if [ "$failed" -ne 0 ]; then
+    HEALTH_WARN=$((HEALTH_WARN+1))
+    return 1
+  fi
+  return 0
 }
 
 # --- Loud health detection -------------------------------------------------
@@ -140,21 +191,38 @@ HEALTH_WARN=0
 
 # Run a converter; warn loudly if it errors, or — having been handed new/changed
 # raw data — converts 0 sessions (likely a changed path or storage format).
+# Recognized Codex children whose own turn has not appeared yet are a healthy
+# deferred result: commit their signature and retry naturally when the file grows.
 # Usage: run_convert <label> <python args...>
 run_convert() {
   local label="$1"; shift
-  local out conv rc
+  local out conv deferred unreadable rc
   out=$(python3 "$@" 2>&1); rc=$?
   printf '%s\n' "$out"
   if [ "$rc" -ne 0 ]; then
     echo "  !! $label: the converter errored (exit $rc) — its source format/path may have changed."
-    HEALTH_WARN=$((HEALTH_WARN+1)); return 0
+    HEALTH_WARN=$((HEALTH_WARN+1)); return 1
   fi
   conv=$(printf '%s' "$out" | sed -n 's/.*Converted:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
-  if [ "${conv:-x}" = "0" ]; then
-    echo "  !! $label: had new/changed raw data but converted 0 sessions — the format may have changed."
-    HEALTH_WARN=$((HEALTH_WARN+1))
+  deferred=$(printf '%s' "$out" | sed -n 's/.*Deferred subagents:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
+  unreadable=$(printf '%s' "$out" | sed -n 's/.*Unreadable completed subagents:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
+  if [ -z "${conv:-}" ]; then
+    echo "  !! $label: converter output did not confirm how many sessions were written."
+    HEALTH_WARN=$((HEALTH_WARN+1)); return 1
   fi
+  if [ "${unreadable:-0}" -gt 0 ] 2>/dev/null; then
+    echo "  !! $label: ${unreadable} completed subagent transcript(s) had no safely readable child turns — the format may have changed."
+    HEALTH_WARN=$((HEALTH_WARN+1)); return 1
+  fi
+  if [ "$conv" = "0" ]; then
+    if [ "${deferred:-0}" -gt 0 ] 2>/dev/null; then
+      echo "  $label: ${deferred} subagent transcript(s) recognized but safely deferred until child-authored turns appear."
+      return 0
+    fi
+    echo "  !! $label: had new/changed raw data but converted 0 sessions — the format may have changed."
+    HEALTH_WARN=$((HEALTH_WARN+1)); return 1
+  fi
+  return 0
 }
 
 # Source folder/db is gone but we have markdowns for it → the tool likely moved
@@ -177,21 +245,35 @@ if want claude; then
 if [ -d "$HOME_CLAUDE/projects" ]; then
   echo "-- Claude Code --"
   SRC="$TMP/claude/conversations"
-  rm -rf "$TMP/claude"; mkdir -p "$SRC"
-  new=0
+  if [ "$DRY" != "1" ]; then rm -rf "$TMP/claude"; mkdir -p "$SRC"; fi
+  new=0; pending_paths=(); pending_sizes=()
   while IFS= read -r -d '' f; do
     [[ "$f" == *"/subagents/"* ]] && continue
     [[ "$(basename "$f")" == agent-* ]] && continue
     if need_process "$f"; then
-      proj=$(basename "$(dirname "$f")")
-      mkdir -p "$SRC/$proj"
-      cp "$f" "$SRC/$proj/$(basename "$f")"
-      new=$((new+1))
+      detected_size="$DETECTED_SIZE"
+      if [ "$DRY" = "1" ]; then
+        new=$((new+1))
+      else
+        proj=$(basename "$(dirname "$f")")
+        mkdir -p "$SRC/$proj"
+        if cp "$f" "$SRC/$proj/$(basename "$f")"; then
+          pending_paths+=("$f"); pending_sizes+=("$detected_size"); new=$((new+1))
+        else
+          echo "  !! Claude Code: could not stage $f"
+          HEALTH_WARN=$((HEALTH_WARN+1))
+        fi
+      fi
     fi
   done < <(find "$HOME_CLAUDE/projects" -name "*.jsonl" -print0 2>/dev/null)
   if [ "$new" -gt 0 ]; then
     if [ "$DRY" = "1" ]; then echo "  $new new/changed sessions (dry-run, not converting)";
-    else echo "  $new new/changed sessions → converting"; run_convert "Claude Code" "$PY_CLAUDE" "$SRC" "$BASE/markdown-claude" claude-code "$HOME_CLAUDE/history.jsonl"; fi
+    else
+      echo "  $new new/changed sessions → converting"
+      if run_convert "Claude Code" "$PY_CLAUDE" "$SRC" "$BASE/markdown-claude" claude-code "$HOME_CLAUDE/history.jsonl"; then
+        commit_pending
+      fi
+    fi
   else
     echo "  no changes"
   fi
@@ -219,14 +301,29 @@ if [ -d "$HOME_CODEX/sessions" ] || [ -d "$HOME_CODEX/archived_sessions" ]; then
 
   # Active
   if [ -d "$HOME_CODEX/sessions" ]; then
-    SRC="$TMP/codex-act"; rm -rf "$SRC"; mkdir -p "$SRC/all"
-    new=0
+    SRC="$TMP/codex-act"; if [ "$DRY" != "1" ]; then rm -rf "$SRC"; mkdir -p "$SRC/all"; fi
+    new=0; pending_paths=(); pending_sizes=()
     while IFS= read -r -d '' f; do
-      if need_process "$f"; then cp "$f" "$SRC/all/$(basename "$f")"; new=$((new+1)); fi
+      if need_process "$f" "codex-subagents-v1"; then
+        detected_size="$DETECTED_SIZE"
+        if [ "$DRY" = "1" ]; then
+          new=$((new+1))
+        elif cp "$f" "$SRC/all/$(basename "$f")"; then
+          pending_paths+=("$f"); pending_sizes+=("$detected_size"); new=$((new+1))
+        else
+          echo "  !! Codex: could not stage $f"
+          HEALTH_WARN=$((HEALTH_WARN+1))
+        fi
+      fi
     done < <(find "$HOME_CODEX/sessions" -name "*.jsonl" -print0 2>/dev/null)
     if [ "$new" -gt 0 ]; then
       if [ "$DRY" = "1" ]; then echo "  $new new/changed active (dry-run, not converting)";
-      else echo "  $new new/changed active → converting"; run_convert "Codex" "$PY_CODEX" "$SRC" "$IDX" "$BASE/markdown-codex"; fi
+      else
+        echo "  $new new/changed active → converting"
+        if run_convert "Codex" "$PY_CODEX" "$SRC" "$IDX" "$BASE/markdown-codex"; then
+          commit_pending
+        fi
+      fi
     else
       echo "  active: no changes"
     fi
@@ -234,14 +331,29 @@ if [ -d "$HOME_CODEX/sessions" ] || [ -d "$HOME_CODEX/archived_sessions" ]; then
 
   # Archived: INCREMENTAL conversion (only new/changed) + cheap flag sync.
   if [ -d "$HOME_CODEX/archived_sessions" ]; then
-    SRC="$TMP/codex-arch"; rm -rf "$SRC"; mkdir -p "$SRC/all"
-    new=0
+    SRC="$TMP/codex-arch"; if [ "$DRY" != "1" ]; then rm -rf "$SRC"; mkdir -p "$SRC/all"; fi
+    new=0; pending_paths=(); pending_sizes=()
     while IFS= read -r -d '' f; do
-      if need_process "$f"; then cp "$f" "$SRC/all/$(basename "$f")"; new=$((new+1)); fi
+      if need_process "$f" "codex-subagents-v1"; then
+        detected_size="$DETECTED_SIZE"
+        if [ "$DRY" = "1" ]; then
+          new=$((new+1))
+        elif cp "$f" "$SRC/all/$(basename "$f")"; then
+          pending_paths+=("$f"); pending_sizes+=("$detected_size"); new=$((new+1))
+        else
+          echo "  !! Codex archived: could not stage $f"
+          HEALTH_WARN=$((HEALTH_WARN+1))
+        fi
+      fi
     done < <(find "$HOME_CODEX/archived_sessions" -name "*.jsonl" -print0 2>/dev/null)
     if [ "$new" -gt 0 ]; then
       if [ "$DRY" = "1" ]; then echo "  $new new/changed archived (dry-run, not converting)";
-      else echo "  $new new/changed archived → converting"; python3 "$PY_CODEX" "$SRC" "$IDX" "$BASE/markdown-codex" archived; fi
+      else
+        echo "  $new new/changed archived → converting"
+        if run_convert "Codex archived" "$PY_CODEX" "$SRC" "$IDX" "$BASE/markdown-codex" archived; then
+          commit_pending
+        fi
+      fi
     else
       echo "  archived: no changes"
     fi
@@ -250,8 +362,20 @@ if [ -d "$HOME_CODEX/sessions" ] || [ -d "$HOME_CODEX/archived_sessions" ]; then
     # Handles both English ('archived:') and legacy Spanish ('archivada:') metadata.
     if [ "$DRY" != "1" ]; then
     python3 - "$BASE/markdown-codex" "$HOME_CODEX/archived_sessions" <<'PYEOF'
-import sys, glob, os, re, json
+import sys, glob, os, re, json, tempfile
 mddir, archdir = sys.argv[1], sys.argv[2]
+def atomic_write(path, text):
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or '.', prefix='.'+os.path.basename(path)+'.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as out:
+            out.write(text)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try: os.unlink(tmp)
+        except FileNotFoundError: pass
+        raise
 # currently archived ids
 arch_ids=set()
 for f in glob.glob(os.path.join(archdir,'**','*.jsonl'), recursive=True):
@@ -285,7 +409,7 @@ for sid in arch_ids:
             updated=re.sub(r'archived:\s*false','archived: true',txt,count=1)
             updated=re.sub(r'archivada:\s*false','archivada: true',updated,count=1)
             if updated!=txt:
-                open(f,'w').write(updated); marked+=1; item[1]=True
+                atomic_write(f, updated); marked+=1; item[1]=True
     # remove active:false duplicates if there's already a true one
     if any(a for _,a,_ in by_id[sid]):
         for f,a,_ in by_id[sid]:
@@ -317,14 +441,29 @@ fi
 if want cowork; then
 if [ -d "$COWORK_DIR" ]; then
   echo "-- Cowork --"
-  SRC="$TMP/cowork/cowork"; rm -rf "$TMP/cowork"; mkdir -p "$SRC"
-  new=0
+  SRC="$TMP/cowork/cowork"; if [ "$DRY" != "1" ]; then rm -rf "$TMP/cowork"; mkdir -p "$SRC"; fi
+  new=0; pending_paths=(); pending_sizes=()
   while IFS= read -r -d '' f; do
-    if need_process "$f"; then cp "$f" "$SRC/$(basename "$f")"; new=$((new+1)); fi
+    if need_process "$f"; then
+      detected_size="$DETECTED_SIZE"
+      if [ "$DRY" = "1" ]; then
+        new=$((new+1))
+      elif cp "$f" "$SRC/$(basename "$f")"; then
+        pending_paths+=("$f"); pending_sizes+=("$detected_size"); new=$((new+1))
+      else
+        echo "  !! Cowork: could not stage $f"
+        HEALTH_WARN=$((HEALTH_WARN+1))
+      fi
+    fi
   done < <(find "$COWORK_DIR" -path "*/.claude/projects/*.jsonl" ! -name "audit.jsonl" ! -path "*/subagents/*" -print0 2>/dev/null)
   if [ "$new" -gt 0 ]; then
     if [ "$DRY" = "1" ]; then echo "  $new new/changed sessions (dry-run, not converting)";
-    else echo "  $new new/changed sessions → converting"; run_convert "Cowork" "$PY_CLAUDE" "$TMP/cowork" "$BASE/markdown-cowork" cowork "$HOME_CLAUDE/history.jsonl"; fi
+    else
+      echo "  $new new/changed sessions → converting"
+      if run_convert "Cowork" "$PY_CLAUDE" "$TMP/cowork" "$BASE/markdown-cowork" cowork "$HOME_CLAUDE/history.jsonl"; then
+        commit_pending
+      fi
+    fi
   else
     echo "  no changes"
   fi
@@ -348,8 +487,14 @@ PY_OPENCODE="$SCRIPT_DIR/converters/convert_opencode.py"
 if [ -f "$OPENCODE_DB" ] && [ -f "$PY_OPENCODE" ]; then
   echo "-- OpenCode --"
   if need_process "$OPENCODE_DB"; then
+    detected_size="$DETECTED_SIZE"
     if [ "$DRY" = "1" ]; then echo "  DB changed (dry-run, not converting)";
-    else echo "  DB changed → converting"; run_convert "OpenCode" "$PY_OPENCODE" "$OPENCODE_DB" "$BASE/markdown-opencode"; fi
+    else
+      echo "  DB changed → converting"
+      if run_convert "OpenCode" "$PY_OPENCODE" "$OPENCODE_DB" "$BASE/markdown-opencode"; then
+        commit_processed "$OPENCODE_DB" "$detected_size" || { echo "  !! OpenCode: could not commit sync state"; HEALTH_WARN=$((HEALTH_WARN+1)); }
+      fi
+    fi
   else
     echo "  no changes"
   fi
@@ -379,8 +524,14 @@ PY_CURSOR="$SCRIPT_DIR/converters/convert_cursor.py"
 if [ -f "$CURSOR_DB" ] && [ -f "$PY_CURSOR" ]; then
   echo "-- Cursor --"
   if need_process "$CURSOR_DB"; then
+    detected_size="$DETECTED_SIZE"
     if [ "$DRY" = "1" ]; then echo "  DB changed (dry-run, not converting)";
-    else echo "  DB changed → converting"; run_convert "Cursor" "$PY_CURSOR" "$CURSOR_DB" "$BASE/markdown-cursor"; fi
+    else
+      echo "  DB changed → converting"
+      if run_convert "Cursor" "$PY_CURSOR" "$CURSOR_DB" "$BASE/markdown-cursor"; then
+        commit_processed "$CURSOR_DB" "$detected_size" || { echo "  !! Cursor: could not commit sync state"; HEALTH_WARN=$((HEALTH_WARN+1)); }
+      fi
+    fi
   else
     echo "  no changes"
   fi
@@ -408,8 +559,8 @@ if [ "$DRY" != "1" ]; then
     "codex=$HOME_CODEX/sessions" "opencode=${OPENCODE_DB:-}" || true
 fi
 
-# clean up temporaries
-rm -rf "$TMP"
+# clean up temporaries (dry-run never mutates the output folder)
+[ "$DRY" = "1" ] || rm -rf "$TMP"
 
 if [ "$DRY" = "1" ]; then
   echo "== Dry-run done (nothing written) =="
@@ -443,8 +594,22 @@ DATE=$(date +"%Y-%m-%dT%H:%M:%S%z")
 ENTRY=$(printf '{"date":"%s","total":%d,%s}' "$DATE" "$TOTAL" "$(IFS=,; echo "${SUMMARY[*]}")")
 # prepend the new entry to the history (keep last 50)
 python3 - "$LOG" "$LOG_PUBLIC" "$ENTRY" <<'PYEOF'
-import sys, json, os
+import sys, json, os, tempfile
 log_path, public_log_path, entry = sys.argv[1], sys.argv[2], sys.argv[3]
+def atomic_json(path, value):
+    directory = os.path.dirname(path) or '.'
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix='.'+os.path.basename(path)+'.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as out:
+            json.dump(value, out, ensure_ascii=False, indent=2)
+            out.write('\n')
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try: os.unlink(tmp)
+        except FileNotFoundError: pass
+        raise
 hist = []
 if os.path.exists(log_path):
     try: hist = json.load(open(log_path))
@@ -453,8 +618,8 @@ try: e = json.loads(entry)
 except Exception: e = {"date": "?", "total": 0}
 hist.insert(0, e)
 hist = hist[:50]
-json.dump(hist, open(log_path, "w"), ensure_ascii=False, indent=2)
-json.dump(hist, open(public_log_path, "w"), ensure_ascii=False, indent=2)
+atomic_json(log_path, hist)
+atomic_json(public_log_path, hist)
 PYEOF
 
 # Review preflight: deterministic selected-context plan and evals for the

@@ -8,6 +8,8 @@ Usage: convert_cursor.py <path_to_state.vscdb> <output_dir>
 import sqlite3, json, os, re, sys, datetime
 from collections import defaultdict
 
+from atomic_io import atomic_write_json, atomic_write_text
+
 def safe_filename(s):
     s = re.sub(r"[^\w\s-]", "", s or "").strip().replace(" ", "_")
     return s[:80] or "session"
@@ -102,10 +104,13 @@ def main():
         os.makedirs(pdir, exist_ok=True)
         prefix = (date_iso or "0000-00-00")[:10]
         fname = f"{prefix}__{safe_filename(title)}__{cid}.md"
-        with open(os.path.join(pdir, fname), "w") as o:
-            o.write(f"# {title}\n\n")
-            o.write(f"<!-- date: {date_iso} | id: {cid} | project: {proj} | source: cursor | archived: {str(archived).lower()} -->\n\n")
-            o.write("\n".join(blocks))
+        out_path = os.path.join(pdir, fname)
+        body = (
+            f"# {title}\n\n"
+            f"<!-- date: {date_iso} | id: {cid} | project: {proj} | source: cursor | archived: {str(archived).lower()} -->\n\n"
+            + "\n".join(blocks)
+        )
+        atomic_write_text(out_path, body)
         counts["ok"] += 1
 
     con.close()
@@ -120,7 +125,7 @@ def main():
             except Exception: info = {}
         info["cursor"] = {"generated": datetime.datetime.now().astimezone().isoformat(), "conversations": counts["ok"]}
         os.makedirs(out_dir, exist_ok=True)
-        json.dump(info, open(info_path, "w"), ensure_ascii=False, indent=2)
+        atomic_write_json(info_path, info)
     except Exception:
         pass
 

@@ -478,6 +478,29 @@
   .mini.is-disabled{cursor:not-allowed;opacity:.55;background:var(--paper);color:var(--ink-soft)}
   .mini.is-disabled:hover{background:var(--paper)}
 
+  .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+  .subagent-node{margin:9px 0 12px min(calc(var(--subagent-depth,1) * 16px),32px);border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+  .subagent-toggle{width:100%;min-height:44px;display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:9px;border:0;background:transparent;color:var(--ink);font:inherit;text-align:left;padding:9px 11px;cursor:pointer}
+  .subagent-toggle:hover{background:var(--paper)}
+  .subagent-chevron{font-size:13px;color:var(--ink-soft);transform:rotate(-90deg);transition:transform .15s;line-height:1;text-align:center}
+  .subagent-node.expanded>.subagent-toggle .subagent-chevron{transform:rotate(0)}
+  .subagent-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+  .subagent-title{font-size:13px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .subagent-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--ink-soft);font-size:10.5px;line-height:1.3}
+  .subagent-kind{font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:#6658a8}
+  .subagent-nickname{font-weight:600;color:var(--ink-soft)}
+  .subagent-status{display:inline-flex;align-items:center;gap:5px;justify-self:end;border:1px solid var(--line);border-radius:999px;padding:2px 7px;background:var(--paper);color:var(--ink-soft);font-size:10px;font-weight:750;white-space:nowrap}
+  .subagent-status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+  .subagent-status.completed{border-color:#b7d8d1;background:#eef7f5;color:#23776b}
+  .subagent-status.in-progress{border-color:#e8c9a9;background:#fff8ee;color:#9a5c20}
+  .subagent-panel{border-top:1px solid var(--line);padding:2px 12px 10px;background:var(--paper)}
+  .subagent-panel[hidden]{display:none}
+  .subagent-panel>.subagent-node{background:var(--panel)}
+  .subagent-fallback{margin:18px 0 8px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+  .subagent-fallback-title{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);font-weight:750}
+  .subagent-count,.subagent-orphan{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:1px 6px;color:var(--ink-soft);background:var(--paper);font-size:9.5px;font-weight:700;line-height:1.25}
+  .subagent-orphan{border-color:#e8c9a9;background:#fff8ee;color:#9a5c20}
+
   .turn{border-bottom:1px solid var(--line);padding:0}
   .turn-head{display:grid;grid-template-columns:24px 64px 1fr auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
   .turn-head .tcheck{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent}
@@ -568,6 +591,10 @@
     .ph-review-grid{grid-template-columns:1fr}
     .turn-body,.turn[data-type="tool"] .turn-body{padding-left:0;margin-left:0}
     .turn-head{grid-template-columns:24px 56px 1fr auto}
+    .subagent-node{margin-left:0}
+    .subagent-toggle{grid-template-columns:18px minmax(0,1fr);align-items:start}
+    .subagent-status{grid-column:2;justify-self:start}
+    .subagent-panel{padding-left:10px;padding-right:10px}
     .menu-toggle{display:inline-flex !important}
   }
   .menu-toggle{display:none}
@@ -700,12 +727,12 @@
 "use strict";
 const STORE_KEY = "buildlog_progress_v2";
 const state = {
-  sessions: [], projects: new Map(), sources: new Map(),
+  sessions: [], rootSessions: [], projects: new Map(), sources: new Map(),
   activeId: null, defaultSessionId: null,
   types: { user:true, assistant:true, tool:true },
   query: "", hideDone:true, hideArchived:true, collapseAll:true,
   backupInfo:{}, collapsedSources:{}, groupMode:"project",
-  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null, supersededSessions:[],
+  lang:"en", ledger:null, projectMeta:{}, projectMetaGenerated:null, conversationSummaries:null, projectReviews:null, agentProfile:null, reviewPlan:null, reviewUpdateLog:[], projectFocus:null, projectHomeName:null, directoryHandle:null, supersededSessions:[], expandedSubagents:{}, pendingSubagentFocus:null,
   progress: {}  // { [sessionId]: { done:bool, turns:{ [i]:bool } } }
 };
 
@@ -787,7 +814,7 @@ const I18N = {
     demo_review_cta:"Copy project review setup prompt",
     demo_bn:"sample data — nothing is uploaded.", demo_bn_agent:"Set up with your agent", demo_bn_cta:"Install trailkeep to back up your own →",
     demo_install_t:"Install it with your coding agent",
-    demo_install_prompt:"Set up trailkeep for me. It's a local, offline backup + viewer for AI-coding-tool conversations. Please:\n1. Clone it: `git clone https://github.com/lucasgday/trailkeep.git && cd trailkeep`.\n2. Read README.md and `./update-backup.sh --help`.\n3. Run `chmod +x update-backup.sh *.command`.\n4. Run a first backup with `./update-backup.sh` and tell me what each source produced.\n5. If it looks good, install the daily task with `./install-auto.command` (ask me the time first).\n6. Show me how to open viewer.html and point it at the backup folder.\nHard rule: keep everything local — no network calls, and don't commit my conversations (they're gitignored on purpose).",
+    demo_install_prompt:"Set up trailkeep for me. It's a local, offline backup + viewer for AI-coding-tool conversations. Please:\n1. Clone it: `git clone https://github.com/lucasgday/trailkeep.git && cd trailkeep`.\n2. Read README.md and `./update-backup.sh --help`.\n3. Run `chmod +x update-backup.sh *.command`.\n4. Run a first backup with `./update-backup.sh`, report the backup_dir and tell me what each source produced.\n5. If it looks good, install the daily task with `./install-auto.command` (ask me the time first).\n6. Show me how to open viewer.html and point it at that backup_dir.\nHard rule: keep everything local — no network calls, and don't commit my conversations (they're gitignored on purpose).",
     filters:"Filters", show_blocks:"Show blocks", you:"You", assistant:"Agent", tools:"Tools", context_tag:"Context",
     view:"View", hide_done:"Hide marked conversations", hide_archived:"Hide archived",
     collapse_turns:"Collapse all turns", group_by:"Group by:", by_tool:"Tool", by_project:"Project",
@@ -803,10 +830,10 @@ const I18N = {
     empty_title:"Your AI coding history",
     empty_p:"Open the folder that holds your markdown backups. They're grouped by source and project, with dates, and you can mark what you've reviewed.",
     empty_how_t:"How to start",
-    empty_how:"1. Click <b>Open folder</b>.<br>2. Pick the folder with your <code>markdown-*</code> backups (it reads every subfolder).<br>3. Progress is saved automatically; use <b>Save progress</b> for a file backup.<br><br>Everything runs on your machine. Nothing is uploaded.",
+    empty_how:"1. Click <b>Open folder</b>.<br>2. Pick <code>~/trailkeep-backups</code> (or your configured folder).<br>3. The local viewer can remember the folder after you approve it once. Review progress is also saved locally.<br><br>Everything runs on your machine. Nothing is uploaded.",
     an_title:"Analytics", back_to_list:"← back to the list",
     measure_by:"Measure by:", conversations_btn:"Conversations", turns_btn:"Turns",
-    summary:"Summary", n_conversations:"conversations", n_tools:"tools", n_projects:"projects", n_archived:"archived", n_active:"active",
+    summary:"Summary", n_conversations:"conversations", n_tools:"tools", n_projects:"projects", n_archived:"archived", n_active:"active", n_subagents:"subagents", n_turn_one:"turn",
     activity_over_time:"Activity over time", no_data_sources:"No data for the selected sources.",
     daily_activity:"Daily activity (last year)", no_data:"No data. Load a folder first.",
     day:"Day", week:"Week", month:"Month", dow:["","Mon","","Wed","","Fri",""],
@@ -818,8 +845,12 @@ const I18N = {
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
     collapse_expand:"Collapse/expand all", copy:"copy", copied:"✓ copied",
     mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool",
+    subagent:"Subagent", subagents:"Subagents", subagent_total:"total",
+    subagent_completed:"completed", subagent_in_progress:"in progress at backup", subagent_unknown:"status unavailable",
+    subagent_parent_missing:"parent conversation missing", subagent_status_snapshot:"Status from the last backup",
+    subagent_show:"Show subagent", subagent_hide:"Hide subagent", subagent_unanchored:"Related subagents",
     no_turns_match:"No turn matches the active filters.", no_results:"No results.",
-    reading:"Reading", sessions_word:"sessions", no_md:"No <b>.md</b> files found in that folder.",
+    reading:"Reading", sessions_word:"sessions", no_md:"No conversation files found inside <b>markdown-*</b> folders.", no_valid_md:"No valid trailkeep conversations were found. Run a backup first, or choose the folder that contains your <b>markdown-*</b> folders.",
     bad_progress:"Couldn't read that progress file.",
     overview_title:"Overview", detail_title:"Detailed metrics", n_sources:"sources",
     ledger_sub:"Computed on your machine from your transcripts — deterministic, nothing uploaded.",
@@ -973,7 +1004,7 @@ Después del setup, reportá:
     demo_review_cta:"Copiar prompt de reviews",
     demo_bn:"datos de ejemplo — no se sube nada.", demo_bn_agent:"Configurar con tu agente", demo_bn_cta:"Instalá trailkeep para respaldar lo tuyo →",
     demo_install_t:"Instalalo con tu agente de coding",
-    demo_install_prompt:"Configurá trailkeep. Es un backup + viewer local y offline de conversaciones con herramientas de coding con IA. Por favor:\n1. Clonalo: `git clone https://github.com/lucasgday/trailkeep.git && cd trailkeep`.\n2. Leé README.md y `./update-backup.sh --help`.\n3. Corré `chmod +x update-backup.sh *.command`.\n4. Corré un primer backup con `./update-backup.sh` y decime qué generó cada fuente.\n5. Si está bien, instalá la tarea diaria con `./install-auto.command` (preguntame el horario primero).\n6. Explicame cómo abrir viewer.html y apuntarlo a la carpeta del backup.\nRegla dura: todo queda local — sin llamadas de red, y no commitees mis conversaciones (están gitignoreadas a propósito).",
+    demo_install_prompt:"Configurá trailkeep. Es un backup + viewer local y offline de conversaciones con herramientas de coding con IA. Por favor:\n1. Clonalo: `git clone https://github.com/lucasgday/trailkeep.git && cd trailkeep`.\n2. Leé README.md y `./update-backup.sh --help`.\n3. Corré `chmod +x update-backup.sh *.command`.\n4. Corré un primer backup con `./update-backup.sh`, informame el backup_dir y decime qué generó cada fuente.\n5. Si está bien, instalá la tarea diaria con `./install-auto.command` (preguntame el horario primero).\n6. Explicame cómo abrir viewer.html y apuntarlo a ese backup_dir.\nRegla dura: todo queda local — sin llamadas de red, y no commitees mis conversaciones (están gitignoreadas a propósito).",
     filters:"Filtros", show_blocks:"Mostrar bloques", you:"Tú", assistant:"Agente", tools:"Herramientas", context_tag:"Contexto",
     view:"Vista", hide_done:"Ocultar conversaciones marcadas", hide_archived:"Ocultar archivadas",
     collapse_turns:"Colapsar todos los turnos", group_by:"Agrupar por:", by_tool:"Herramienta", by_project:"Proyecto",
@@ -989,10 +1020,10 @@ Después del setup, reportá:
     empty_title:"Tu historial de coding con IA",
     empty_p:"Abrí la carpeta que contiene tus markdowns. Se agrupan por fuente y proyecto, con fecha, y podés marcar lo revisado.",
     empty_how_t:"Cómo empezar",
-    empty_how:"1. Tocá <b>Abrir carpeta</b>.<br>2. Elegí la carpeta con tus <code>markdown-*</code> (lee todas las subcarpetas).<br>3. El progreso se guarda solo; usá <b>Guardar progreso</b> para un respaldo en archivo.<br><br>Todo corre en tu equipo. Nada se sube a internet.",
+    empty_how:"1. Tocá <b>Abrir carpeta</b>.<br>2. Elegí <code>~/trailkeep-backups</code> (o tu carpeta configurada).<br>3. El viewer local puede recordar la carpeta después de autorizarla una vez. El progreso también se guarda localmente.<br><br>Todo corre en tu equipo. Nada se sube a internet.",
     an_title:"Analytics", back_to_list:"← volver a la lista",
     measure_by:"Medir por:", conversations_btn:"Conversaciones", turns_btn:"Turnos",
-    summary:"Resumen", n_conversations:"conversaciones", n_tools:"herramientas", n_projects:"proyectos", n_archived:"archivadas", n_active:"activas",
+    summary:"Resumen", n_conversations:"conversaciones", n_tools:"herramientas", n_projects:"proyectos", n_archived:"archivadas", n_active:"activas", n_subagents:"subagentes", n_turn_one:"turno",
     activity_over_time:"Actividad en el tiempo", no_data_sources:"Sin datos para las fuentes seleccionadas.",
     daily_activity:"Actividad diaria (último año)", no_data:"Sin datos. Cargá una carpeta primero.",
     day:"Día", week:"Semana", month:"Mes", dow:["","Lun","","Mié","","Vie",""],
@@ -1004,8 +1035,12 @@ Después del setup, reportá:
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
     collapse_expand:"Colapsar/expandir todos", copy:"copiar", copied:"✓ copiado",
     mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.",
+    subagent:"Subagente", subagents:"Subagentes", subagent_total:"total",
+    subagent_completed:"completado", subagent_in_progress:"en curso al respaldar", subagent_unknown:"estado no disponible",
+    subagent_parent_missing:"falta la conversación padre", subagent_status_snapshot:"Estado al último respaldo",
+    subagent_show:"Mostrar subagente", subagent_hide:"Ocultar subagente", subagent_unanchored:"Subagentes relacionados",
     no_turns_match:"Ningún turno coincide con los filtros activos.", no_results:"Sin resultados.",
-    reading:"Leyendo", sessions_word:"sesiones", no_md:"No encontré archivos <b>.md</b> en esa carpeta.",
+    reading:"Leyendo", sessions_word:"sesiones", no_md:"No encontré conversaciones dentro de carpetas <b>markdown-*</b>.", no_valid_md:"No encontré conversaciones válidas de trailkeep. Corré primero un backup o elegí la carpeta que contiene tus carpetas <b>markdown-*</b>.",
     bad_progress:"No pude leer ese archivo de progreso.",
     overview_title:"Vista general", detail_title:"Métricas detalladas", n_sources:"fuentes",
     ledger_sub:"Calculado en tu equipo desde tus transcripciones — determinístico, nada se sube.",
@@ -1123,6 +1158,12 @@ function emptyDataCard(message){
 }
 function fileRelPath(file){
   return file.webkitRelativePath || file.relativePath || file._relativePath || file.name;
+}
+function isConversationMarkdown(file){
+  if(!/\.md$/i.test(file.name)) return false;
+  const rel=fileRelPath(file).replace(/\\/g,"/");
+  if(rel.split("/").some(part=>/^markdown-[^/]+$/i.test(part))) return true;
+  return !!(state.directoryHandle && /^markdown-[^/]+$/i.test(state.directoryHandle.name||""));
 }
 function supportsDirectoryPicker(){
   return typeof window.showDirectoryPicker === "function";
@@ -1383,11 +1424,12 @@ function markReviewUpdatesSeen(){
 
 function renderGlobalCount(){
   const el=document.getElementById("globalCount"); if(!el) return;
-  const total=state.sessions.length;
+  const sessions=state.rootSessions||[];
+  const total=sessions.length;
   if(!total){ el.textContent=""; return; }
-  const arch=state.sessions.filter(s=>s.archivada).length;
+  const arch=sessions.filter(s=>s.archivada).length;
   const act=total-arch;
-  const rev=state.sessions.filter(s=>prog(s.id).done).length;
+  const rev=sessions.filter(s=>prog(s.id).done).length;
   const w = state.lang==="es"
     ? `conversaciones <span class="gc-split">· ${act} activas · ${arch} archivadas · ${rev} revisadas</span>`
     : `conversations <span class="gc-split">· ${act} active · ${arch} archived · ${rev} reviewed</span>`;
@@ -1403,7 +1445,11 @@ function renderBackupStamp(){
   const ultima=fechas[fechas.length-1];
   el.textContent=t("last_backup")+" · "+formatDate(ultima,true);
   // per-source detail in the tooltip
-  const det=Object.entries(info).map(([k,v])=>`${k}: ${formatDate(v.generated||v.generado,true)} (${v.conversations||v.conversaciones||0})`).join("\n");
+  const det=Object.entries(info).map(([k,v])=>{
+    const childCount=v&&(v.subagents??v.subagentes);
+    const children=childCount==null ? "" : ` · ${childCount} ${t("n_subagents")}`;
+    return `${k}: ${formatDate(v.generated||v.generado,true)} (${v.conversations||v.conversaciones||0}${children})`;
+  }).join("\n");
   el.title=det;
 }
 
@@ -1439,13 +1485,18 @@ function renderMarkdown(src){
 /* ---------- parse .md ---------- */
 function parseMeta(text){
   const m = text.match(/<!--([^]*?)-->/);
-  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false};
+  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:""};
   if(m){
     const body=m[1];
     // accept English (date/project/source/archived) and legacy Spanish keys
-    const get=(...keys)=>{ for(const k of keys){ const r=body.match(new RegExp(k+"\\s*:\\s*([^|]+?)\\s*(\\||$)")); if(r&&r[1].trim()) return r[1].trim(); } return ""; };
+    const get=(...keys)=>{ for(const k of keys){ const escaped=k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); const r=body.match(new RegExp("(?:^|\\|)\\s*"+escaped+"\\s*:\\s*([^|]*?)\\s*(?=\\||$)","i")); if(r&&r[1].trim()) return r[1].trim(); } return ""; };
     meta.id=get("id"); meta.fecha=get("date","fecha"); meta.proyecto=get("project","proyecto"); meta.fuente=get("source","fuente");
-    meta.archivada = /(archived|archivada)\s*:\s*true/i.test(body);
+    meta.parentId=get("parent_id"); meta.agentPath=get("agent_path"); meta.agentNickname=get("agent_nickname");
+    meta.agentStatus=get("agent_status"); meta.completedAt=get("completed_at"); meta.formatVersion=get("format_version");
+    const depth=get("agent_depth");
+    meta.agentDepth=depth!==""&&Number.isFinite(Number(depth)) ? Number(depth) : null;
+    meta.archivada = /^true$/i.test(get("archived","archivada"));
+    meta.valid=!!(meta.id&&meta.proyecto&&meta.fuente);
   }
   return meta;
 }
@@ -1483,10 +1534,11 @@ function splitTools(md, speaker){
     if(/^\s*\[(tool|result|herramienta|resultado)\b/i.test(l)){
       flushText();
       const label=l.trim().replace(/^\[/,"").replace(/\]\s*$/,"").trim();
+      const spawn=label.match(/^(?:tool|herramienta)\s*:\s*(?:collaboration\.)?spawn_agent\s*(?:→|->)\s*(.+)$/i);
       let body=[]; i++;
       let j=i; while(j<lines.length&&lines[j].trim()==="") j++;
       if(j<lines.length&&/^```/.test(lines[j])){ body.push(lines[j]); j++; while(j<lines.length&&!/^```\s*$/.test(lines[j])){body.push(lines[j]);j++;} if(j<lines.length){body.push(lines[j]);j++;} i=j; }
-      out.push({type:"tool", label, md:body.join("\n").trim()});
+      out.push({type:"tool", label, md:body.join("\n").trim(), spawnTask:spawn?spawn[1].trim():""});
       continue;
     }
     textbuf.push(l); i++;
@@ -1532,7 +1584,7 @@ function displaySessionTitle(rawTitle, turns, fallback){
   return fallback||String(rawTitle||"").trim()||"session";
 }
 function projectConversationNav(s){
-  const rows=state.sessions
+  const rows=state.rootSessions
     .filter(x=>x.project===s.project)
     .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"") || String(a.title||"").localeCompare(String(b.title||""),"es"));
   const idx=rows.findIndex(x=>x.id===s.id);
@@ -1550,6 +1602,9 @@ function stableSessionKey(s){
   return `${source}:${sid}`;
 }
 function newerSession(a,b){
+  const av=Number(a&&a.formatVersion)||0;
+  const bv=Number(b&&b.formatVersion)||0;
+  if(av!==bv) return av>bv;
   const ad=Date.parse(a&&a.fecha)||0;
   const bd=Date.parse(b&&b.fecha)||0;
   if(ad!==bd) return ad>bd;
@@ -1594,10 +1649,118 @@ function canonicalizeSessions(sessions){
   return canonical;
 }
 
+function sessionIdentityKey(s, id){
+  return `${String((s&&s.fuente)||"")}\u0000${String(id||"").trim()}`;
+}
+function buildSessionForest(sessions){
+  const byId=new Map();
+  const proposedParents=new Map();
+  for(const s of sessions){
+    s.parentSession=null;
+    s.children=[];
+    s.orphaned=false;
+    if(s.sessionId) byId.set(sessionIdentityKey(s,s.sessionId),s);
+  }
+  for(const s of sessions){
+    if(!s.parentId) continue;
+    const parent=byId.get(sessionIdentityKey(s,s.parentId));
+    if(parent&&parent!==s) proposedParents.set(s,parent);
+    else s.orphaned=true;
+  }
+  const hasCycle=start=>{
+    const seen=new Set([start]);
+    let current=proposedParents.get(start);
+    while(current){
+      if(seen.has(current)) return true;
+      seen.add(current);
+      current=proposedParents.get(current);
+    }
+    return false;
+  };
+  for(const s of sessions){
+    const parent=proposedParents.get(s);
+    if(!parent) continue;
+    if(hasCycle(s)){ s.orphaned=true; continue; }
+    s.parentSession=parent;
+    parent.children.push(s);
+  }
+  for(const s of sessions){
+    s.children.sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"") || String(a.agentPath||a.title||"").localeCompare(String(b.agentPath||b.title||""),"es"));
+  }
+  return sessions.filter(s=>!s.parentSession);
+}
+function sessionRoot(s){
+  const seen=new Set();
+  let current=s;
+  while(current&&current.parentSession&&!seen.has(current)){
+    seen.add(current);
+    current=current.parentSession;
+  }
+  return current||s;
+}
+function sessionDescendants(s){
+  const out=[];
+  const seen=new Set([s]);
+  const visit=node=>{
+    for(const child of node.children||[]){
+      if(seen.has(child)) continue;
+      seen.add(child); out.push(child); visit(child);
+    }
+  };
+  visit(s);
+  return out;
+}
+function subagentCount(s){ return sessionDescendants(s).length; }
+function totalSubagentExecutions(project){
+  return (state.sessions||[]).filter(s=>!!s.parentId && (project==null || (s.project||"(no project)")===project)).length;
+}
+function conversationTurnCount(s){ return (s.turns||[]).length+sessionDescendants(s).reduce((n,child)=>n+(child.turns||[]).length,0); }
+function conversationCountsByType(s){
+  const counts={user:0,assistant:0,tool:0};
+  for(const owner of [s,...sessionDescendants(s)]) for(const turn of owner.turns||[]) counts[turn.type]=(counts[turn.type]||0)+1;
+  return counts;
+}
+function normalizedAgentTask(value){
+  const clean=String(value||"").trim().replace(/\/+$/,"");
+  return clean.split("/").filter(Boolean).pop()?.toLowerCase()||"";
+}
+function childForSpawn(owner, spawnTask, used){
+  const task=normalizedAgentTask(spawnTask);
+  if(!task) return null;
+  const child=(owner.children||[]).find(candidate=>!used.has(candidate.id)&&normalizedAgentTask(candidate.agentPath||candidate.title)===task);
+  if(child) used.add(child.id);
+  return child||null;
+}
+function matchesOwnQuery(s){
+  if(!state.query) return true;
+  if(String(s.title||"").toLowerCase().includes(state.query)) return true;
+  if(String(s.agentPath||"").toLowerCase().includes(state.query)) return true;
+  if(String(s.agentNickname||"").toLowerCase().includes(state.query)) return true;
+  return (s.turns||[]).some(turn=>(turn.md||"").toLowerCase().includes(state.query)||(turn.label||"").toLowerCase().includes(state.query));
+}
+function matchesQuery(s){
+  if(!state.query) return true;
+  return matchesOwnQuery(s)||sessionDescendants(s).some(matchesOwnQuery);
+}
+function expandMatchingSubagents(root){
+  if(!state.query) return;
+  const visit=node=>{
+    let branchMatches=matchesOwnQuery(node);
+    for(const child of node.children||[]){
+      if(visit(child)){
+        state.expandedSubagents[child.id]=true;
+        branchMatches=true;
+      }
+    }
+    return branchMatches;
+  };
+  visit(root);
+}
+
 /* ---------- loading ---------- */
 async function handleFiles(fileList){
   const allFiles=Array.from(fileList);
-  const files=allFiles.filter(f=>/\.md$/i.test(f.name));
+  const files=allFiles.filter(isConversationMarkdown);
   // collect backup stamps (_backup-info.json)
   state.backupInfo={};
   for(const f of allFiles.filter(f=>/_backup-info\.json$/i.test(f.name))){
@@ -1683,31 +1846,46 @@ async function handleFiles(fileList){
   }
   state.reviewUpdateLog.sort((a,b)=>String(reviewLogDate(b)||"").localeCompare(String(reviewLogDate(a)||"")));
   if(!files.length){
-    state.sessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
+    state.sessions=[]; state.rootSessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
     updateRefreshButton();
     document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_md")}</div>`;
     return;
   }
   document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("reading")} ${files.length} ${t("sessions_word")}…</div>`;
-  state.sessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
+  state.sessions=[]; state.rootSessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
   const parsedSessions=[];
   for(const f of files){
     const rel=fileRelPath(f);
     const text=await f.text();
     const meta=parseMeta(text);
+    if(!meta.valid) continue;
     const tm=text.match(/^#\s+(.+)$/m);
     const turns=parseTurns(text);
+    if(!turns.length) continue;
     const rawTitle=tm?tm[1].trim():f.name.replace(/\.md$/,"");
     const title=displaySessionTitle(rawTitle, turns, f.name.replace(/\.md$/,""));
     const fuente=meta.fuente || (rel.toLowerCase().includes("codex")?"codex":"claude-code");
     const segs=rel.split("/");
     const folder=segs.length>=2?segs[segs.length-2]:"";
     const project=meta.proyecto||folder||"(sin proyecto)";
-    const s={ id:rel, sessionId:meta.id||rel, title, project, fuente, fecha:meta.fecha, archivada:meta.archivada, turns, chars:text.length };
+    const s={
+      id:rel, sessionId:meta.id||rel, title, project, fuente, fecha:meta.fecha,
+      archivada:meta.archivada, turns, chars:text.length,
+      parentId:meta.parentId, agentPath:meta.agentPath, agentNickname:meta.agentNickname,
+      agentDepth:meta.agentDepth, agentStatus:meta.agentStatus, completedAt:meta.completedAt,
+      formatVersion:meta.formatVersion,
+    };
     parsedSessions.push(s);
   }
+  if(!parsedSessions.length){
+    state.sessions=[]; state.rootSessions=[]; state.projects=new Map(); state.sources=new Map(); state.supersededSessions=[];
+    updateRefreshButton();
+    document.getElementById("reader").innerHTML=`<div class="loadwrap">${t("no_valid_md")}</div>`;
+    return;
+  }
   state.sessions=canonicalizeSessions(parsedSessions);
-  for(const s of state.sessions){
+  state.rootSessions=buildSessionForest(state.sessions);
+  for(const s of state.rootSessions){
     if(!state.sources.has(s.fuente)) state.sources.set(s.fuente,new Map());
     const pm=state.sources.get(s.fuente);
     if(!pm.has(s.project)) pm.set(s.project,{project:s.project, fuente:s.fuente, sessions:[], collapsed:false, checked:true});
@@ -1727,10 +1905,10 @@ async function handleFiles(fileList){
     for(const pr of projs) state.collapsedSources["proj:"+pr]=true;
   }
   // pick the most recent active, unreviewed conversation
-  const elegibles=state.sessions
+  const elegibles=state.rootSessions
     .filter(s=>!s.archivada && !prog(s.id).done)
     .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
-  const primera=elegibles[0]||state.sessions[0];
+  const primera=elegibles[0]||state.rootSessions[0];
   state.defaultSessionId=primera ? primera.id : null;
   state.activeId=null;
   if(primera){
@@ -1749,11 +1927,6 @@ async function handleFiles(fileList){
 }
 
 /* ---------- sidebar ---------- */
-function matchesQuery(s){
-  if(!state.query) return true;
-  if(s.title.toLowerCase().includes(state.query)) return true;
-  return s.turns.some(t=>(t.md||"").toLowerCase().includes(state.query)||(t.label||"").toLowerCase().includes(state.query));
-}
 function sessionVisible(s){
   if(state.hideArchived && s.archivada) return false;
   if(state.hideDone && prog(s.id).done) return false;
@@ -1771,7 +1944,9 @@ const PJ={ sort:"recent", status:"all", source:"all", showHidden:false };  // pr
 const PH={ showArchived:false, showReviewed:false };  // project home view prefs
 
 // weight of a session per the active metric: 1 conversation, or its turn count
-function sesPeso(s){ return AN.metric==="turns" ? (s.turns?s.turns.length:0) : 1; }
+// weight of a root session per the active metric: one conversation, or all
+// parent + subagent turns inside that conversation tree.
+function sesPeso(s){ return AN.metric==="turns" ? conversationTurnCount(s) : 1; }
 function metricLabel(){ return AN.metric==="turns" ? t("metric_turns") : t("metric_conv"); }
 
 // Only one of reader / analytics / runs is visible at a time (all share the
@@ -1789,7 +1964,7 @@ function showProjects(){ showView("projects"); renderProjectNavSidebar(); render
 // with _projects.json (git / stack / status), one card each, newest first.
 function getProjectRows(){
   const byProj=new Map();
-  for(const s of (state.sessions||[])){
+  for(const s of (state.rootSessions||[])){
     const name=s.project||"(no project)";
     let p=byProj.get(name);
     if(!p){ p={name,count:0,last:"",sources:new Set()}; byProj.set(name,p); }
@@ -1916,7 +2091,7 @@ function projectStatusLabel(st){
   return "";
 }
 function projectSessions(name){
-  return (state.sessions||[])
+  return (state.rootSessions||[])
     .filter(s=>(s.project||"(no project)")===name)
     .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
 }
@@ -2698,11 +2873,13 @@ function renderProjectHome(name){
   const pathValue=m.virtual ? escapeHtml(t("ph_virtual")) : escapeHtml(m.path||t("ph_no_path"));
   const repoSafe=safeExternalUrl(m.repo_url);
   const repoValue=repoSafe ? `<a href="${escapeHtml(repoSafe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(m.repo_url)}</a>` : escapeHtml(t("ph_repo_none"));
-  const turnCount=sessions.reduce((n,s)=>n+(s.turns?s.turns.length:0),0);
+  const turnCount=sessions.reduce((n,s)=>n+conversationTurnCount(s),0);
+  const agentCount=totalSubagentExecutions(name);
   const statRows=[
     [sessions.length,t("n_conversations")],
     [turnCount,t("n_turns")],
   ];
+  if(agentCount) statRows.push([agentCount,t("n_subagents")]);
   if(lg){
     if(lg.user_messages!=null) statRows.push([lg.user_messages,t("lg_prompts")]);
     if(lg.tool_calls!=null) statRows.push([lg.tool_calls,t("lg_tool_calls")]);
@@ -2715,13 +2892,14 @@ function renderProjectHome(name){
   const convCounts=projectConversationCounts(sessions);
   const convs=visibleSessions.length ? visibleSessions.map(s=>{
     const pr=prog(s.id);
+    const agents=subagentCount(s);
     return `<div class="ph-conv${pr.done?" done":""}">
       <button class="ph-conv-main" data-session="${escapeHtml(s.id)}">
         <span class="ph-conv-title">${escapeHtml(s.title)}</span>
-        <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
+        <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
       </button>
       <span class="ph-conv-actions">
-        <span class="ph-conv-turns">${s.turns.length} ${t("n_turns")}</span>
+        <span class="ph-conv-turns">${conversationTurnCount(s)} ${t("n_turns")}</span>
         <button class="ph-review-btn" data-review-action="${escapeHtml(s.id)}">${pr.done?t("ph_unmark_reviewed"):t("ph_mark_reviewed")}</button>
       </span>
     </div>`;
@@ -2874,7 +3052,7 @@ function projectHomeText(name, sessions, meta, ledger){
 function openProjectInList(name){
   // focus the sidebar on this project, then open its most recent conversation
   focusProjectSidebar(name);
-  const ss=(state.sessions||[]).filter(s=>(s.project||"(no project)")===name).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const ss=(state.rootSessions||[]).filter(s=>(s.project||"(no project)")===name).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   if(ss.length) openSession(ss[0].id);
   else { showView("reader"); renderSidebar(); }
 }
@@ -2906,7 +3084,7 @@ function periodKey(iso, gran){
 function renderAnalytics(){
   renderReviewUnreadSlots();
   const grid=document.getElementById("anGrid"); grid.innerHTML="";
-  const sesiones=state.sessions||[];
+  const sesiones=state.rootSessions||[];
   if(!sesiones.length){ grid.innerHTML=emptyDataCard(); return; }
   // global metric toggle
   const mc=document.createElement("div"); mc.className="an-metric";
@@ -3173,6 +3351,7 @@ function cardOverview(sesiones, lg){
   const arch=sesiones.filter(s=>s.archivada).length;
   const proyectos=new Set(sesiones.map(s=>s.project)).size;
   const fuentes=state.sources.size;
+  const subagents=totalSubagentExecutions();
   let range="";
   if(lg && lg.first_activity && lg.last_activity){
     range=`<span class="lg-range">${escapeHtml(formatDate(lg.first_activity.slice(0,10),false))} → ${escapeHtml(formatDate(lg.last_activity.slice(0,10),false))}</span>`;
@@ -3184,6 +3363,7 @@ function cardOverview(sesiones, lg){
     [proyectos,t("n_projects")],[fuentes,t("n_sources")],
     [total-arch,t("n_active")],[arch,t("n_archived")],
   ];
+  if(subagents) stats.push([subagents,t("n_subagents")]);
   if(lg){
     const T=lg.totals;
     stats.push([T.user_messages,t("lg_prompts")],[T.tool_calls,t("lg_tool_calls")],[T.files_modified,t("lg_files")]);
@@ -3241,7 +3421,7 @@ const TOOL_ALIASES={
   grep:"grep", glob:"glob", notebookedit:"notebook",
   websearch:"websearch", web_search:"websearch", webfetch:"webfetch", web_fetch:"webfetch",
   todowrite:"plan", update_plan:"plan", todo:"plan",
-  task:"agent", dispatch_agent:"agent",
+  task:"agent", dispatch_agent:"agent", spawn_agent:"agent",
   askuserquestion:"ask", write_stdin:"stdin", toolsearch:"toolsearch",
 };
 function toolDesc(name){
@@ -3277,12 +3457,13 @@ function makeSessionLi(s){
   const li=document.createElement("div");
   li.className="sess"+(s.id===state.activeId?" active":"")+(pr.done?" done":"");
   const arch = s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:"";
-  const tc=s.turns.length;
+  const tc=conversationTurnCount(s);
+  const agents=subagentCount(s);
   // in project mode, show which tool each session comes from
   const srcTag = state.groupMode==="project" ? `<span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>` : "";
   li.innerHTML=`<input type="checkbox" class="sess-check" ${pr.done?"checked":""} title="${t("mark_reviewed")}">
     <span class="sess-body"><span class="sess-title">${escapeHtml(s.title)}</span>
-    <span class="meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span>${tc} ${t("n_turns")}</span>${srcTag}${arch}</span></span>`;
+    <span class="meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span>${tc} ${t("n_turns")}</span>${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${srcTag}${arch}</span></span>`;
   li.querySelector(".sess-check").addEventListener("change",e=>{ e.stopPropagation(); pr.done=e.target.checked; saveProgress(); renderSidebar(); renderGlobalCount(); });
   li.querySelector(".sess-body").addEventListener("click",()=>openSession(s.id));
   return li;
@@ -3420,34 +3601,142 @@ function renderSidebar(){
 }
 
 /* ---------- reader ---------- */
+function sessionAssistantName(s){
+  return s.fuente==="codex"?"Codex":s.fuente==="opencode"?"OpenCode":s.fuente==="cursor"?"Cursor":"Claude";
+}
+function subagentLabel(s){
+  if(s.title) return s.title;
+  const raw=normalizedAgentTask(s.agentPath);
+  return raw ? raw.replace(/[_-]+/g," ").replace(/^./,c=>c.toUpperCase()) : t("subagent");
+}
+function subagentStatusInfo(s){
+  const value=String(s.agentStatus||"").toLowerCase();
+  if(["complete","completed","done","success"].includes(value)) return {key:"subagent_completed", cls:"completed"};
+  if(["in_progress","running","working","active"].includes(value)) return {key:"subagent_in_progress", cls:"in-progress"};
+  return {key:"subagent_unknown", cls:"unknown"};
+}
+function subagentDomId(s){
+  const raw=String(s.id||s.sessionId||"session");
+  let hash=2166136261;
+  for(let i=0;i<raw.length;i++){ hash^=raw.charCodeAt(i); hash=Math.imul(hash,16777619); }
+  return `subagent-${(hash>>>0).toString(36)}`;
+}
+function subagentToggleLabel(s, expanded){
+  return `${expanded?t("subagent_hide"):t("subagent_show")}: ${subagentLabel(s)}`;
+}
+function renderTurnHtml(owner, turn, idx){
+  const isInstruction=instructionContextTurn(turn);
+  const tagText=isInstruction?T("context_tag"):turn.type==="user"?T("you"):turn.type==="assistant"?sessionAssistantName(owner):T("tool_tag");
+  const done=!!prog(owner.id).turns[idx];
+  const body=(turn.type==="tool"&&turn.label)?`<span class="toollabel">${escapeHtml(turn.label)}</span>`+renderMarkdown(turn.md||""):renderMarkdown(turn.md||"");
+  return `<div class="turn ${state.collapseAll?'collapsed':''} ${done?'done':''}" data-type="${escapeHtml(turn.type)}" ${isInstruction?'data-kind="instruction"':''} data-session="${escapeHtml(owner.id)}" data-idx="${idx}">
+    <div class="turn-head">
+      <input type="checkbox" class="tcheck" ${done?'checked':''} aria-label="${escapeHtml(T('mark_turn'))}">
+      <span class="tag">${escapeHtml(tagText)}</span>
+      <span class="preview">${escapeHtml(previewText(turn))}</span>
+      <button class="turn-copy has-icon" data-idx="${idx}" aria-label="${escapeHtml(T('copy_turn'))}">${iconLabel("copy", T("copy"))}</button>
+    </div>
+    <div class="turn-body">${body}</div>
+  </div>`;
+}
+function renderSubagentNode(child){
+  const expanded=!!state.expandedSubagents[child.id];
+  const baseId=subagentDomId(child);
+  const status=subagentStatusInfo(child);
+  const agents=subagentCount(child);
+  const childTurns=(child.turns||[]).length;
+  const depth=Math.max(1,Math.min(3,Number(child.agentDepth)||1));
+  const nickname=child.agentNickname&&child.agentNickname.toLowerCase()!==subagentLabel(child).toLowerCase()
+    ? `<span class="subagent-nickname">${escapeHtml(child.agentNickname)}</span>` : "";
+  const nested=expanded?renderSessionTurns(child):"";
+  return `<section class="subagent-node${expanded?' expanded':''}" style="--subagent-depth:${depth}" data-subagent-id="${escapeHtml(child.id)}">
+    <button type="button" class="subagent-toggle" id="${baseId}-toggle" data-subagent-toggle data-subagent-id="${escapeHtml(child.id)}" aria-expanded="${expanded?'true':'false'}" aria-controls="${baseId}-panel" aria-label="${escapeHtml(subagentToggleLabel(child,expanded))}">
+      <span class="subagent-chevron" aria-hidden="true">▾</span>
+      <span class="subagent-main">
+        <span class="subagent-title">${escapeHtml(subagentLabel(child))}</span>
+        <span class="subagent-meta"><span class="subagent-kind">${escapeHtml(t("subagent"))}</span>${nickname}<span>${childTurns} ${escapeHtml(t(childTurns===1?"n_turn_one":"n_turns"))}</span>${agents?`<span>${agents} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}</span>
+      </span>
+      <span class="subagent-status ${status.cls}" aria-label="${escapeHtml(t("subagent_status_snapshot"))}: ${escapeHtml(t(status.key))}">${escapeHtml(t(status.key))}</span>
+    </button>
+    <div class="subagent-panel" id="${baseId}-panel" role="region" aria-labelledby="${baseId}-toggle" data-subagent-panel data-rendered="${expanded?'true':'false'}" ${expanded?'':'hidden'}>${nested}</div>
+  </section>`;
+}
+function renderSessionTurns(owner){
+  const used=new Set();
+  let html="";
+  (owner.turns||[]).forEach((turn,idx)=>{
+    if(state.types[turn.type]) html+=renderTurnHtml(owner,turn,idx);
+    if(turn.spawnTask){
+      const child=childForSpawn(owner,turn.spawnTask,used);
+      if(child) html+=renderSubagentNode(child);
+    }
+  });
+  const unmatched=(owner.children||[]).filter(child=>!used.has(child.id));
+  if(unmatched.length){
+    html+=`<section class="subagent-fallback" aria-label="${escapeHtml(t("subagent_unanchored"))}"><h2 class="subagent-fallback-title">${escapeHtml(t("subagent_unanchored"))} · ${unmatched.length} ${escapeHtml(t("subagent_total"))}</h2>${unmatched.map(renderSubagentNode).join("")}</section>`;
+  }
+  return html||`<div class="loadwrap">${escapeHtml(t("no_turns_match"))}</div>`;
+}
+function bindSessionInteractions(container){
+  container.querySelectorAll(".turn:not([data-bound])").forEach(el=>{
+    el.dataset.bound="true";
+    const owner=state.sessions.find(s=>s.id===el.dataset.session);
+    const idx=+el.dataset.idx;
+    if(!owner||!owner.turns[idx]) return;
+    const progress=prog(owner.id);
+    el.querySelector(".turn-head").addEventListener("click",event=>{
+      if(event.target.classList.contains("tcheck")||event.target.closest(".turn-copy")) return;
+      el.classList.toggle("collapsed");
+    });
+    el.querySelector(".tcheck").addEventListener("change",event=>{
+      event.stopPropagation();
+      progress.turns[idx]=event.target.checked;
+      el.classList.toggle("done",event.target.checked);
+      saveProgress();
+    });
+    el.querySelector(".turn-copy").addEventListener("click",event=>{
+      event.stopPropagation();
+      copyText(turnToText(owner.turns[idx],owner),event.currentTarget);
+    });
+  });
+  container.querySelectorAll("[data-subagent-toggle]:not([data-bound])").forEach(button=>{
+    button.dataset.bound="true";
+    const child=state.sessions.find(s=>s.id===button.dataset.subagentId);
+    const node=button.closest(".subagent-node");
+    const panel=node&&node.querySelector(":scope > [data-subagent-panel]");
+    if(!child||!node||!panel) return;
+    button.addEventListener("click",()=>{
+      const expanded=button.getAttribute("aria-expanded")!=="true";
+      state.expandedSubagents[child.id]=expanded;
+      button.setAttribute("aria-expanded",expanded?"true":"false");
+      button.setAttribute("aria-label",subagentToggleLabel(child,expanded));
+      node.classList.toggle("expanded",expanded);
+      panel.hidden=!expanded;
+      if(expanded&&panel.dataset.rendered!=="true"){
+        panel.innerHTML=renderSessionTurns(child);
+        panel.dataset.rendered="true";
+        bindSessionInteractions(panel);
+      }
+    });
+  });
+}
 function openSession(id){
-  state.activeId=id;
-  const s=state.sessions.find(x=>x.id===id); if(!s) return;
+  const requested=state.sessions.find(candidate=>candidate.id===id); if(!requested) return;
+  const s=sessionRoot(requested);
+  if(requested!==s){
+    let current=requested;
+    while(current&&current!==s){ state.expandedSubagents[current.id]=true; current=current.parentSession; }
+    state.pendingSubagentFocus=requested.id;
+  }
+  expandMatchingSubagents(s);
+  state.activeId=s.id;
   showView("reader");
   renderSidebar();
-  const reader=document.getElementById("reader"); const pr=prog(id);
-  const counts={user:0,assistant:0,tool:0}; s.turns.forEach(t=>counts[t.type]=(counts[t.type]||0)+1);
+  const reader=document.getElementById("reader"); const pr=prog(s.id);
+  const counts=conversationCountsByType(s);
+  const agents=subagentCount(s);
   const nav=projectConversationNav(s);
-
-  let turnsHtml="";
-  s.turns.forEach((t,idx)=>{
-    if(!state.types[t.type]) return;
-    const asstName = s.fuente==="codex"?"Codex":s.fuente==="opencode"?"OpenCode":s.fuente==="cursor"?"Cursor":"Claude";
-    const isInstruction=instructionContextTurn(t);
-    const tagText=isInstruction?T("context_tag"):t.type==="user"?T("you"):t.type==="assistant"?asstName:T("tool_tag");
-    const tdone=!!pr.turns[idx];
-    const collapsed=state.collapseAll;
-    let body=(t.type==="tool"&&t.label)?`<span class="toollabel">${escapeHtml(t.label)}</span>`+renderMarkdown(t.md||""):renderMarkdown(t.md||"");
-    turnsHtml+=`<div class="turn ${collapsed?'collapsed':''} ${tdone?'done':''}" data-type="${t.type}" ${isInstruction?'data-kind="instruction"':''} data-idx="${idx}">
-      <div class="turn-head">
-        <input type="checkbox" class="tcheck" ${tdone?'checked':''} title="${T('mark_turn')}">
-        <span class="tag">${escapeHtml(tagText)}</span>
-        <span class="preview">${escapeHtml(previewText(t))}</span>
-        <button class="turn-copy has-icon" data-idx="${idx}" title="${T('copy_turn')}">${iconLabel("copy", T("copy"))}</button>
-      </div>
-      <div class="turn-body">${body}</div>
-    </div>`;
-  });
+  const turnsHtml=renderSessionTurns(s);
 
   reader.innerHTML=`
     <div class="countbar">
@@ -3475,7 +3764,9 @@ function openSession(id){
           <span class="pill src-pill src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>
           <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></button>
           <span class="pill"><b>${escapeHtml(formatDate(s.fecha,true))}</b></span>
-          <span class="pill"><b>${s.turns.length}</b> ${t("n_turns")}</span>
+          <span class="pill"><b>${conversationTurnCount(s)}</b> ${t("n_turns")}</span>
+          ${agents?`<span class="pill"><b>${agents}</b> ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}
+          ${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}
         </div>
         <div class="doc-actions">
           <button class="mini has-icon" id="copyConv">${iconLabel("copy", t("copy_conv"))}</button>
@@ -3484,36 +3775,36 @@ function openSession(id){
         </div>
       </div>
       ${conversationSummaryCard(s)}
-      ${turnsHtml||`<div class="loadwrap">${t("no_turns_match")}</div>`}
+      ${turnsHtml}
     </article>`;
   reader.scrollTop=0;
   bindReviewUnreadBanners(reader);
+  bindSessionInteractions(reader);
 
-  // listeners de turnos
-  reader.querySelectorAll(".turn").forEach(el=>{
-    const idx=+el.dataset.idx;
-    el.querySelector(".turn-head").addEventListener("click",e=>{ if(e.target.classList.contains("tcheck")||e.target.closest(".turn-copy"))return; el.classList.toggle("collapsed"); });
-    el.querySelector(".tcheck").addEventListener("change",e=>{ e.stopPropagation(); pr.turns[idx]=e.target.checked; el.classList.toggle("done",e.target.checked); saveProgress(); });
-    el.querySelector(".turn-copy").addEventListener("click",e=>{
-      e.stopPropagation();
-      const t=s.turns[idx];
-      const txt=turnToText(t,s);
-      copyText(txt, e.currentTarget);
-    });
-  });
-  document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(id); });
+  document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(s.id); });
   document.getElementById("cbBackProject").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("crumbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("prevProjectConv").addEventListener("click",()=>{ if(nav.previous) openSession(nav.previous.id); });
   document.getElementById("nextProjectConv").addEventListener("click",()=>{ if(nav.next) openSession(nav.next.id); });
-  document.getElementById("toggleAllTurns").addEventListener("click",()=>{ const allC=[...reader.querySelectorAll(".turn")].every(t=>t.classList.contains("collapsed")); reader.querySelectorAll(".turn").forEach(t=>t.classList.toggle("collapsed",!allC)); });
-  document.getElementById("copyConv").addEventListener("click",e=>{
-    const srcName = niceSource(s.fuente);
-    const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${srcName} · ${s.project}`, ""];
-    s.turns.forEach(t=>lines.push(turnToText(t,s),""));
-    copyText(lines.join("\n"), e.currentTarget);
+  document.getElementById("toggleAllTurns").addEventListener("click",()=>{
+    const allCollapsed=[...reader.querySelectorAll(".turn")].every(turn=>turn.classList.contains("collapsed"));
+    state.collapseAll=!allCollapsed;
+    reader.querySelectorAll(".turn").forEach(turn=>turn.classList.toggle("collapsed",state.collapseAll));
+  });
+  document.getElementById("copyConv").addEventListener("click",event=>{
+    const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.project}`, "", sessionBodyToText(s,2)];
+    copyText(lines.join("\n"),event.currentTarget);
   });
 
+  if(state.pendingSubagentFocus){
+    const focusId=state.pendingSubagentFocus;
+    state.pendingSubagentFocus=null;
+    const target=[...reader.querySelectorAll(".subagent-node")].find(node=>node.dataset.subagentId===focusId);
+    if(target){
+      const toggle=target.querySelector(":scope > .subagent-toggle");
+      if(toggle){ toggle.focus({preventScroll:true}); target.scrollIntoView({block:"center"}); }
+    }
+  }
   renderSidebar();
   document.getElementById("sidebar").classList.remove("open");
 }
@@ -3523,6 +3814,26 @@ function turnToText(t,s){
   const who = instructionContextTurn(t) ? T("context_tag") : t.type==="user" ? T("you") : t.type==="assistant" ? (s.fuente==="claude-code"||s.fuente==="cowork"?"Claude":niceSource(s.fuente)) : toolWord;
   let body = (t.type==="tool"&&t.label) ? (t.label+"\n"+(t.md||"")) : (t.md||"");
   return `### ${who}\n${body.trim()}`;
+}
+
+function subagentSectionToText(s,level){
+  const heading="#".repeat(Math.max(2,Math.min(6,level)));
+  const status=subagentStatusInfo(s);
+  const meta=[`${t("subagent_status_snapshot")}: ${t(status.key)}`, s.agentNickname||""].filter(Boolean).join(" · ");
+  return `${heading} ${t("subagent")}: ${subagentLabel(s)}\n\n${meta}\n\n${sessionBodyToText(s,level+1)}`.trim();
+}
+function sessionBodyToText(owner,level){
+  const used=new Set();
+  const chunks=[];
+  for(const turn of owner.turns||[]){
+    chunks.push(turnToText(turn,owner));
+    if(turn.spawnTask){
+      const child=childForSpawn(owner,turn.spawnTask,used);
+      if(child) chunks.push(subagentSectionToText(child,level));
+    }
+  }
+  for(const child of owner.children||[]) if(!used.has(child.id)) chunks.push(subagentSectionToText(child,level));
+  return chunks.filter(Boolean).join("\n\n");
 }
 
 function copyText(txt, btn){
@@ -3907,7 +4218,68 @@ setLang(detectLang());
       }
     ]
   };
-  const list = DEMO.files.map(f => mkFile(f.name, f.text));
+  const DEMO_SUBAGENT_FILES = [
+    {
+      name:"2026-06-16__Coordinate_checkout_regression_audit__demo-agent-parent.md",
+      text:`# Coordinate checkout regression audit
+
+<!-- date: 2026-06-16T09:00:00-03:00 | id: demo-agent-parent | project: todo-app | source: codex | archived: false | format_version: 2 -->
+
+### You
+
+Audit the checkout regression without losing the main implementation thread.
+
+### Codex
+
+I'll delegate the test-scope audit and keep the parent conversation focused on the final decision.
+
+[tool: spawn_agent → test_scope_audit]
+
+### Codex
+
+While that runs, I'm checking the checkout state boundary and the existing retry behavior.`
+    },
+    {
+      name:"2026-06-16__Test_scope_audit__demo-agent-child.md",
+      text:`# Test scope audit
+
+<!-- date: 2026-06-16T09:01:00-03:00 | id: demo-agent-child | project: todo-app | source: codex | archived: false | format_version: 2 | parent_id: demo-agent-parent | agent_path: /root/test_scope_audit | agent_nickname: Turing | agent_depth: 1 | agent_status: completed | completed_at: 2026-06-16T09:05:00-03:00 -->
+
+### You
+
+Map the checkout tests that should protect the regression fix.
+
+### Codex
+
+I'll inspect the current fixtures separately so this audit stays evidence-based.
+
+[tool: spawn_agent → checkout_fixture_audit]
+
+### Codex
+
+The critical coverage is the retry boundary, the idempotency key, and the final success transition.`
+    },
+    {
+      name:"2026-06-16__Checkout_fixture_audit__demo-agent-grandchild.md",
+      text:`# Checkout fixture audit
+
+<!-- date: 2026-06-16T09:02:00-03:00 | id: demo-agent-grandchild | project: todo-app | source: codex | archived: false | format_version: 2 | parent_id: demo-agent-child | agent_path: /root/test_scope_audit/checkout_fixture_audit | agent_nickname: Curie | agent_depth: 2 | agent_status: in_progress | completed_at:  -->
+
+### You
+
+Check whether the fixtures model duplicate webhook delivery.
+
+### Codex
+
+The success fixture is covered. The duplicate-delivery case is still being traced at the time of this backup.`
+    }
+  ];
+  const list = DEMO.files.map(f => withRelativePath(mkFile(f.name, f.text), `markdown-demo/sample/${f.name}`));
+  for(const f of DEMO_SUBAGENT_FILES) list.push(withRelativePath(mkFile(f.name,f.text), `markdown-codex/todo-app/${f.name}`));
+  if(DEMO.backup.codex){
+    DEMO.backup.codex.conversations=(DEMO.backup.codex.conversations||0)+DEMO_SUBAGENT_FILES.length;
+    DEMO.backup.codex.subagents=2;
+  }
   list.push(mkFile("log.json", JSON.stringify(DEMO.log)));
   list.push(mkFile("_backup-info.json", JSON.stringify(DEMO.backup)));
   list.push(mkFile("_ledger.json", JSON.stringify(DEMO_LEDGER)));
@@ -3917,7 +4289,7 @@ setLang(detectLang());
   list.push(mkFile("_agent_profile.json", JSON.stringify(DEMO_AGENT_PROFILE)));
   list.push(mkFile("_review_run_plan.json", JSON.stringify(DEMO_REVIEW_PLAN)));
   list.push(mkFile("_review_update_log.json", JSON.stringify(DEMO_REVIEW_UPDATE_LOG)));
-  // webkitRelativePath no se puede setear; handleFiles cae a f.name, OK.
+  // Synthetic conversations carry the same markdown-* relative-path contract.
   window.__DEMO_READY = (async function(){
     await handleFiles(list);
     const params = new URLSearchParams(location.search);
@@ -3927,6 +4299,9 @@ setLang(detectLang());
     if(view === "source"){
       setGroupMode("source"); state.collapsedSources = {}; renderSidebar();
       if(state.defaultSessionId) openSession(state.defaultSessionId);
+    } else if(view === "subagents"){
+      const parent=state.sessions.find(s=>s.sessionId==="demo-agent-parent");
+      if(parent){ focusProjectSidebar(parent.project); openSession(parent.id); }
     } else if(view === "analytics"){
       showAnalytics();
     } else if(view === "corridas"){

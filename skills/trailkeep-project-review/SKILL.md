@@ -42,6 +42,12 @@ Resolve:
 - `backup_dir`: the backup folder containing `markdown-*` folders and
   `_review_run_plan.json`.
 
+If `backup_dir` was not passed explicitly, read trailkeep's local remembered
+path from `~/.config/trailkeep/backup_dir` (or
+`$XDG_CONFIG_HOME/trailkeep/backup_dir`), then fall back to
+`~/trailkeep-backups` when that folder exists. Do not guess among unrelated
+folders.
+
 If either path is ambiguous, ask before reading project context or calling a
 model.
 

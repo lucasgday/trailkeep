@@ -6,6 +6,8 @@ Usage: convert_claude.py <conversations_dir> <output_dir> [source] [history.json
 """
 import json, os, re, sys, glob
 
+from atomic_io import atomic_write_json, atomic_write_text
+
 def fmt_tool_use(c):
     name = c.get("name", "tool")
     inp = c.get("input", {}) or {}
@@ -230,10 +232,13 @@ def main():
         base = safe_filename(s["title"])
         prefix = s["date"] or "0000-00-00"
         fname = f"{prefix}__{base}__{uuid}.md"   # full uuid = no collisions
-        with open(os.path.join(pdir, fname), "w") as o:
-            o.write(f"# {s['title']}\n\n")
-            o.write(f"<!-- date: {s['datetime']} | id: {uuid} | project: {proj} | source: {source} -->\n\n")
-            o.write("\n".join(s["blocks"]))
+        out_path = os.path.join(pdir, fname)
+        body = (
+            f"# {s['title']}\n\n"
+            f"<!-- date: {s['datetime']} | id: {uuid} | project: {proj} | source: {source} -->\n\n"
+            + "\n".join(s["blocks"])
+        )
+        atomic_write_text(out_path, body)
         counts["ok"] += 1
 
     print(f"Converted: {counts['ok']}")
@@ -253,7 +258,7 @@ def main():
             except Exception: info = {}
         info[source] = {"generated": datetime.datetime.now().astimezone().isoformat(), "conversations": counts["ok"]}
         os.makedirs(out_dir, exist_ok=True)
-        json.dump(info, open(info_path, "w"), ensure_ascii=False, indent=2)
+        atomic_write_json(info_path, info)
     except Exception:
         pass
 

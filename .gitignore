@@ -1,5 +1,6 @@
 # Your conversations — NEVER committed. Everyone backs up their own locally.
 markdown-*/
+trailkeep-backups/
 .sync-state/
 .sync-tmp/
 
@@ -38,6 +39,9 @@ trailkeep-progress.json
 
 # Python
 __pycache__/
+
+# Local browser QA artifacts
+output/playwright/
 
 # macOS
 .DS_Store
