@@ -128,6 +128,11 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
 - `docs/` — `index.html` (the GitHub Pages live demo, sample data baked in),
   screenshots, `hero.gif`, and `generative-layer.md` (the stable contract for
   the optional coding-agent review layer).
+- `PRODUCT.md` and `DESIGN.md` — durable product and visual-system context for
+  UI work. `DESIGN.md` is the normative token and component reference;
+  `.impeccable/design.json` carries its preview metadata. Update both design
+  files together after material visual-language, token, component, responsive,
+  or accessibility changes, not after isolated layout bug fixes.
 - `ROADMAP.md` — public roadmap. `ROADMAP.private.md` — maintainer-only strategy &
   full vision (gitignored via `*.private.md`; not in clones).
 
