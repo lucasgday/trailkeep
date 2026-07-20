@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-20T14:36:26Z",
+  "title": "Design System: trailkeep",
+  "extensions": {
+    "colorMeta": {
+      "spine": {
+        "role": "secondary",
+        "displayName": "Privacy Spine",
+        "canonical": "oklch(26.3% 0.0331 188.9)",
+        "tonalRamp": ["oklch(15% 0.0331 188.9)", "oklch(27% 0.0331 188.9)", "oklch(39% 0.0331 188.9)", "oklch(51% 0.0331 188.9)", "oklch(63% 0.0331 188.9)", "oklch(75% 0.0331 188.9)", "oklch(87% 0.0331 188.9)", "oklch(95% 0.0331 188.9)"]
+      },
+      "spine-raised": {
+        "role": "secondary",
+        "displayName": "Raised Spine",
+        "canonical": "oklch(31.4% 0.0413 190.3)",
+        "tonalRamp": ["oklch(15% 0.0413 190.3)", "oklch(27% 0.0413 190.3)", "oklch(39% 0.0413 190.3)", "oklch(51% 0.0413 190.3)", "oklch(63% 0.0413 190.3)", "oklch(75% 0.0413 190.3)", "oklch(87% 0.0413 190.3)", "oklch(95% 0.0413 190.3)"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Archive Paper",
+        "canonical": "oklch(98.4% 0.0053 106.5)",
+        "tonalRamp": ["oklch(15% 0.0053 106.5)", "oklch(27% 0.0053 106.5)", "oklch(39% 0.0053 106.5)", "oklch(51% 0.0053 106.5)", "oklch(63% 0.0053 106.5)", "oklch(75% 0.0053 106.5)", "oklch(87% 0.0053 106.5)", "oklch(95% 0.0053 106.5)"]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Clean Panel",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(27% 0 0)", "oklch(39% 0 0)", "oklch(51% 0 0)", "oklch(63% 0 0)", "oklch(75% 0 0)", "oklch(87% 0 0)", "oklch(95% 0 0)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Soft Black Ink",
+        "canonical": "oklch(25% 0.0152 174.7)",
+        "tonalRamp": ["oklch(15% 0.0152 174.7)", "oklch(27% 0.0152 174.7)", "oklch(39% 0.0152 174.7)", "oklch(51% 0.0152 174.7)", "oklch(63% 0.0152 174.7)", "oklch(75% 0.0152 174.7)", "oklch(87% 0.0152 174.7)", "oklch(95% 0.0152 174.7)"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "oklch(49.5% 0.0165 162)",
+        "tonalRamp": ["oklch(15% 0.0165 162)", "oklch(27% 0.0165 162)", "oklch(39% 0.0165 162)", "oklch(51% 0.0165 162)", "oklch(63% 0.0165 162)", "oklch(75% 0.0165 162)", "oklch(87% 0.0165 162)", "oklch(95% 0.0165 162)"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet Line",
+        "canonical": "oklch(92.5% 0.0062 137.8)",
+        "tonalRamp": ["oklch(15% 0.0062 137.8)", "oklch(27% 0.0062 137.8)", "oklch(39% 0.0062 137.8)", "oklch(51% 0.0062 137.8)", "oklch(63% 0.0062 137.8)", "oklch(75% 0.0062 137.8)", "oklch(87% 0.0062 137.8)", "oklch(95% 0.0062 137.8)"]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Line",
+        "canonical": "oklch(85.7% 0.0102 155.1)",
+        "tonalRamp": ["oklch(15% 0.0102 155.1)", "oklch(27% 0.0102 155.1)", "oklch(39% 0.0102 155.1)", "oklch(51% 0.0102 155.1)", "oklch(63% 0.0102 155.1)", "oklch(75% 0.0102 155.1)", "oklch(87% 0.0102 155.1)", "oklch(95% 0.0102 155.1)"]
+      },
+      "intent": {
+        "role": "primary",
+        "displayName": "Intent Clay",
+        "canonical": "oklch(58.3% 0.146 34.7)",
+        "tonalRamp": ["oklch(15% 0.146 34.7)", "oklch(27% 0.146 34.7)", "oklch(39% 0.146 34.7)", "oklch(51% 0.146 34.7)", "oklch(63% 0.146 34.7)", "oklch(75% 0.146 34.7)", "oklch(87% 0.146 34.7)", "oklch(95% 0.146 34.7)"]
+      },
+      "assistant": {
+        "role": "secondary",
+        "displayName": "Assistant Teal",
+        "canonical": "oklch(49.8% 0.0661 187)",
+        "tonalRamp": ["oklch(15% 0.0661 187)", "oklch(27% 0.0661 187)", "oklch(39% 0.0661 187)", "oklch(51% 0.0661 187)", "oklch(63% 0.0661 187)", "oklch(75% 0.0661 187)", "oklch(87% 0.0661 187)", "oklch(95% 0.0661 187)"]
+      },
+      "tool": {
+        "role": "tertiary",
+        "displayName": "Tool Ochre",
+        "canonical": "oklch(58.4% 0.0596 88.6)",
+        "tonalRamp": ["oklch(15% 0.0596 88.6)", "oklch(27% 0.0596 88.6)", "oklch(39% 0.0596 88.6)", "oklch(51% 0.0596 88.6)", "oklch(63% 0.0596 88.6)", "oklch(75% 0.0596 88.6)", "oklch(87% 0.0596 88.6)", "oklch(95% 0.0596 88.6)"]
+      },
+      "tool-surface": {
+        "role": "neutral",
+        "displayName": "Tool Paper",
+        "canonical": "oklch(95.2% 0.0111 89.7)",
+        "tonalRamp": ["oklch(15% 0.0111 89.7)", "oklch(27% 0.0111 89.7)", "oklch(39% 0.0111 89.7)", "oklch(51% 0.0111 89.7)", "oklch(63% 0.0111 89.7)", "oklch(75% 0.0111 89.7)", "oklch(87% 0.0111 89.7)", "oklch(95% 0.0111 89.7)"]
+      },
+      "code-surface": {
+        "role": "neutral",
+        "displayName": "Code Night",
+        "canonical": "oklch(23.6% 0.0243 186.6)",
+        "tonalRamp": ["oklch(15% 0.0243 186.6)", "oklch(27% 0.0243 186.6)", "oklch(39% 0.0243 186.6)", "oklch(51% 0.0243 186.6)", "oklch(63% 0.0243 186.6)", "oklch(75% 0.0243 186.6)", "oklch(87% 0.0243 186.6)", "oklch(95% 0.0243 186.6)"]
+      },
+      "code-text": {
+        "role": "neutral",
+        "displayName": "Code Mist",
+        "canonical": "oklch(90.8% 0.0154 171)",
+        "tonalRamp": ["oklch(15% 0.0154 171)", "oklch(27% 0.0154 171)", "oklch(39% 0.0154 171)", "oklch(51% 0.0154 171)", "oklch(63% 0.0154 171)", "oklch(75% 0.0154 171)", "oklch(87% 0.0154 171)", "oklch(95% 0.0154 171)"]
+      },
+      "selection": {
+        "role": "tertiary",
+        "displayName": "Selection Parchment",
+        "canonical": "oklch(94.2% 0.0395 77.2)",
+        "tonalRamp": ["oklch(15% 0.0395 77.2)", "oklch(27% 0.0395 77.2)", "oklch(39% 0.0395 77.2)", "oklch(51% 0.0395 77.2)", "oklch(63% 0.0395 77.2)", "oklch(75% 0.0395 77.2)", "oklch(87% 0.0395 77.2)", "oklch(95% 0.0395 77.2)"]
+      },
+      "completed": {
+        "role": "neutral",
+        "displayName": "Completed Gray",
+        "canonical": "oklch(70.7% 0.0125 161.9)",
+        "tonalRamp": ["oklch(15% 0.0125 161.9)", "oklch(27% 0.0125 161.9)", "oklch(39% 0.0125 161.9)", "oklch(51% 0.0125 161.9)", "oklch(63% 0.0125 161.9)", "oklch(75% 0.0125 161.9)", "oklch(87% 0.0125 161.9)", "oklch(95% 0.0125 161.9)"]
+      },
+      "source-claude-code": {
+        "role": "tertiary",
+        "displayName": "Claude Teal",
+        "canonical": "oklch(59.1% 0.0903 182.4)",
+        "tonalRamp": ["oklch(15% 0.0903 182.4)", "oklch(27% 0.0903 182.4)", "oklch(39% 0.0903 182.4)", "oklch(51% 0.0903 182.4)", "oklch(63% 0.0903 182.4)", "oklch(75% 0.0903 182.4)", "oklch(87% 0.0903 182.4)", "oklch(95% 0.0903 182.4)"]
+      },
+      "source-codex": {
+        "role": "tertiary",
+        "displayName": "Codex Violet",
+        "canonical": "oklch(64.3% 0.1252 288.8)",
+        "tonalRamp": ["oklch(15% 0.1252 288.8)", "oklch(27% 0.1252 288.8)", "oklch(39% 0.1252 288.8)", "oklch(51% 0.1252 288.8)", "oklch(63% 0.1252 288.8)", "oklch(75% 0.1252 288.8)", "oklch(87% 0.1252 288.8)", "oklch(95% 0.1252 288.8)"]
+      },
+      "source-cowork": {
+        "role": "tertiary",
+        "displayName": "Cowork Amber",
+        "canonical": "oklch(72.8% 0.1129 70.3)",
+        "tonalRamp": ["oklch(15% 0.1129 70.3)", "oklch(27% 0.1129 70.3)", "oklch(39% 0.1129 70.3)", "oklch(51% 0.1129 70.3)", "oklch(63% 0.1129 70.3)", "oklch(75% 0.1129 70.3)", "oklch(87% 0.1129 70.3)", "oklch(95% 0.1129 70.3)"]
+      },
+      "source-opencode": {
+        "role": "tertiary",
+        "displayName": "OpenCode Blue",
+        "canonical": "oklch(67.2% 0.1125 248.8)",
+        "tonalRamp": ["oklch(15% 0.1125 248.8)", "oklch(27% 0.1125 248.8)", "oklch(39% 0.1125 248.8)", "oklch(51% 0.1125 248.8)", "oklch(63% 0.1125 248.8)", "oklch(75% 0.1125 248.8)", "oklch(87% 0.1125 248.8)", "oklch(95% 0.1125 248.8)"]
+      },
+      "source-cursor": {
+        "role": "tertiary",
+        "displayName": "Cursor Rose",
+        "canonical": "oklch(67.4% 0.135 360)",
+        "tonalRamp": ["oklch(15% 0.135 360)", "oklch(27% 0.135 360)", "oklch(39% 0.135 360)", "oklch(51% 0.135 360)", "oklch(63% 0.135 360)", "oklch(75% 0.135 360)", "oklch(87% 0.135 360)", "oklch(95% 0.135 360)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Reader Display", "purpose": "Conversation titles and document-level headings." },
+      "headline": { "displayName": "View Headline", "purpose": "View titles and primary section headings." },
+      "title": { "displayName": "Compact Title", "purpose": "Project names, card titles, and strong row labels." },
+      "body": { "displayName": "Conversation Body", "purpose": "Long-form conversation reading." },
+      "metadata": { "displayName": "Operational Metadata", "purpose": "Dates, counts, descriptions, and secondary actions." },
+      "control": { "displayName": "Control Label", "purpose": "Buttons and high-priority compact controls." },
+      "label": { "displayName": "Section Label", "purpose": "Navigation sections and terse uppercase categories." },
+      "mono": { "displayName": "Evidence Mono", "purpose": "Code, git facts, tool names, and machine identifiers." }
+    },
+    "shadows": [
+      { "name": "card-hover", "value": "0 4px 14px rgba(0,0,0,.06)", "purpose": "Project cards during interactive hover only." },
+      { "name": "notice-lift", "value": "0 2px 8px rgba(112,80,28,.06)", "purpose": "Low warm lift for review notices." },
+      { "name": "tooltip-lift", "value": "0 6px 20px rgba(0,0,0,.3)", "purpose": "Compact overlays above dense data." },
+      { "name": "drawer-lift", "value": "-16px 0 40px rgba(0,0,0,.18)", "purpose": "Side panels above the reader." },
+      { "name": "dialog-lift", "value": "0 24px 70px rgba(0,0,0,.45)", "purpose": "Blocking demo explanation only." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "120ms ease", "purpose": "Default hover, selection, border, and color feedback." },
+      { "name": "disclosure", "value": "150ms ease", "purpose": "Chevron rotation and inline disclosure state." },
+      { "name": "tooltip", "value": "100ms ease", "purpose": "Tooltip opacity only." },
+      { "name": "reduced-motion", "value": "none", "purpose": "All transitions are removed when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "shell-collapse", "value": "860px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single high-confidence action in a local context.",
+      "html": "<button class=\"ds-btn-primary\">Open folder</button>",
+      "css": ".ds-btn-primary { font: 600 12.5px/1.2 ui-sans-serif, system-ui, sans-serif; cursor: pointer; padding: 8px 13px; border-radius: 8px; border: 1px solid transparent; background: var(--you, #C2553B); color: var(--panel, #FFFFFF); transition: filter 120ms ease; } .ds-btn-primary:hover { filter: brightness(1.05); } .ds-btn-primary:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; } .ds-btn-primary:active { filter: brightness(.96); }"
+    },
+    {
+      "name": "Dark Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A secondary action placed on the dark structural spine.",
+      "html": "<button class=\"ds-btn-ghost\">Refresh</button>",
+      "css": ".ds-btn-ghost { font: 600 12.5px/1.2 ui-sans-serif, system-ui, sans-serif; cursor: pointer; padding: 8px 13px; border-radius: 8px; border: 1px solid #2c534f; background: transparent; color: #cfe0dc; transition: background 120ms ease, color 120ms ease; } .ds-btn-ghost:hover { background: #0c2422; color: #FFFFFF; } .ds-btn-ghost:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; } .ds-btn-ghost:active { background: var(--spine-2, #143836); }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "A compact dark search control integrated into navigation.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"7\"></circle><path d=\"m21 21-4.3-4.3\"></path></svg><input type=\"search\" placeholder=\"Search…\"></label>",
+      "css": ".ds-search { position: relative; display: inline-flex; align-items: center; } .ds-search svg { position: absolute; left: 10px; width: 14px; height: 14px; fill: none; stroke: #cfe0dc; stroke-width: 2; pointer-events: none; } .ds-search input { width: 240px; max-width: 100%; padding: 7px 11px 7px 30px; border: 1px solid #2c534f; background: #0c2422; color: #EAF0EE; border-radius: 8px; font: 500 13px/1.4 ui-sans-serif, system-ui, sans-serif; } .ds-search input::placeholder { color: #6b8e88; } .ds-search input:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "A compact filter that inverts when selected.",
+      "html": "<button class=\"ds-filter-chip\" aria-pressed=\"false\">Active <span>6</span></button>",
+      "css": ".ds-filter-chip { display: inline-flex; align-items: center; gap: 5px; font: 500 12px/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line, #E4E7E3); background: var(--panel, #FFFFFF); color: var(--ink-soft, #5A655F); transition: border-color 120ms ease, background 120ms ease, color 120ms ease; } .ds-filter-chip span { font-size: 10.5px; opacity: .7; } .ds-filter-chip:hover { border-color: var(--line-strong, #CBD2CD); color: var(--ink, #1A2421); } .ds-filter-chip[aria-pressed=\"true\"] { background: var(--spine, #0F2A28); border-color: var(--spine, #0F2A28); color: var(--panel, #FFFFFF); } .ds-filter-chip:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; }"
+    },
+    {
+      "name": "Project Card",
+      "kind": "card",
+      "refersTo": "project-card",
+      "description": "A calm, bordered project summary that lifts only on hover.",
+      "html": "<article class=\"ds-project-card\"><strong>todo-app</strong><span>17 conversations</span></article>",
+      "css": ".ds-project-card { min-height: 116px; display: flex; flex-direction: column; gap: 10px; padding: 15px 17px; border: 1px solid var(--line, #E4E7E3); border-radius: 14px; background: var(--panel, #FFFFFF); color: var(--ink, #1A2421); font: 500 12px/1.4 ui-sans-serif, system-ui, sans-serif; transition: border-color 120ms ease, box-shadow 120ms ease; } .ds-project-card strong { font-size: 15px; line-height: 1.22; } .ds-project-card span { margin-top: auto; color: var(--ink-soft, #5A655F); } .ds-project-card:hover { border-color: var(--line-strong, #CBD2CD); box-shadow: 0 4px 14px rgba(0,0,0,.06); } .ds-project-card:focus-within { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "description": "A compact route control anchored to the privacy spine.",
+      "html": "<button class=\"ds-side-link\" aria-current=\"page\">Projects</button>",
+      "css": ".ds-side-link { min-height: 32px; padding: 7px 8px; border-radius: 8px; border: 1px solid #2c534f; background: #0c2422; color: #e7f0ee; font: 600 12px/1.2 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background 120ms ease, border-color 120ms ease; } .ds-side-link:hover { background: #12302c; border-color: #3a6b64; color: #FFFFFF; } .ds-side-link[aria-current=\"page\"] { background: var(--spine-2, #143836); border-color: #3a6b64; } .ds-side-link:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; }"
+    },
+    {
+      "name": "Conversation Turn",
+      "kind": "custom",
+      "description": "A readable timeline row with stable identity and inline detail.",
+      "html": "<article class=\"ds-turn\"><header><span>You</span><p>Can you verify the local backup?</p></header><div>Conversation content stays in the timeline.</div></article>",
+      "css": ".ds-turn { border-bottom: 1px solid var(--line, #E4E7E3); color: var(--ink, #1A2421); font-family: ui-sans-serif, system-ui, sans-serif; } .ds-turn header { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; padding: 14px 0; } .ds-turn header span { justify-self: start; padding: 3px 7px; border-radius: 5px; background: var(--you, #C2553B); color: var(--panel, #FFFFFF); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; } .ds-turn header p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft, #5A655F); font-size: 13px; } .ds-turn > div { padding: 0 0 18px 72px; font-size: 15px; line-height: 1.62; }"
+    },
+    {
+      "name": "Subagent Disclosure",
+      "kind": "custom",
+      "refersTo": "subagent-disclosure",
+      "description": "A nested, keyboard-operable disclosure with explicit snapshot status.",
+      "html": "<button class=\"ds-subagent\" aria-expanded=\"false\"><span class=\"ds-chevron\">▾</span><span><strong>Test scope audit</strong><small>Subagent · completed</small></span><em>completed</em></button>",
+      "css": ".ds-subagent { width: 100%; min-height: 44px; display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid var(--line, #E4E7E3); border-radius: 10px; background: var(--panel, #FFFFFF); color: var(--ink, #1A2421); font-family: ui-sans-serif, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-subagent:hover { background: var(--paper, #FAFAF6); } .ds-subagent:focus-visible { outline: 2px solid var(--you, #C2553B); outline-offset: 2px; } .ds-chevron { color: var(--ink-soft, #5A655F); transform: rotate(-90deg); transition: transform 150ms ease; } .ds-subagent[aria-expanded=\"true\"] .ds-chevron { transform: rotate(0); } .ds-subagent strong, .ds-subagent small { display: block; } .ds-subagent strong { font-size: 13px; } .ds-subagent small { margin-top: 3px; color: var(--ink-soft, #5A655F); font-size: 10.5px; } .ds-subagent em { padding: 2px 7px; border: 1px solid #b7d8d1; border-radius: 999px; background: #eef7f5; color: #23776b; font-size: 10px; font-style: normal; font-weight: 750; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Local Field Notebook",
+    "overview": "trailkeep should feel like a well-kept technical notebook that happens to be interactive: private, cumulative, quiet, and dependable. The dark teal spine anchors navigation while the warm paper reader preserves long-form comfort. Clay appears only where the interface asks the user to act or marks their own voice.\n\nThe system serves scanning first and reading second. Dense metadata stays compact, hierarchy is predictable, and detail opens in place. It rejects generic admin-dashboard density, cloud-product theater, and decorative AI chrome. Every surface must reinforce that the archive is local, stable, and under the user's control.",
+    "keyCharacteristics": [
+      "A dark structural spine paired with a warm, low-glare reading field.",
+      "Restrained clay emphasis for primary intent and the user's own turns.",
+      "Compact system typography for controls, metadata, and navigation.",
+      "A serif reading accent for document titles and the trailkeep wordmark.",
+      "Borders and tonal layers before shadows; motion only explains state.",
+      "Source colors used as identity metadata, never as page decoration."
+    ],
+    "rules": [
+      { "name": "The Observable Privacy Rule", "body": "Dark structural surfaces communicate local custody, but privacy claims must still be stated in clear text where they matter.", "section": "colors" },
+      { "name": "The Clay Intent Rule", "body": "Intent Clay is reserved for primary action, focus, active selection, and the user's voice. It is never decorative.", "section": "colors" },
+      { "name": "The Source Color Rule", "body": "Source colors label provenance in compact badges and charts. They never tint whole cards or compete with reading content.", "section": "colors" },
+      { "name": "The Reading Accent Rule", "body": "Serif belongs to the wordmark and document reading hierarchy. Buttons, labels, badges, and data stay in the system sans.", "section": "typography" },
+      { "name": "The Quiet Metadata Rule", "body": "Metadata earns hierarchy through size, weight, and muted color. Never shrink operational text below 9.5px.", "section": "typography" },
+      { "name": "The Flat-at-Rest Rule", "body": "Static cards do not float. If a shadow is visible without hover, disclosure, or modal state, remove it.", "section": "elevation" },
+      { "name": "The Structural Border Rule", "body": "Use full one-pixel boundaries and tonal layers. Colored side stripes and ornamental separators are prohibited.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** keep all fonts, icons, scripts, and visual assets local or inline so the viewer remains zero-network.",
+      "**Do** preserve the 340px desktop sidebar, 840px reading measure, and 860px structural breakpoint unless a measured usability problem requires change.",
+      "**Do** expose density progressively through inline disclosure, sticky context, filters, and project drill-down.",
+      "**Do** reuse Intent Clay for primary action and focus, Privacy Spine for structure, and source colors for provenance only.",
+      "**Do** keep every interactive row visibly responsive on desktop and practically tappable on mobile.",
+      "**Do** add every user-facing string to both English and Spanish dictionaries."
+    ],
+    "donts": [
+      "**Don't** create cloud-first builder profiles or upload raw or derived activity. Privacy is the product.",
+      "**Don't** add telemetry-driven dashboards or interfaces that hide what data leaves the machine.",
+      "**Don't** turn the archive into a dense, generic admin dashboard that flattens conversations into disconnected metrics.",
+      "**Don't** add decorative AI-product chrome, novelty interactions, or visual effects that compete with reading.",
+      "**Don't** use browser-native product controls or inconsistent local lookalikes for dropdowns, disclosures, toasts, confirmations, or tooltips.",
+      "**Don't** use external fonts, CDN assets, gradients, glassmorphism, gradient text, or ornamental colored side stripes.",
+      "**Don't** make static cards float. A persistent shadow is allowed only for a real overlay, drawer, or blocking dialog.",
+      "**Don't** use source colors as large background fields or rely on color alone to communicate state."
+    ]
+  }
+}

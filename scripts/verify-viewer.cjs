@@ -260,6 +260,23 @@ async function verifyDemo(browser) {
   if (await projectsButton.count()) await projectsButton.click();
   await page.waitForTimeout(250);
 
+  const demoLayout = await page.evaluate(() => {
+    const banner = document.querySelector("#demoBanner").getBoundingClientRect();
+    const topbar = document.querySelector(".topbar").getBoundingClientRect();
+    const shell = document.querySelector(".shell").getBoundingClientRect();
+    return {
+      bannerHeight: Math.round(banner.height),
+      topbarHeight: Math.round(topbar.height),
+      shellTop: Math.round(shell.top),
+      topbarBottom: Math.round(topbar.bottom),
+    };
+  });
+  if (demoLayout.topbarHeight > 80) run.failures.push(`demo topbar is oversized (${demoLayout.topbarHeight}px)`);
+  if (Math.abs(demoLayout.shellTop - demoLayout.topbarBottom) > 1) {
+    run.failures.push(`demo shell does not follow the topbar (${demoLayout.shellTop}px vs ${demoLayout.topbarBottom}px)`);
+  }
+  run.layout = demoLayout;
+
   const projectCards = page.locator(".proj-card");
   const cardCount = await projectCards.count();
   if (!cardCount) run.failures.push("no project cards rendered");
