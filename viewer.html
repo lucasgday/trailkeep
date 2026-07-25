@@ -471,7 +471,7 @@
   .subagent-orphan{border-color:#e8c9a9;background:#fff8ee;color:#9a5c20}
 
   .turn{border-bottom:1px solid var(--line);padding:0}
-  .turn-head{display:grid;grid-template-columns:24px 64px 1fr auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
+  .turn-head{display:grid;grid-template-columns:24px minmax(64px,max-content) minmax(0,1fr) auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
   .turn-head .tcheck{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent}
   .turn-head .tcheck:hover{border-color:var(--claude)}
   .turn-head .tcheck:checked{background:var(--claude);border-color:var(--claude)}
@@ -559,7 +559,7 @@
     .ph-section-actions{justify-content:flex-start}
     .ph-review-grid{grid-template-columns:1fr}
     .turn-body,.turn[data-type="tool"] .turn-body{padding-left:0;margin-left:0}
-    .turn-head{grid-template-columns:24px 56px 1fr auto}
+    .turn-head{grid-template-columns:24px minmax(56px,max-content) minmax(0,1fr) auto}
     .subagent-node{margin-left:0}
     .subagent-toggle{grid-template-columns:18px minmax(0,1fr);align-items:start}
     .subagent-status{grid-column:2;justify-self:start}

@@ -132,7 +132,7 @@ async function verifyStandalone(browser) {
     fs.writeFileSync(path.join(fixture, "README.md"), "# Repository notes should not load\n\n### You\n\nNot a conversation.\n");
     fs.writeFileSync(path.join(sessions, "invalid.md"), "# Invalid metadata should not load\n\n### You\n\nNot a trailkeep session.\n");
     fs.writeFileSync(path.join(sessions, "valid.md"), "# Valid fixture conversation\n\n<!-- date: 2026-07-10T10:00:00Z | id: fixture-session | project: fixture-project | source: claude-code | archived: false -->\n\n### You\n\nKeep this one.\n\n### Claude\n\nLoaded.\n");
-    fs.writeFileSync(path.join(codexSessions, "parent.md"), "# Parent fixture conversation\n\n<!-- date: 2026-07-11T10:00:00Z | id: fixture-codex-parent | project: fixture-project | source: codex | archived: false | format_version: 2 -->\n\n### You\n\nAudit the detail contract.\n\n### Codex\n\nI will delegate the detail and test audits.\n\n[tool: spawn_agent → detail_audit]\n\n[result]\n\nStarted detail audit.\n");
+    fs.writeFileSync(path.join(codexSessions, "parent.md"), "# Parent fixture conversation\n\n<!-- date: 2026-07-11T10:00:00Z | id: fixture-codex-parent | project: fixture-project | source: codex | archived: false | format_version: 2 -->\n\n### You\n\n<INSTRUCTIONS>\nUse the following context before continuing.\n</INSTRUCTIONS>\n\n### You\n\nAudit the detail contract.\n\n### Codex\n\nI will delegate the detail and test audits.\n\n[tool: spawn_agent → detail_audit]\n\n[result]\n\nStarted detail audit.\n");
     fs.writeFileSync(path.join(codexSessions, "detail.md"), "# Detail audit\n\n<!-- date: 2026-07-11T10:01:00Z | id: fixture-codex-detail | project: fixture-project | source: codex | archived: false | format_version: 2 | parent_id: fixture-codex-parent | agent_path: detail_audit | agent_nickname: Detail analyst | agent_depth: 1 | agent_status: completed | completed_at: 2026-07-11T10:03:00Z -->\n\n### Codex\n\nDetail-only evidence is preserved.\n\n[tool: spawn_agent → nested_check]\n\n[result]\n\nStarted nested check.\n");
     fs.writeFileSync(path.join(codexSessions, "nested.md"), "# Nested check\n\n<!-- date: 2026-07-11T10:02:00Z | id: fixture-codex-nested | project: fixture-project | source: codex | archived: false | format_version: 2 | parent_id: fixture-codex-detail | agent_path: detail_audit/nested_check | agent_nickname: Nested verifier | agent_depth: 2 | agent_status: completed | completed_at: 2026-07-11T10:02:30Z -->\n\n### Codex\n\nNested-only evidence is visible and searchable.\n");
     fs.writeFileSync(path.join(codexSessions, "test-scope.md"), "# Test scope\n\n<!-- parent_id: fixture-codex-parent | date: 2026-07-11T10:01:30Z | id: fixture-codex-tests | project: fixture-project | source: codex | archived: false | format_version: 2 | agent_path: test_scope | agent_nickname: Test analyst | agent_depth: 1 | agent_status: in_progress -->\n\n### Codex\n\nTest-scope evidence remains available.\n");
@@ -156,6 +156,31 @@ async function verifyStandalone(browser) {
 
     await page.locator(".ph-conv-main", { hasText: "Parent fixture conversation" }).click();
     await page.waitForFunction(() => document.querySelectorAll(".subagent-node").length === 2);
+    const instructionLayout = async () => {
+      const instruction = page.locator('.turn[data-kind="instruction"]');
+      if (!await instruction.count()) return null;
+      if (!await instruction.evaluate((node) => node.classList.contains("collapsed"))) {
+        await instruction.locator(".turn-head").click();
+      }
+      return instruction.evaluate((node) => {
+        const tag = node.querySelector(".tag").getBoundingClientRect();
+        const preview = node.querySelector(".preview").getBoundingClientRect();
+        return {
+          label: node.querySelector(".tag").textContent.trim(),
+          tagRight: Math.round(tag.right * 10) / 10,
+          previewLeft: Math.round(preview.left * 10) / 10,
+          overlaps: tag.right > preview.left + 0.5,
+        };
+      });
+    };
+    const instructionLayouts = [];
+    instructionLayouts.push({ viewport: "desktop", lang: "initial", ...(await instructionLayout()) });
+    await page.locator("#btnLang").click();
+    instructionLayouts.push({ viewport: "desktop", lang: "alternate", ...(await instructionLayout()) });
+    await page.locator("#btnLang").click();
+    if (instructionLayouts.some((layout) => layout.overlaps)) {
+      run.failures.push(`instruction tag overlaps preview: ${JSON.stringify(instructionLayouts)}`);
+    }
     const detail = page.locator('.subagent-node[data-subagent-id$="/detail.md"]');
     const tests = page.locator('.subagent-node[data-subagent-id$="/test-scope.md"]');
     if (!await page.locator('[data-session$="/parent.md"][data-type="tool"] + .subagent-node[data-subagent-id$="/detail.md"]').count()) {
@@ -209,6 +234,13 @@ async function verifyStandalone(browser) {
     if (!await page.locator('.subagent-node[data-subagent-id$="/detail.md"]').count()) run.failures.push("tool filtering hid the subagent disclosure");
 
     await page.setViewportSize({ width: 390, height: 844 });
+    instructionLayouts.push({ viewport: "mobile", lang: "initial", ...(await instructionLayout()) });
+    await page.locator("#btnLang").click();
+    instructionLayouts.push({ viewport: "mobile", lang: "alternate", ...(await instructionLayout()) });
+    await page.locator("#btnLang").click();
+    if (instructionLayouts.slice(-2).some((layout) => layout.overlaps)) {
+      run.failures.push(`mobile instruction tag overlaps preview: ${JSON.stringify(instructionLayouts.slice(-2))}`);
+    }
     const mobileLayout = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       page: document.documentElement.scrollWidth,
@@ -222,6 +254,7 @@ async function verifyStandalone(browser) {
       linkedSubagents: 3,
       orphanVisible: !!await orphanRow.count(),
       mobileLayout,
+      instructionLayouts,
     };
     if (requestedFixture) run.fixturePath = fixture;
   } finally {
