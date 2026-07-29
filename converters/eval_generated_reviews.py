@@ -14,6 +14,8 @@ import os
 import re
 import sys
 
+from codex_internal import is_legacy_guardian_markdown
+
 
 REPORT_VERSION = 1
 SUMMARY_QUALITY_VERSION = "actionable-v3"
@@ -268,15 +270,22 @@ def parse_markdown(path, backup_dir):
         title = m.group(1).strip()
     session_id = meta_value(body, "id") or rel
     project = meta_value(body, "project", "proyecto") or os.path.basename(os.path.dirname(path)) or "(no project)"
+    source = meta_value(body, "source", "fuente") or ""
+    parent_id = meta_value(body, "parent_id") or ""
+    explicit_internal = (
+        meta_value(body, "internal").lower() == "true"
+        or bool(meta_value(body, "internal_kind"))
+    )
     return {
         "id": session_id,
         "relpath": rel,
         "project": project,
-        "source": meta_value(body, "source", "fuente") or "",
+        "source": source,
         "date": meta_value(body, "date", "fecha") or "",
         "title": title,
         "content_hash": content_hash(text),
         "text": text,
+        "internal": explicit_internal or is_legacy_guardian_markdown(text, source, parent_id),
     }
 
 
@@ -284,7 +293,9 @@ def load_sessions(backup_dir):
     sessions = []
     for path in sorted(glob.glob(os.path.join(backup_dir, "markdown-*", "**", "*.md"), recursive=True)):
         try:
-            sessions.append(parse_markdown(path, backup_dir))
+            session = parse_markdown(path, backup_dir)
+            if not session.get("internal"):
+                sessions.append(session)
         except Exception:
             continue
     sessions = canonical_sessions(sessions)

@@ -191,12 +191,12 @@ HEALTH_WARN=0
 
 # Run a converter; warn loudly if it errors, or — having been handed new/changed
 # raw data — converts 0 sessions (likely a changed path or storage format).
-# Recognized Codex children whose own turn has not appeared yet are a healthy
-# deferred result: commit their signature and retry naturally when the file grows.
+# Recognized Codex children whose own turn has not appeared yet and internal
+# approval-review rollouts are healthy non-conversation results.
 # Usage: run_convert <label> <python args...>
 run_convert() {
   local label="$1"; shift
-  local out conv deferred unreadable rc
+  local out conv deferred internal unreadable rc
   out=$(python3 "$@" 2>&1); rc=$?
   printf '%s\n' "$out"
   if [ "$rc" -ne 0 ]; then
@@ -205,6 +205,7 @@ run_convert() {
   fi
   conv=$(printf '%s' "$out" | sed -n 's/.*Converted:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
   deferred=$(printf '%s' "$out" | sed -n 's/.*Deferred subagents:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
+  internal=$(printf '%s' "$out" | sed -n 's/.*Ignored internal sessions:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
   unreadable=$(printf '%s' "$out" | sed -n 's/.*Unreadable completed subagents:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
   if [ -z "${conv:-}" ]; then
     echo "  !! $label: converter output did not confirm how many sessions were written."
@@ -215,8 +216,9 @@ run_convert() {
     HEALTH_WARN=$((HEALTH_WARN+1)); return 1
   fi
   if [ "$conv" = "0" ]; then
-    if [ "${deferred:-0}" -gt 0 ] 2>/dev/null; then
-      echo "  $label: ${deferred} subagent transcript(s) recognized but safely deferred until child-authored turns appear."
+    if [ "${deferred:-0}" -gt 0 ] 2>/dev/null || [ "${internal:-0}" -gt 0 ] 2>/dev/null; then
+      [ "${deferred:-0}" -gt 0 ] 2>/dev/null && echo "  $label: ${deferred} subagent transcript(s) recognized but safely deferred until child-authored turns appear."
+      [ "${internal:-0}" -gt 0 ] 2>/dev/null && echo "  $label: ${internal} internal approval-review transcript(s) ignored."
       return 0
     fi
     echo "  !! $label: had new/changed raw data but converted 0 sessions — the format may have changed."
@@ -304,7 +306,7 @@ if [ -d "$HOME_CODEX/sessions" ] || [ -d "$HOME_CODEX/archived_sessions" ]; then
     SRC="$TMP/codex-act"; if [ "$DRY" != "1" ]; then rm -rf "$SRC"; mkdir -p "$SRC/all"; fi
     new=0; pending_paths=(); pending_sizes=()
     while IFS= read -r -d '' f; do
-      if need_process "$f" "codex-subagents-v1"; then
+      if need_process "$f" "codex-subagents-v2"; then
         detected_size="$DETECTED_SIZE"
         if [ "$DRY" = "1" ]; then
           new=$((new+1))
@@ -334,7 +336,7 @@ if [ -d "$HOME_CODEX/sessions" ] || [ -d "$HOME_CODEX/archived_sessions" ]; then
     SRC="$TMP/codex-arch"; if [ "$DRY" != "1" ]; then rm -rf "$SRC"; mkdir -p "$SRC/all"; fi
     new=0; pending_paths=(); pending_sizes=()
     while IFS= read -r -d '' f; do
-      if need_process "$f" "codex-subagents-v1"; then
+      if need_process "$f" "codex-subagents-v2"; then
         detected_size="$DETECTED_SIZE"
         if [ "$DRY" = "1" ]; then
           new=$((new+1))

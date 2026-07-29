@@ -15,6 +15,8 @@ import os
 import re
 import sys
 
+from codex_internal import is_legacy_guardian_markdown
+
 
 PLAN_VERSION = 1
 ESTIMATOR = "chars_div_4"
@@ -213,10 +215,16 @@ def parse_markdown(path, backup_dir):
     if not title:
         title = os.path.splitext(os.path.basename(path))[0]
     rel = os.path.relpath(path, backup_dir)
+    source = meta_value(body, "source", "fuente") or ""
+    parent_id = meta_value(body, "parent_id") or ""
+    explicit_internal = (
+        meta_value(body, "internal").lower() == "true"
+        or bool(meta_value(body, "internal_kind"))
+    )
     return {
         "id": meta_value(body, "id") or rel,
         "project": meta_value(body, "project", "proyecto") or os.path.basename(os.path.dirname(path)) or "(no project)",
-        "source": meta_value(body, "source", "fuente") or "",
+        "source": source,
         "date": meta_value(body, "date", "fecha") or "",
         "title": title,
         "path": rel,
@@ -224,6 +232,7 @@ def parse_markdown(path, backup_dir):
         "text": text,
         "estimate": estimate(text),
         "possible_secret": possible_secret(text),
+        "internal": explicit_internal or is_legacy_guardian_markdown(text, source, parent_id),
     }
 
 
@@ -275,7 +284,9 @@ def markdown_sessions(backup_dir):
     sessions = []
     for path in sorted(glob.glob(os.path.join(backup_dir, "markdown-*", "**", "*.md"), recursive=True)):
         try:
-            sessions.append(parse_markdown(path, backup_dir))
+            session = parse_markdown(path, backup_dir)
+            if not session.get("internal"):
+                sessions.append(session)
         except Exception:
             continue
     return canonical_sessions(sessions)

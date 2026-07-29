@@ -43,8 +43,9 @@ except Exception:
     def project_label(folder):
         parts = [p for p in folder.split("-") if p]
         return parts[-1] if parts else folder
+from codex_internal import is_guardian_source, is_legacy_guardian_markdown
 
-CACHE_VERSION = 5
+CACHE_VERSION = 6
 
 # Recovered-raw archives often hold duplicate project folders with a localized
 # "(del respaldo)" / "(copy)" suffix; strip it so they map to the real project.
@@ -341,6 +342,8 @@ def scan_codex(path, _plabel=None):
         if p.get("id"):
             s["id"] = p.get("id")
         bump_time(s, p.get("timestamp") or first_meta.get("timestamp"))
+        if is_guardian_source(p.get("source")):
+            s["internal"] = True
     if child:
         s["parent_id"] = child["parent_id"]
         s["subagent_runs"] = 1
@@ -582,6 +585,13 @@ def scan_markdown(path):
     if parent:
         s["parent_id"] = parent
         s["subagent_runs"] = 1
+    source = _markdown_meta_value(meta, "source", "fuente")
+    explicit_internal = (
+        _markdown_meta_value(meta, "internal").lower() == "true"
+        or bool(_markdown_meta_value(meta, "internal_kind"))
+    )
+    if explicit_internal or is_legacy_guardian_markdown(txt, source, parent):
+        s["internal"] = True
     s["user_messages"] = len(MD_USER_RE.findall(txt))
     s["assistant_messages"] = len(MD_ASSIST_RE.findall(txt))
     for tm in MD_TOOL_RE.finditer(txt):
@@ -736,17 +746,17 @@ def load_cache(path):
         version = c.get("version")
         if version == CACHE_VERSION:
             return c["sessions"]
-        if version == 4:
-            # v4 metrics remain the only token/model evidence after raw pruning.
+        if version in (4, 5):
+            # Legacy metrics remain the only token/model evidence after raw pruning.
             # Keep every entry available to the cumulative carry path, but make
             # its signature intentionally stale so any raw/Markdown that still
-            # exists is rescanned once with the v5 parent/subagent fields.
+            # exists is rescanned once with current attribution/internal fields.
             migrated = {}
             for key, value in c["sessions"].items():
                 if not isinstance(value, dict):
                     continue
                 entry = dict(value)
-                entry["sig"] = "legacy-v4:" + str(value.get("sig") or "")
+                entry["sig"] = f"legacy-v{version}:" + str(value.get("sig") or "")
                 migrated[key] = entry
             return migrated
     except Exception:
@@ -894,8 +904,10 @@ def main():
     #     with tokens) — token data, once computed, persists in the data folder and
     #     travels with the markdowns; no dependency on the raw after the first read;
     #   - sessions whose raw was never seen fall back to the .md (counts only).
+    sessions = [m for m in sessions if not m.get("internal")]
     raw_ids = {m.get("id") for m in sessions if m.get("id")}
     md_cache, md_all, md_hits, md_misses = collect_markdown(out_dir, old)
+    md_all = [m for m in md_all if not m.get("internal")]
     md_ids = {m.get("id") for m in md_all if m.get("id")}
     md_by_id = {m.get("id"): m for m in md_all if m.get("id")}
     carried = 0

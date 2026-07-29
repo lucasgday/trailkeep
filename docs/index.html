@@ -1485,7 +1485,7 @@ function renderMarkdown(src){
 /* ---------- parse .md ---------- */
 function parseMeta(text){
   const m = text.match(/<!--([^]*?)-->/);
-  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:""};
+  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:"", internal:false, internalKind:""};
   if(m){
     const body=m[1];
     // accept English (date/project/source/archived) and legacy Spanish keys
@@ -1493,6 +1493,8 @@ function parseMeta(text){
     meta.id=get("id"); meta.fecha=get("date","fecha"); meta.proyecto=get("project","proyecto"); meta.fuente=get("source","fuente");
     meta.parentId=get("parent_id"); meta.agentPath=get("agent_path"); meta.agentNickname=get("agent_nickname");
     meta.agentStatus=get("agent_status"); meta.completedAt=get("completed_at"); meta.formatVersion=get("format_version");
+    meta.internalKind=get("internal_kind");
+    meta.internal=/^true$/i.test(get("internal"))||!!meta.internalKind;
     const depth=get("agent_depth");
     meta.agentDepth=depth!==""&&Number.isFinite(Number(depth)) ? Number(depth) : null;
     meta.archivada = /^true$/i.test(get("archived","archivada"));
@@ -1561,6 +1563,20 @@ function instructionContextTurn(turn){
   return instructionContextTitle(md)
     || /<INSTRUCTIONS>[\s\S]*?<\/INSTRUCTIONS>/i.test(md)
     || /<(permissions instructions|environment_context|app-context|apps_instructions|skills_instructions|plugins_instructions|collaboration_mode)>/i.test(md);
+}
+function internalCodexApprovalReview(meta, turns){
+  if(String(meta&&meta.fuente||"").trim().toLowerCase()!=="codex" || String(meta&&meta.parentId||"").trim()) return false;
+  const approvalPrompt=/^The following is the Codex agent history (?:whose request action you are assessing|added since your last approval assessment)\b/i;
+  const users=(turns||[]).filter(turn=>turn.type==="user"&&!instructionContextTurn(turn));
+  if(!users.length || users.some(turn=>!approvalPrompt.test(String(turn.md||"").trim()))) return false;
+  if((turns||[]).some(turn=>turn.type==="tool")) return false;
+  return (turns||[]).some(turn=>{
+    if(turn.type!=="assistant") return false;
+    try{
+      const value=JSON.parse(String(turn.md||"").trim());
+      return !!(value&&typeof value==="object"&&typeof value.outcome==="string");
+    }catch(e){ return false; }
+  });
 }
 function cleanSessionTitleCandidate(text){
   if(!text||instructionContextTitle(text)) return "";
@@ -1859,9 +1875,11 @@ async function handleFiles(fileList){
     const text=await f.text();
     const meta=parseMeta(text);
     if(!meta.valid) continue;
+    if(meta.internal) continue;
     const tm=text.match(/^#\s+(.+)$/m);
     const turns=parseTurns(text);
     if(!turns.length) continue;
+    if(internalCodexApprovalReview(meta,turns)) continue;
     const rawTitle=tm?tm[1].trim():f.name.replace(/\.md$/,"");
     const title=displaySessionTitle(rawTitle, turns, f.name.replace(/\.md$/,""));
     const fuente=meta.fuente || (rel.toLowerCase().includes("codex")?"codex":"claude-code");

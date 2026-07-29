@@ -8,6 +8,7 @@ import json, os, re, sys, glob
 from collections import Counter
 
 from atomic_io import atomic_write_json, atomic_write_text
+from codex_internal import is_guardian_source, latest_timestamp
 
 def load_index(index_path):
     idx = {}
@@ -159,6 +160,7 @@ def parse_session(path, index, archived=False):
     last_task_started_line = None
     last_line = 0
     message_fingerprints = []
+    internal = False
 
     # Codex fork rollouts begin with the child's session_meta, then may replay a
     # large slice of the parent's history (including the parent's session_meta).
@@ -171,7 +173,9 @@ def parse_session(path, index, archived=False):
             sid = payload.get("id")
             sess_ts = payload.get("timestamp") or d.get("timestamp")
             cwd = payload.get("cwd")
-            child = subagent_meta(payload.get("source"))
+            source = payload.get("source")
+            internal = is_guardian_source(source)
+            child = subagent_meta(source)
         elif child and d.get("type") == "session_meta":
             replay_id = str((d.get("payload", {}) or {}).get("id") or "")
             if replay_id and replay_id != str(sid or ""):
@@ -197,6 +201,7 @@ def parse_session(path, index, archived=False):
         fingerprint for line_no, fingerprint in message_fingerprints
         if boundary_line is not None and line_no <= boundary_line
     )
+    activity_ts = sess_ts
 
     for line_no, d in json_lines(path):
         typ = d.get("type")
@@ -210,7 +215,9 @@ def parse_session(path, index, archived=False):
         if child and boundary_line is not None and line_no <= boundary_line:
             continue
 
-        elif typ == "response_item":
+        activity_ts = latest_timestamp(activity_ts, d.get("timestamp"))
+
+        if typ == "response_item":
             ptype = payload.get("type")
             if ptype == "message":
                 role = payload.get("role")
@@ -254,7 +261,7 @@ def parse_session(path, index, archived=False):
     # title: from the index if present, else first user message, else date
     meta = index.get(sid, {}) if sid else {}
     title = subagent_title(child) if child else clean_title(meta.get("title"))
-    updated = meta.get("updated_at") or sess_ts
+    updated = latest_timestamp(meta.get("updated_at"), activity_ts, sess_ts)
     if not title:
         # look for the first "### You"
         for b in blocks:
@@ -286,6 +293,7 @@ def parse_session(path, index, archived=False):
         "completed_at": completed_at,
         "deferred": bool(child and not blocks and status != "completed"),
         "unreadable_completed": bool(child and not blocks and status == "completed"),
+        "internal": internal,
     }
 
 def safe_filename(s):
@@ -319,16 +327,63 @@ def existing_markdowns_by_id(out_dir):
             existing[sid] = {"date": date, "path": path}
     return existing
 
+def mark_internal_markdown(path):
+    """Preserve an old guardian Markdown while making its identity explicit."""
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as source:
+            text = source.read()
+    except Exception:
+        return False
+    comment = re.search(r"<!--(.*?)-->", text, re.S)
+    if not comment:
+        return False
+    body = comment.group(1)
+    if re.search(r"(?:^|\|)\s*internal\s*:\s*true\s*(?=\||$)", body, re.I) \
+            and meta_value(body, "internal_kind") == "approval_review":
+        return False
+    if re.search(r"(?:^|\|)\s*internal\s*:", body, re.I):
+        body = re.sub(
+            r"((?:^|\|)\s*internal\s*:\s*)[^|]*",
+            lambda match: match.group(1) + "true ",
+            body,
+            count=1,
+            flags=re.I,
+        )
+    else:
+        body = body.rstrip() + " | internal: true "
+    if re.search(r"(?:^|\|)\s*internal_kind\s*:", body, re.I):
+        body = re.sub(
+            r"((?:^|\|)\s*internal_kind\s*:\s*)[^|]*",
+            lambda match: match.group(1) + "approval_review ",
+            body,
+            count=1,
+            flags=re.I,
+        )
+    else:
+        body = body.rstrip() + " | internal_kind: approval_review "
+    updated = text[:comment.start()] + "<!--" + body + "-->" + text[comment.end():]
+    atomic_write_text(path, updated)
+    return True
+
 def main():
     sessions_dir, index_path, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
     archived = len(sys.argv) > 4 and sys.argv[4].lower() in ("1","true","archived","yes")
     index = load_index(index_path)
     files = glob.glob(os.path.join(sessions_dir, "**", "*.jsonl"), recursive=True)
 
-    counts = {"ok": 0, "empty": 0, "subagents": 0, "deferred": 0, "unreadable": 0}
+    counts = {
+        "ok": 0, "empty": 0, "subagents": 0, "deferred": 0,
+        "unreadable": 0, "internal": 0, "internal_marked": 0,
+    }
     existing_by_id = existing_markdowns_by_id(out_dir)
     for f in files:
         s = parse_session(f, index, archived=archived)
+        if s["internal"]:
+            counts["internal"] += 1
+            existing = existing_by_id.get(str(s.get("id") or ""), {}).get("path")
+            if existing and mark_internal_markdown(existing):
+                counts["internal_marked"] += 1
+            continue
         if not s["blocks"]:
             if s["deferred"]:
                 counts["deferred"] += 1
@@ -376,6 +431,8 @@ def main():
     print(f"Subagents: {counts['subagents']}")
     print(f"Deferred subagents: {counts['deferred']}")
     print(f"Unreadable completed subagents: {counts['unreadable']}")
+    print(f"Ignored internal sessions: {counts['internal']}")
+    print(f"Marked existing internal Markdown: {counts['internal_marked']}")
     print(f"Empty (no readable messages): {counts['empty']}")
 
     # backup stamp: timestamp of this run
@@ -393,6 +450,8 @@ def main():
             "subagents": counts["subagents"],
             "deferred_subagents": counts["deferred"],
             "unreadable_completed_subagents": counts["unreadable"],
+            "ignored_internal_sessions": counts["internal"],
+            "marked_internal_markdown": counts["internal_marked"],
         }
         os.makedirs(out_dir, exist_ok=True)
         atomic_write_json(info_path, info)

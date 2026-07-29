@@ -16,6 +16,8 @@ Usage: extract_projects.py <out_dir> [claude=<dir>] [cowork=<dir>] [codex=<dir>]
 import json, os, re, sys, glob, subprocess, datetime
 from urllib.parse import urlsplit, urlunsplit
 
+from codex_internal import is_guardian_source, latest_timestamp
+
 # Manifest file -> stack label. First match(es) win; a project can have several.
 MANIFESTS = [
     ("package.json", "node"), ("deno.json", "deno"), ("tsconfig.json", "typescript"),
@@ -89,6 +91,10 @@ def first_cwd_claude(path):
 
 
 def first_cwd_codex(path):
+    cwd = None
+    ts = None
+    internal = False
+    found_meta = False
     for line in open(path, errors="ignore"):
         line = line.strip()
         if not line:
@@ -97,10 +103,14 @@ def first_cwd_codex(path):
             d = json.loads(line)
         except Exception:
             continue
-        if d.get("type") == "session_meta":
+        ts = latest_timestamp(ts, d.get("timestamp"))
+        if d.get("type") == "session_meta" and not found_meta:
             p = d.get("payload", {}) or {}
-            return p.get("cwd"), p.get("timestamp")
-    return None, None
+            cwd = p.get("cwd")
+            ts = latest_timestamp(ts, p.get("timestamp"))
+            internal = is_guardian_source(p.get("source"))
+            found_meta = True
+    return cwd, ts, internal
 
 
 def add(projects, cwd, ts, source, name=None, virtual=False):
@@ -144,8 +154,10 @@ def scan_claude(root, source, projects):
 def scan_codex(root, projects):
     for f in glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True):
         try:
-            cwd, ts = first_cwd_codex(f)
+            cwd, ts, internal = first_cwd_codex(f)
         except Exception:
+            continue
+        if internal:
             continue
         add(projects, cwd, ts, "codex")
 
