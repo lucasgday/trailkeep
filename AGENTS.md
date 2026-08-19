@@ -83,13 +83,15 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   and dedups by session uuid; `TRAILKEEP_CLAUDE_RAW_EXTRA` points at recovered-raw
   archive folders — read once to seed token data, optional thereafter.
 - `converters/extract_projects.py` — **Project metadata**: deterministic, $0,
-  on-device. Reads each project's `cwd` from the raw, then its git branch / last
-  commit, detected stack (manifests/source hints) and status (active/inactive/gone by
-  last-30-days activity or deployed state), plus safe local `repo_url` /
-  `deploy_url` hints when available.
+  on-device. Reads each project's `cwd`, latest non-internal conversation event,
+  and explicit production deploy URLs from raw conversation/tool text, then its
+  git branch / last commit, detected stack (manifests/source hints) and status
+  (active/inactive/gone by last-30-days activity or deployed state), plus safe
+  local `repo_url` / `deploy_url` hints when available. Preview, staging, and
+  development URLs are excluded.
   Writes a `_projects.json` sidecar the viewer joins with the ledger (by project
   name) to render a project home. Local reads only (git, manifests/source/deploy
-  hints); no network.
+  hints and raw conversation text); no network.
   Cowork runs in throwaway sandboxes with random Docker-style `cwd`s, so it folds
   into one **virtual** "cowork" project (no filesystem facts, never "gone"),
   matching the converter which tags every Cowork session `project: cowork`.
@@ -205,7 +207,8 @@ changes. See any existing converter as a reference.
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Backup retry transaction: `node scripts/test-backup-retry.cjs`
 - Codex subagent hierarchy: `node scripts/test-codex-subagents.cjs`
-- Claude continuity/internal sessions/tool grouping: node scripts/test-claude-continuity.cjs
+- Project production deploy URL detection: `node scripts/test-project-deploy-url.cjs`
+- Claude continuity/internal sessions/tool grouping: `node scripts/test-claude-continuity.cjs`
 - Claude project attribution: `node scripts/test-claude-project-names.cjs`
 - Provider-normalized token accounting: `node scripts/test-ledger-token-accounting.cjs`
 - Viewer Markdown tables: `node scripts/test-viewer-markdown.cjs`

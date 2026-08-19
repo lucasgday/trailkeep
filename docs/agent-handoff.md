@@ -64,6 +64,11 @@ generated-review inputs, or release verification.
   date and time, and therefore sort same-day activity by its actual hour.
   Claude project metadata now uses the final non-internal conversation event
   rather than the first raw line or later local-command noise.
+- Project metadata also extracts explicit production deploy URLs from Claude,
+  Codex, and OpenCode conversation/tool evidence on each backup run. The newest
+  production mention wins over static local hints; preview, staging, and
+  development URLs are excluded. Cowork remains a virtual project without
+  filesystem or deploy facts.
 - The local real-backup migration completed successfully: 409 internal rollouts
   were ignored and 405 existing Markdown files were explicitly marked.
 - The local Claude v5 activity/internal-session migration completed successfully on
@@ -92,6 +97,9 @@ generated-review inputs, or release verification.
 - `scripts/test-ledger-token-accounting.cjs` covers repeated Claude usage rows,
   Codex reasoning-inclusive output, cache-version migration, preservation and
   exclusion of incompatible legacy measurements, plus viewer/demo aggregation parity.
+- `scripts/test-project-deploy-url.cjs` covers newest-production selection,
+  Claude tool results, Codex tool output, and preview exclusion from both raw
+  conversations and local README hints.
 - Browser QA passes for `viewer.html` and `docs/index.html`: no console errors,
   no attempted network requests, full and embedded internal command traffic
   hidden, resumed lineage reduced to one row, tool/result grouped, tool
@@ -137,3 +145,5 @@ generated-review inputs, or release verification.
   missing Claude raw transcripts are recovered.
 - Existing guardian `.md` files should not be deleted; cumulative preservation
   remains intentional.
+- Run `node scripts/test-project-deploy-url.cjs` after future changes to project
+  metadata or raw conversation parsing.
