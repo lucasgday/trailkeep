@@ -135,7 +135,8 @@ effective-plan generation.
    If a selected input has `preprocessed_ref`, read that entry from
    `<backup_dir>/_review_preprocessed_inputs.json` and use the sanitized text as
    model context. It may be redacted for secrets, sanitized for instruction
-   context, or both. Do not read or send the raw markdown for that input unless
+   context, stripped of generated local-command UI turns, or a combination. Do
+   not read or send the raw markdown for that input unless
    the user explicitly asks for a raw deep-review rerun.
 7. Before model calls for local git repos, run the wrapper repo-sync check:
 

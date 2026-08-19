@@ -277,12 +277,20 @@ def check_privacy(plan, backup_dir):
                 has_instruction_context = bool(item.get("instruction_context")) or (
                     isinstance(instruction_count, int) and instruction_count > 0
                 )
+                sanitization_types = item.get("sanitization_types") or []
+                has_local_command_filter = (
+                    isinstance(sanitization_types, list)
+                    and "local_command_turns" in sanitization_types
+                )
                 if not is_nonnegative_int(redaction_count):
                     failures.append(f"{project.get('name')} preprocessed input missing redaction_count")
                 elif item.get("possible_secret") and not positive_int(redaction_count):
                     failures.append(f"{project.get('name')} secret preprocessed input has no redactions")
-                elif not item.get("possible_secret") and redaction_count == 0 and not has_instruction_context:
-                    failures.append(f"{project.get('name')} preprocessed input has no redactions or instruction context")
+                elif not item.get("possible_secret") and redaction_count == 0 \
+                        and not has_instruction_context and not has_local_command_filter:
+                    failures.append(
+                        f"{project.get('name')} preprocessed input has no recognized sanitization"
+                    )
 
     preprocessed_path = os.path.join(backup_dir, str(plan.get("preprocessed_inputs_file") or PREPROCESSED_INPUTS_FILE))
     if os.path.exists(preprocessed_path):

@@ -14,6 +14,7 @@ import os
 import re
 import sys
 
+from claude_internal import is_legacy_local_command_markdown, strip_local_command_markdown_turns
 from codex_internal import is_legacy_guardian_markdown
 
 
@@ -259,6 +260,13 @@ def meta_value(body, *keys):
     return ""
 
 
+def int_value(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_markdown(path, backup_dir):
     text = open(path, encoding="utf-8", errors="ignore").read()
     comment = re.search(r"<!--(.*?)-->", text, re.S)
@@ -276,16 +284,23 @@ def parse_markdown(path, backup_dir):
         meta_value(body, "internal").lower() == "true"
         or bool(meta_value(body, "internal_kind"))
     )
+    internal = explicit_internal \
+        or is_legacy_guardian_markdown(text, source, parent_id) \
+        or is_legacy_local_command_markdown(text, source)
+    review_text = strip_local_command_markdown_turns(text, source)
     return {
         "id": session_id,
+        "lineage_id": meta_value(body, "lineage_id") or "",
+        "message_count": int_value(meta_value(body, "message_count")),
+        "updated_at": meta_value(body, "updated_at") or "",
         "relpath": rel,
         "project": project,
         "source": source,
         "date": meta_value(body, "date", "fecha") or "",
         "title": title,
-        "content_hash": content_hash(text),
-        "text": text,
-        "internal": explicit_internal or is_legacy_guardian_markdown(text, source, parent_id),
+        "content_hash": content_hash(review_text),
+        "text": review_text,
+        "internal": internal,
     }
 
 
@@ -310,20 +325,42 @@ def load_sessions(backup_dir):
 
 
 def session_stable_key(session):
+    lineage_id = text_value(as_dict(session).get("lineage_id"))
     sid = text_value(as_dict(session).get("id"))
     source = text_value(as_dict(session).get("source"))
+    if lineage_id and source:
+        return f"{source}:lineage:{lineage_id}"
     if not sid or not source:
         return ""
     return f"{source}:{sid}"
 
 
+def session_identity_keys(session):
+    value = as_dict(session)
+    source = text_value(value.get("source"))
+    sid = text_value(value.get("id"))
+    lineage_id = text_value(value.get("lineage_id"))
+    if not source:
+        return []
+    keys = []
+    if sid:
+        keys.append(f"{source}:session:{sid}")
+    if lineage_id:
+        keys.append(f"{source}:lineage:{lineage_id}")
+    return keys
+
+
 def session_newer_than(left, right):
     left_key = (
+        text_value(left.get("updated_at")),
+        int_value(left.get("message_count")),
         text_value(left.get("date")),
         text_value(left.get("content_hash")),
         text_value(left.get("relpath")),
     )
     right_key = (
+        text_value(right.get("updated_at")),
+        int_value(right.get("message_count")),
         text_value(right.get("date")),
         text_value(right.get("content_hash")),
         text_value(right.get("relpath")),
@@ -332,17 +369,34 @@ def session_newer_than(left, right):
 
 
 def canonical_sessions(sessions):
-    best_by_key = {}
-    without_key = []
-    for session in sessions:
-        key = session_stable_key(session)
-        if not key:
-            without_key.append(session)
-            continue
-        current = best_by_key.get(key)
+    parent = list(range(len(sessions)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left, right):
+        left_root, right_root = find(left), find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    owner = {}
+    for index, session in enumerate(sessions):
+        for key in session_identity_keys(session):
+            if key in owner:
+                union(index, owner[key])
+            else:
+                owner[key] = index
+
+    best_by_root = {}
+    for index, session in enumerate(sessions):
+        root = find(index)
+        current = best_by_root.get(root)
         if current is None or session_newer_than(session, current):
-            best_by_key[key] = session
-    return without_key + list(best_by_key.values())
+            best_by_root[root] = session
+    return list(best_by_root.values())
 
 
 def sidecar_path(backup_dir, name):

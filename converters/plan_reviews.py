@@ -15,6 +15,7 @@ import os
 import re
 import sys
 
+from claude_internal import is_legacy_local_command_markdown, strip_local_command_markdown_turns
 from codex_internal import is_legacy_guardian_markdown
 
 
@@ -202,6 +203,13 @@ def meta_value(body, *keys):
     return ""
 
 
+def int_value(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_markdown(path, backup_dir):
     text = open(path, encoding="utf-8", errors="ignore").read()
     comment = re.search(r"<!--(.*?)-->", text, re.S)
@@ -221,37 +229,66 @@ def parse_markdown(path, backup_dir):
         meta_value(body, "internal").lower() == "true"
         or bool(meta_value(body, "internal_kind"))
     )
+    internal = explicit_internal \
+        or is_legacy_guardian_markdown(text, source, parent_id) \
+        or is_legacy_local_command_markdown(text, source)
+    review_text = strip_local_command_markdown_turns(text, source)
     return {
         "id": meta_value(body, "id") or rel,
+        "lineage_id": meta_value(body, "lineage_id") or "",
+        "message_count": int_value(meta_value(body, "message_count")),
+        "updated_at": meta_value(body, "updated_at") or "",
         "project": meta_value(body, "project", "proyecto") or os.path.basename(os.path.dirname(path)) or "(no project)",
         "source": source,
         "date": meta_value(body, "date", "fecha") or "",
         "title": title,
         "path": rel,
-        "hash": content_hash(text),
-        "text": text,
-        "estimate": estimate(text),
-        "possible_secret": possible_secret(text),
-        "internal": explicit_internal or is_legacy_guardian_markdown(text, source, parent_id),
+        "hash": content_hash(review_text),
+        "text": review_text,
+        "estimate": estimate(review_text),
+        "possible_secret": possible_secret(review_text),
+        "local_command_filtered": review_text != text,
+        "internal": internal,
     }
 
 
 def session_stable_key(session):
+    lineage_id = str(session.get("lineage_id") or "").strip()
     sid = str(session.get("id") or "").strip()
     source = str(session.get("source") or "").strip()
     path = str(session.get("path") or "").strip()
+    if lineage_id and source:
+        return f"{source}:lineage:{lineage_id}"
     if not sid or not source or sid == path:
         return ""
     return f"{source}:{sid}"
 
 
+def session_identity_keys(session):
+    source = str(session.get("source") or "").strip()
+    sid = str(session.get("id") or "").strip()
+    lineage_id = str(session.get("lineage_id") or "").strip()
+    if not source:
+        return []
+    keys = []
+    if sid:
+        keys.append(f"{source}:session:{sid}")
+    if lineage_id:
+        keys.append(f"{source}:lineage:{lineage_id}")
+    return keys
+
+
 def session_newer_than(left, right):
     left_key = (
+        str(left.get("updated_at") or ""),
+        int_value(left.get("message_count")),
         str(left.get("date") or ""),
         int((left.get("estimate") or {}).get("chars") or 0),
         str(left.get("path") or ""),
     )
     right_key = (
+        str(right.get("updated_at") or ""),
+        int_value(right.get("message_count")),
         str(right.get("date") or ""),
         int((right.get("estimate") or {}).get("chars") or 0),
         str(right.get("path") or ""),
@@ -260,19 +297,37 @@ def session_newer_than(left, right):
 
 
 def canonical_sessions(sessions):
-    best_by_key = {}
-    for session in sessions:
-        key = session_stable_key(session)
-        if not key:
-            continue
-        current = best_by_key.get(key)
+    parent = list(range(len(sessions)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left, right):
+        left_root, right_root = find(left), find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    owner = {}
+    for index, session in enumerate(sessions):
+        for key in session_identity_keys(session):
+            if key in owner:
+                union(index, owner[key])
+            else:
+                owner[key] = index
+
+    best_by_root = {}
+    for index, session in enumerate(sessions):
+        root = find(index)
+        current = best_by_root.get(root)
         if current is None or session_newer_than(session, current):
-            best_by_key[key] = session
+            best_by_root[root] = session
 
     canonical = []
-    for session in sessions:
-        key = session_stable_key(session)
-        best = best_by_key.get(key)
+    for index, session in enumerate(sessions):
+        best = best_by_root.get(find(index))
         if best is not None and best is not session:
             best.setdefault("superseded_paths", []).append(session.get("path"))
             continue
@@ -464,7 +519,9 @@ def preprocessed_key(project, item):
     ])
 
 
-def add_preprocessed_input(preprocessed, project, item, text, metadata=None, strip_instruction_context=True):
+def add_preprocessed_input(
+        preprocessed, project, item, text, metadata=None,
+        strip_instruction_context=True, force_reason=""):
     processed_text = text or ""
     instruction_contexts = []
     if strip_instruction_context:
@@ -472,12 +529,19 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
     redacted, replacements = redact_secrets(processed_text)
     title, title_replacements = redact_metadata_value(item.get("title") or "")
     has_secret_replacements = bool(replacements or title_replacements)
-    if not has_secret_replacements and not instruction_contexts:
+    if not has_secret_replacements and not instruction_contexts and not force_reason:
         return item
     key = preprocessed_key(project, item)
     redacted_hash = content_hash(redacted)
     redaction_types = sorted(set(r["type"] for r in [*replacements, *title_replacements]))
     redaction_count = len(replacements) + len(title_replacements)
+    sanitization_types = []
+    if has_secret_replacements:
+        sanitization_types.append("secret_redaction")
+    if instruction_contexts:
+        sanitization_types.append("instruction_context")
+    if force_reason:
+        sanitization_types.append(force_reason)
     preprocessed["inputs"][key] = {
         "project": project,
         "type": item.get("type") or "",
@@ -493,6 +557,7 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
         "redaction_types": redaction_types,
         "instruction_context_count": len(instruction_contexts),
         "instruction_contexts": instruction_contexts,
+        "sanitization_types": sanitization_types,
         "text": redacted,
     }
     redacted_estimate = estimate(redacted)
@@ -507,6 +572,7 @@ def add_preprocessed_input(preprocessed, project, item, text, metadata=None, str
         "preprocessed_content_hash": redacted_hash,
         "redaction_count": redaction_count,
         "redaction_types": redaction_types,
+        "sanitization_types": sanitization_types,
         "source_chars": item.get("chars", 0),
         "source_words": item.get("words", 0),
         "source_estimated_input_tokens": item.get("estimated_input_tokens", 0),
@@ -585,6 +651,7 @@ def plan_project(name, project_meta, sessions, review_entry, summaries, bootstra
             item,
             s["text"],
             {"source": s.get("source") or "", "date": s.get("date") or ""},
+            force_reason="local_command_turns" if s.get("local_command_filtered") else "",
         )
         inputs.append(item)
 
@@ -714,6 +781,7 @@ def main():
                 "preprocessed_ref": item.get("preprocessed_ref") or "",
                 "preprocessed_content_hash": item.get("preprocessed_content_hash") or "",
                 "redaction_count": item.get("redaction_count", 0),
+                "sanitization_types": item.get("sanitization_types") or [],
                 "instruction_context": bool(item.get("instruction_context")),
                 "instruction_context_count": item.get("instruction_context_count", 0),
                 "instruction_context_usage": item.get("instruction_context_usage") or "",

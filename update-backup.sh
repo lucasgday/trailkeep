@@ -117,6 +117,7 @@ PY_LEDGER="$SCRIPT_DIR/converters/extract_ledger.py"
 PY_PROJECTS="$SCRIPT_DIR/converters/extract_projects.py"
 PY_REVIEW_PLAN="$SCRIPT_DIR/converters/plan_reviews.py"
 PY_REVIEW_EVAL="$SCRIPT_DIR/converters/eval_review_plan.py"
+CLAUDE_CONVERTER_VERSION="claude-visible-activity-v5"
 
 # OS-aware source paths (macOS vs Linux/XDG). Claude Code (~/.claude) and Codex
 # (~/.codex) are the same on both; Cowork/Cursor/OpenCode differ.
@@ -252,7 +253,7 @@ if [ -d "$HOME_CLAUDE/projects" ]; then
   while IFS= read -r -d '' f; do
     [[ "$f" == *"/subagents/"* ]] && continue
     [[ "$(basename "$f")" == agent-* ]] && continue
-    if need_process "$f"; then
+    if need_process "$f" "$CLAUDE_CONVERTER_VERSION"; then
       detected_size="$DETECTED_SIZE"
       if [ "$DRY" = "1" ]; then
         new=$((new+1))
@@ -446,7 +447,7 @@ if [ -d "$COWORK_DIR" ]; then
   SRC="$TMP/cowork/cowork"; if [ "$DRY" != "1" ]; then rm -rf "$TMP/cowork"; mkdir -p "$SRC"; fi
   new=0; pending_paths=(); pending_sizes=()
   while IFS= read -r -d '' f; do
-    if need_process "$f"; then
+    if need_process "$f" "$CLAUDE_CONVERTER_VERSION"; then
       detected_size="$DETECTED_SIZE"
       if [ "$DRY" = "1" ]; then
         new=$((new+1))
