@@ -37,6 +37,14 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   guards is NEW data silently not being captured.
 - `converters/convert_*.py` — one per source (claude/codex/opencode/cursor; cowork
   reuses convert_claude). Each reads its origin and writes the standard Markdown.
+  Claude Code local slash-command sessions are marked as internal (or skipped
+  when no Markdown exists), including both tag-wrapped commands and the
+  interactive `config` + `AskUserQuestion` flow. Generated command turns embedded
+  inside real conversations stay preserved in Markdown, while the viewer, Ledger,
+  and optional review layer exclude them from their in-memory views.
+  Resumed/forked Claude files keep
+  separate cumulative Markdown, while shared `lineage_id` metadata lets readers
+  select the newest, most complete branch without deleting the older evidence.
   Codex subagent rollouts remain separate Markdown files for cumulative safety;
   optional `parent_id` / `agent_*` metadata lets the viewer nest them inside the
   parent conversation without duplicating or rewriting the child's content.
@@ -56,6 +64,15 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   gone, counts are parsed from the `.md` (tokens/model only exist in raw). Each
   source writes a per-source `_ledger.json` (the viewer reads every one and
   aggregates). No LLM, no network.
+  Token accounting is provider-normalized: `input` means fresh/uncached prompt
+  input, `output` already includes reasoning, and cache read/creation stay
+  separate; processed tokens are the sum of those four fields. Claude usage is
+  deduplicated by API response identity because thinking/text/tool rows repeat
+  the same usage, while Codex reasoning is not added again on top of its inclusive
+  `output_tokens`. Sidecars carry `token_accounting_version`; incompatible
+  historical measurements remain preserved in the cumulative cache and
+  `legacy_tokens`, but are excluded from cross-provider model rankings until raw
+  transcripts can be recovered and rescanned.
   Incremental: per-session metrics are cached in `_ledger-cache.json` (validated by
   size:mtime) — file sources re-scan only changed sessions; DB sources re-scan only
   when the DB changed. **Cumulative + portable (rule #3):** a session stays in the
@@ -156,9 +173,10 @@ Converters emit, and the viewer parses, exactly this:
 …
 ```
 
-Tool calls render as `[tool: <name> → …]` / `[result]` blocks. If you change the
-format, update **both** the converters and the viewer's parser, and keep reading
-the legacy Spanish keys (rule 2).
+Tool calls render as `[tool: <name> → …]` / `[result]` blocks. The viewer groups
+an adjacent call and result into one visual execution while the Markdown remains
+unchanged. If you change the format, update **both** the converters and the
+viewer's parser, and keep reading the legacy Spanish keys (rule 2).
 
 Codex subagents may append `format_version`, `parent_id`, `agent_path`,
 `agent_nickname`, `agent_depth`, `agent_status`, and `completed_at` to the same
@@ -166,6 +184,13 @@ metadata comment. These fields are optional; older and non-Codex Markdown keeps
 the base contract above. A `spawn_agent` tool marker anchors the child in the
 parent timeline, while an unmatched child still renders through the viewer's
 related-subagents fallback.
+
+Claude Code may append `format_version`, `lineage_id`, `message_count`, and
+`updated_at`; the latter is the final visible non-internal conversation event,
+not trailing local-command traffic. Files sharing a source + lineage are
+alternate snapshots/branches of one conversation: preserve every file, but use
+the newest complete member in the viewer, Ledger, review planner, and
+generated-review eval corpus.
 
 ## Adding a source
 
@@ -176,10 +201,14 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
-- Converters/skills: `python3 -m py_compile converters/atomic_io.py converters/codex_internal.py converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Converters/skills: `python3 -m py_compile converters/atomic_io.py converters/claude_internal.py converters/codex_internal.py converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Backup retry transaction: `node scripts/test-backup-retry.cjs`
 - Codex subagent hierarchy: `node scripts/test-codex-subagents.cjs`
+- Claude continuity/internal sessions/tool grouping: node scripts/test-claude-continuity.cjs
+- Claude project attribution: `node scripts/test-claude-project-names.cjs`
+- Provider-normalized token accounting: `node scripts/test-ledger-token-accounting.cjs`
+- Viewer Markdown tables: `node scripts/test-viewer-markdown.cjs`
 - Viewer JS parses: `node -e "const h=require('fs').readFileSync('viewer.html','utf8');new Function(h.match(/<script>([\s\S]*)<\/script>/)[1]);console.log('ok')"`
 - Prompt drift: `node scripts/check-prompt-drift.cjs`
 - Viewer Playwright QA (optional dev check, not used by backup):

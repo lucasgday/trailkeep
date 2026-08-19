@@ -720,7 +720,8 @@ blocks as `instruction_context` when it can detect them.
 Rules:
 
 - use any selected input `preprocessed_ref` instead of the raw markdown; it may
-  be redacted for secrets, sanitized for instruction context, or both;
+  be redacted for secrets, sanitized for instruction context, stripped of
+  generated local-command UI turns, or a combination;
 - do not summarize AGENTS.md/global/developer/system headers as the conversation
   narrative;
 - do not create project decisions, tasks, `next_step`, `roadmap_status`, or
@@ -1085,11 +1086,12 @@ cap by default; estimates are for visibility and routing.
 
 ### Preprocessed Inputs
 
-When the deterministic planner detects a possible secret or initial
-instruction/header context inside a selected input, it should keep the input
-useful by redacting only the suspected secret value and/or replacing the
-instruction block with a short placeholder. It should not drop the whole
-conversation. The sanitized text lives in
+When the deterministic planner detects a possible secret, initial
+instruction/header context, or generated local-command UI turn inside a
+selected input, it should keep the input useful by redacting only the suspected
+secret value, replacing the instruction block with a short placeholder, and/or
+removing the generated command turn. It should not drop the whole conversation.
+The sanitized text lives in
 `<backup_dir>/_review_preprocessed_inputs.json` and the plan input references it
 with `preprocessed_ref`.
 
@@ -1111,6 +1113,7 @@ Recommended shape:
       "redacted_content_hash": "sha256...",
       "redaction_count": 1,
       "redaction_types": ["credential_assignment"],
+      "sanitization_types": ["secret_redaction", "instruction_context", "local_command_turns"],
       "instruction_context_count": 1,
       "instruction_contexts": [
         {
@@ -1135,7 +1138,7 @@ Rules:
   values.
 - If a plan input has `preprocessed_ref`, the agent must use the preprocessed
   text for model context, whether it was created for secrets, instruction
-  context, or both.
+  context, generated local-command filtering, or a combination.
 - If a plan input has `possible_secret: true` without `preprocessed_ref`, the
   gate should exclude that input automatically and log a `needs_attention`
   warning such as `input excluded for possible secret`.
