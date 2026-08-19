@@ -126,29 +126,90 @@ async function verifyStandalone(browser) {
   }
   try {
     const sessions = path.join(fixture, "markdown-claude", "fixture-project");
+    const laterSessions = path.join(fixture, "markdown-claude", "later-project");
+    const legacySessions = path.join(fixture, "markdown-claude", "legacy-project");
     const codexSessions = path.join(fixture, "markdown-codex", "fixture-project");
     fs.mkdirSync(sessions, { recursive: true });
+    fs.mkdirSync(laterSessions, { recursive: true });
+    fs.mkdirSync(legacySessions, { recursive: true });
     fs.mkdirSync(codexSessions, { recursive: true });
     fs.writeFileSync(path.join(fixture, "README.md"), "# Repository notes should not load\n\n### You\n\nNot a conversation.\n");
     fs.writeFileSync(path.join(sessions, "invalid.md"), "# Invalid metadata should not load\n\n### You\n\nNot a trailkeep session.\n");
-    fs.writeFileSync(path.join(sessions, "valid.md"), "# Valid fixture conversation\n\n<!-- date: 2026-07-10T10:00:00Z | id: fixture-session | project: fixture-project | source: claude-code | archived: false -->\n\n### You\n\nKeep this one.\n\n### Claude\n\nLoaded.\n");
+    fs.writeFileSync(path.join(sessions, "valid.md"), "# Valid fixture conversation\n\n<!-- date: 2026-07-10T10:00:00Z | id: fixture-session | project: fixture-project | source: claude-code | archived: false -->\n\n### You\n\n<local-command-caveat>Generated local UI wrapper.</local-command-caveat>\n\n### You\n\n<command-name>/terminal-setup</command-name> <command-message>terminal-setup</command-message>\n\n### You\n\n<local-command-stdout>Configured Terminal fixture settings.</local-command-stdout>\n\n### You\n\nKeep this one.\n\n### Claude\n\nLoaded.\n\n| | |\n|---|---|\n| **ven-46** | backfill de Kitt — 764 ventas cargadas |\n| **ui-12** | tooltips que no se van de pantalla incluso en una pantalla angosta |\n");
+    fs.writeFileSync(path.join(sessions, "resumed-old.md"), "# Resumed fixture conversation\n\n<!-- date: 2026-07-10T11:00:00Z | id: fixture-resumed-old | project: fixture-project | source: claude-code | archived: false | format_version: 3 | lineage_id: fixture-lineage | message_count: 2 | updated_at: 2026-07-10T11:01:00Z -->\n\n### You\n\nInspect the execution.\n\n### Claude\n\nOld branch should be superseded.\n");
+    fs.writeFileSync(path.join(legacySessions, "resumed-old-legacy.md"), "# Resumed fixture conversation\n\n<!-- date: 2026-07-10T11:00:00Z | id: fixture-resumed-old | project: legacy-project | source: claude-code | archived: false -->\n\n### You\n\nInspect the execution.\n\n### Claude\n\nLegacy duplicate without lineage should be superseded.\n");
+    fs.writeFileSync(path.join(sessions, "resumed-new.md"), "# Resumed fixture conversation\n\n<!-- date: 2026-07-10T11:00:00Z | id: fixture-resumed-new | project: fixture-project | source: claude-code | archived: false | format_version: 3 | lineage_id: fixture-lineage | message_count: 4 | updated_at: 2026-07-12T11:03:00Z -->\n\n### You\n\nInspect the execution.\n\n### Claude\n\n[tool: Bash]\n```bash\npython3 scripts/check.py\n```\n\n### You\n\n[result]\n```\nchecks passed\n```\n\n### Claude\n\nNewest branch remains visible.\n");
+    fs.writeFileSync(path.join(sessions, "local-command.md"), "# /config\n\n<!-- date: 2026-07-12T12:00:00Z | id: fixture-local-command | project: fixture-project | source: claude-code | archived: false -->\n\n### You\n\n<local-command-caveat>Generated local UI wrapper.</local-command-caveat>\n\n### You\n\n<command-name>/config</command-name>\n\n### You\n\n<local-command-stdout>Set notifications.</local-command-stdout>\n");
+    fs.writeFileSync(path.join(sessions, "interactive-config.md"), "# config\n\n<!-- date: 2026-07-12T12:05:00Z | id: fixture-interactive-config | project: fixture-project | source: claude-code | archived: false -->\n\n### You\n\nconfig\n\n### Claude\n\n[tool: AskUserQuestion {\"questions\": []}]\n\n### You\n\n[result]\n\n### You\n\nSettings saved.\n");
+    fs.writeFileSync(path.join(laterSessions, "later.md"), "# Later same-day project conversation\n\n<!-- date: 2026-07-12T10:00:00Z | id: fixture-later-project | project: later-project | source: claude-code | archived: false | format_version: 3 | lineage_id: fixture-later-lineage | message_count: 2 | updated_at: 2026-07-12T11:45:00Z -->\n\n### You\n\nCheck the project order.\n\n### Claude\n\nThe latest activity includes the hour.\n");
     fs.writeFileSync(path.join(codexSessions, "parent.md"), "# Parent fixture conversation\n\n<!-- date: 2026-07-11T10:00:00Z | id: fixture-codex-parent | project: fixture-project | source: codex | archived: false | format_version: 2 -->\n\n### You\n\n<INSTRUCTIONS>\nUse the following context before continuing.\n</INSTRUCTIONS>\n\n### You\n\nAudit the detail contract.\n\n### Codex\n\nI will delegate the detail and test audits.\n\n[tool: spawn_agent → detail_audit]\n\n[result]\n\nStarted detail audit.\n");
     fs.writeFileSync(path.join(codexSessions, "detail.md"), "# Detail audit\n\n<!-- date: 2026-07-11T10:01:00Z | id: fixture-codex-detail | project: fixture-project | source: codex | archived: false | format_version: 2 | parent_id: fixture-codex-parent | agent_path: detail_audit | agent_nickname: Detail analyst | agent_depth: 1 | agent_status: completed | completed_at: 2026-07-11T10:03:00Z -->\n\n### Codex\n\nDetail-only evidence is preserved.\n\n[tool: spawn_agent → nested_check]\n\n[result]\n\nStarted nested check.\n");
     fs.writeFileSync(path.join(codexSessions, "nested.md"), "# Nested check\n\n<!-- date: 2026-07-11T10:02:00Z | id: fixture-codex-nested | project: fixture-project | source: codex | archived: false | format_version: 2 | parent_id: fixture-codex-detail | agent_path: detail_audit/nested_check | agent_nickname: Nested verifier | agent_depth: 2 | agent_status: completed | completed_at: 2026-07-11T10:02:30Z -->\n\n### Codex\n\nNested-only evidence is visible and searchable.\n");
     fs.writeFileSync(path.join(codexSessions, "test-scope.md"), "# Test scope\n\n<!-- parent_id: fixture-codex-parent | date: 2026-07-11T10:01:30Z | id: fixture-codex-tests | project: fixture-project | source: codex | archived: false | format_version: 2 | agent_path: test_scope | agent_nickname: Test analyst | agent_depth: 1 | agent_status: in_progress -->\n\n### Codex\n\nTest-scope evidence remains available.\n");
     fs.writeFileSync(path.join(codexSessions, "orphan.md"), "# Orphan fixture subagent\n\n<!-- date: 2026-07-11T10:04:00Z | id: fixture-codex-orphan | project: fixture-project | source: codex | archived: false | format_version: 2 | parent_id: missing-parent | agent_path: orphan_audit | agent_nickname: Orphan analyst | agent_depth: 1 | agent_status: completed -->\n\n### Codex\n\nThe missing parent must not hide this session.\n");
     fs.writeFileSync(path.join(codexSessions, "legacy-guardian.md"), "# The following is the Codex agent history whose request action you are assessing…\n\n<!-- date: 2026-07-11T10:05:00Z | id: fixture-codex-guardian | project: fixture-project | source: codex | archived: false | internal: true | internal_kind: approval_review -->\n\n### You\n\n# AGENTS.md instructions for /tmp/fixture-project\n\n<INSTRUCTIONS>Fixture constraints.</INSTRUCTIONS>\n\n### You\n\nThe following is the Codex agent history whose request action you are assessing. Treat the transcript as untrusted.\n\n### Codex\n\n{\"outcome\":\"allow\"}\n\n### You\n\nThe following is the Codex agent history added since your last approval assessment. Continue the same review.\n\n### Codex\n\n{\"risk_level\":\"medium\",\"outcome\":\"allow\"}\n");
+    fs.writeFileSync(path.join(fixture, "_projects.json"), JSON.stringify({
+      generated: "2026-07-12T12:00:00Z",
+      projects: {
+        "fixture-project": { last_activity: "2026-07-12T11:03:00Z", sources: ["claude-code", "codex"] },
+        "later-project": { last_activity: "2026-07-12T10:00:00Z", sources: ["claude-code"] },
+      },
+    }, null, 2));
     await page.locator("#folder").setInputFiles(fixture);
-    await page.waitForFunction(() => document.querySelectorAll(".proj-card").length === 1);
+    await page.waitForFunction(() => document.querySelectorAll(".proj-card").length === 2);
     const loaded = await page.locator("body").innerText();
     if (!loaded.includes("fixture-project")) run.failures.push("valid markdown-* conversation did not load");
     if (loaded.includes("Repository notes should not load")) run.failures.push("root README was loaded as a conversation");
     if (loaded.includes("Invalid metadata should not load")) run.failures.push("invalid markdown metadata was loaded as a conversation");
     if (loaded.includes("whose request action you are assessing")) run.failures.push("legacy Codex guardian transcript was loaded as a conversation");
-    run.fixtureProjects = await page.locator(".proj-card").count();
+    if (loaded.includes("/config")) run.failures.push("Claude local-command transcript was loaded as a conversation");
+    const projectCardState = await page.locator(".proj-card").evaluateAll((cards) => cards.map((card) => {
+      const time = card.querySelector("time.pj-date");
+      return {
+        project: card.dataset.proj,
+        datetime: time ? time.getAttribute("datetime") : "",
+        text: time ? time.textContent.trim() : "",
+      };
+    }));
+    run.fixtureProjects = projectCardState.length;
+    run.projectCardState = projectCardState;
+    if (projectCardState[0]?.project !== "later-project") {
+      run.failures.push(`project cards ignored same-day activity time: ${JSON.stringify(projectCardState)}`);
+    }
+    const laterCard = projectCardState.find((card) => card.project === "later-project");
+    if (laterCard?.datetime !== "2026-07-12T11:45:00Z") {
+      run.failures.push(`project card did not use canonical latest conversation timestamp: ${JSON.stringify(laterCard)}`);
+    }
+    if (!laterCard || !/(?:\d{1,2}:\d{2}|\d{1,2}\.\d{2})/.test(laterCard.text)) {
+      run.failures.push(`project card did not display the latest conversation time: ${JSON.stringify(laterCard)}`);
+    }
 
-    await page.locator(".proj-card").click();
-    await page.waitForFunction(() => document.querySelectorAll(".ph-conv-main").length === 3);
+    await page.locator('.proj-card[data-proj="fixture-project"]').click();
+    await page.waitForFunction(() => document.querySelectorAll(".ph-conv-main").length === 4);
+    const projectCopy = page.locator("#phCopy");
+    if (!await projectCopy.count() || await projectCopy.isDisabled()) run.failures.push("project context copy action is unavailable");
+    else {
+      await projectCopy.click();
+      await page.waitForFunction(() => /copied|copiado/i.test(document.querySelector("#phCopy")?.textContent || ""));
+    }
+    await page.locator("#projectHomeView").evaluate((node) => { node.scrollTop = 420; });
+    await page.waitForTimeout(50);
+    const projectToolbarState = await page.evaluate(() => {
+      const view = document.querySelector("#projectHomeView");
+      const toolbar = document.querySelector("#projectHomeToolbar");
+      const viewRect = view.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      return {
+        position: getComputedStyle(toolbar).position,
+        scrollTop: Math.round(view.scrollTop),
+        topDelta: Math.round((toolbarRect.top - viewRect.top) * 10) / 10,
+        copyEnabled: !document.querySelector("#phCopy")?.disabled,
+      };
+    });
+    if (projectToolbarState.position !== "sticky" || projectToolbarState.scrollTop <= 0 || Math.abs(projectToolbarState.topDelta) > 1) {
+      run.failures.push(`project toolbar did not remain sticky: ${JSON.stringify(projectToolbarState)}`);
+    }
+    await page.locator("#projectHomeView").evaluate((node) => { node.scrollTop = 0; });
     const projectRows = await page.locator(".ph-conv-main").allTextContents();
     if (projectRows.some((row) => /Detail audit|Nested check|Test scope/.test(row))) {
       run.failures.push("linked subagents were rendered as root project conversations");
@@ -156,8 +217,111 @@ async function verifyStandalone(browser) {
     const orphanRow = page.locator(".ph-conv", { hasText: "Orphan fixture subagent" });
     if (!await orphanRow.locator(".subagent-orphan").count()) run.failures.push("orphan subagent is missing its parent-warning badge");
 
+    await page.locator(".ph-conv-main", { hasText: "Valid fixture conversation" }).click();
+    const conversationNav = {
+      oldestNewerDisabled: await page.locator("#newerProjectConv").isDisabled(),
+      oldestOlderDisabled: await page.locator("#olderProjectConv").isDisabled(),
+      newerLabel: (await page.locator("#newerProjectConv").innerText()).trim(),
+      olderLabel: (await page.locator("#olderProjectConv").innerText()).trim(),
+    };
+    if (!/Newer|Más reciente/.test(conversationNav.newerLabel) || !/Older|Más antigua/.test(conversationNav.olderLabel)) {
+      run.failures.push(`conversation navigation labels are ambiguous: ${JSON.stringify(conversationNav)}`);
+    }
+    if (conversationNav.oldestNewerDisabled || !conversationNav.oldestOlderDisabled) {
+      run.failures.push(`oldest conversation navigation has incorrect edge states: ${JSON.stringify(conversationNav)}`);
+    } else {
+      await page.locator("#newerProjectConv").click();
+      await page.waitForFunction(() => document.querySelector(".doc h1")?.textContent === "Parent fixture conversation");
+      conversationNav.newerTitle = (await page.locator(".doc h1").innerText()).trim();
+      await page.locator("#olderProjectConv").click();
+      await page.waitForFunction(() => document.querySelector(".doc h1")?.textContent === "Valid fixture conversation");
+      conversationNav.olderTitle = (await page.locator(".doc h1").innerText()).trim();
+    }
+    const validReaderText = await page.locator("#reader").innerText();
+    if (validReaderText.includes("<local-command") || validReaderText.includes("<command-name>")
+      || validReaderText.includes("Configured Terminal fixture settings")) {
+      run.failures.push("embedded Claude local-command turns remained visible");
+    }
+    if (await page.locator(".turn").count() !== 2) run.failures.push("embedded local commands changed the visible turn count");
+    const markdownTable = page.locator(".md-table-wrap");
+    await markdownTable.waitFor({ state: "attached" });
+    const tableTurn = page.locator(".turn", { has: markdownTable });
+    if (await tableTurn.evaluate((node) => node.classList.contains("collapsed"))) {
+      await tableTurn.locator(".turn-head").click();
+    }
+    await markdownTable.waitFor({ state: "visible" });
+    const tableStructure = {
+      rows: await markdownTable.locator("tbody tr").count(),
+      headers: await markdownTable.locator("thead").count(),
+      label: await markdownTable.getAttribute("aria-label"),
+      focusable: await markdownTable.getAttribute("tabindex"),
+    };
+    if (tableStructure.rows !== 2 || tableStructure.headers !== 0) run.failures.push(`empty-header Markdown table rendered incorrectly: ${JSON.stringify(tableStructure)}`);
+    if (!tableStructure.label || tableStructure.focusable !== "0") run.failures.push("Markdown table region is not keyboard accessible");
+    if (!await markdownTable.locator("strong", { hasText: "ven-46" }).count()) run.failures.push("Markdown table inline formatting was lost");
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileTable = await page.evaluate(() => {
+      const wrapper = document.querySelector(".md-table-wrap");
+      return {
+        viewport: document.documentElement.clientWidth,
+        page: document.documentElement.scrollWidth,
+        clientWidth: wrapper.clientWidth,
+        scrollWidth: wrapper.scrollWidth,
+      };
+    });
+    if (mobileTable.page > mobileTable.viewport) run.failures.push(`Markdown table caused page overflow (${mobileTable.page} > ${mobileTable.viewport})`);
+    if (mobileTable.scrollWidth <= mobileTable.clientWidth) run.failures.push("wide Markdown table is not locally scrollable on mobile");
+    await page.setViewportSize({ width: 1365, height: 900 });
+    await page.locator("#cbBackProject").click();
+
+    const resumedRows = page.locator(".ph-conv-main", { hasText: "Resumed fixture conversation" });
+    const resumedLineageRows = await resumedRows.count();
+    if (resumedLineageRows !== 1) run.failures.push("resumed Claude lineage was not canonicalized to one row");
+    else {
+      await resumedRows.click();
+      await page.waitForFunction(() => document.querySelectorAll('.turn[data-type="tool"]').length === 1);
+      const resumedText = await page.locator("#reader").innerText();
+      if (!resumedText.includes("Newest branch remains visible.")) run.failures.push("newest resumed Claude branch was not selected");
+      if (resumedText.includes("Old branch should be superseded.")) run.failures.push("superseded Claude branch remained visible");
+      if (await page.locator('.turn[data-type="tool"] .tool-result').count() !== 1) {
+        run.failures.push("tool call and result were not rendered as one execution");
+      }
+      const toolVisibility = page.locator("#toggleTools");
+      if (!await toolVisibility.count()) run.failures.push("conversation tool-visibility toggle is missing");
+      else {
+        const hideLabel = (await toolVisibility.innerText()).trim();
+        if (!/Hide tools|Ocultar herramientas/.test(hideLabel)) run.failures.push(`unexpected hide-tools label: ${hideLabel}`);
+        await toolVisibility.focus();
+        await toolVisibility.press("Enter");
+        await page.waitForFunction(() => document.querySelectorAll('.turn[data-type="tool"]').length === 0);
+        const showLabel = (await page.locator("#toggleTools").innerText()).trim();
+        if (!/Show tools|Mostrar herramientas/.test(showLabel)) run.failures.push(`unexpected show-tools label: ${showLabel}`);
+        if (!await page.locator('.cb-count[data-type="tool"].off').count()) run.failures.push("tool count did not reflect hidden state");
+        await page.locator("#toggleTools").click();
+        await page.waitForFunction(() => document.querySelectorAll('.turn[data-type="tool"]').length === 1);
+      }
+      await page.locator("#cbBackProject").click();
+    }
+
     await page.locator(".ph-conv-main", { hasText: "Parent fixture conversation" }).click();
     await page.waitForFunction(() => document.querySelectorAll(".subagent-node").length === 2);
+    const jumpLastTurn = page.locator("#jumpLastTurn");
+    if (!await jumpLastTurn.count()) run.failures.push("last-turn jump action is missing");
+    else {
+      const jumpLabel = await jumpLastTurn.getAttribute("aria-label");
+      if (!/last turn|último turno/i.test(jumpLabel || "")) run.failures.push(`unexpected last-turn jump label: ${jumpLabel}`);
+      await page.setViewportSize({ width: 1365, height: 500 });
+      await page.locator("#reader").evaluate((node) => { node.scrollTop = 0; });
+      await jumpLastTurn.click();
+      await page.waitForTimeout(450);
+      const jumpState = await page.evaluate(() => {
+        const reader = document.querySelector("#reader");
+        const turns = [...reader.querySelectorAll("#conversationTurns .turn")].filter((turn) => turn.getClientRects().length);
+        return { scrollTop: Math.round(reader.scrollTop), visibleTurns: turns.length };
+      });
+      if (jumpState.visibleTurns && jumpState.scrollTop <= 0) run.failures.push(`last-turn jump did not scroll the conversation: ${JSON.stringify(jumpState)}`);
+      await page.setViewportSize({ width: 1365, height: 900 });
+    }
     const instructionLayout = async () => {
       const instruction = page.locator('.turn[data-kind="instruction"]');
       if (!await instruction.count()) return null;
@@ -179,7 +343,20 @@ async function verifyStandalone(browser) {
     instructionLayouts.push({ viewport: "desktop", lang: "initial", ...(await instructionLayout()) });
     await page.locator("#btnLang").click();
     instructionLayouts.push({ viewport: "desktop", lang: "alternate", ...(await instructionLayout()) });
+    if (!/Ocultar herramientas/.test((await page.locator("#toggleTools").innerText()).trim())) {
+      run.failures.push("Spanish tool-visibility label is missing");
+    }
+    if (!/Ir al último turno/i.test(await page.locator("#jumpLastTurn").getAttribute("aria-label") || "")) {
+      run.failures.push("Spanish last-turn jump label is missing");
+    }
+    if (!/Más reciente/.test((await page.locator("#newerProjectConv").innerText()).trim())
+      || !/Más antigua/.test((await page.locator("#olderProjectConv").innerText()).trim())) {
+      run.failures.push("Spanish newer/older navigation labels are missing");
+    }
     await page.locator("#btnLang").click();
+    if (!/Hide tools/.test((await page.locator("#toggleTools").innerText()).trim())) {
+      run.failures.push("English tool-visibility label is missing");
+    }
     if (instructionLayouts.some((layout) => layout.overlaps)) {
       run.failures.push(`instruction tag overlaps preview: ${JSON.stringify(instructionLayouts)}`);
     }
@@ -235,6 +412,26 @@ async function verifyStandalone(browser) {
     await page.locator('.cb-count[data-type="tool"]').click();
     if (!await page.locator('.subagent-node[data-subagent-id$="/detail.md"]').count()) run.failures.push("tool filtering hid the subagent disclosure");
 
+    await page.locator("#btnAnalytics").click();
+    await page.waitForFunction(() => document.querySelector("#analytics")?.style.display === "block");
+    await page.locator("#analytics").evaluate((node) => { node.scrollTop = 420; });
+    await page.waitForTimeout(50);
+    const analyticsToolbarState = await page.evaluate(() => {
+      const view = document.querySelector("#analytics");
+      const toolbar = view.querySelector(":scope > .view-sticky");
+      const viewRect = view.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      return {
+        position: getComputedStyle(toolbar).position,
+        scrollTop: Math.round(view.scrollTop),
+        topDelta: Math.round((toolbarRect.top - viewRect.top) * 10) / 10,
+      };
+    });
+    if (analyticsToolbarState.position !== "sticky" || analyticsToolbarState.scrollTop <= 0 || Math.abs(analyticsToolbarState.topDelta) > 1) {
+      run.failures.push(`analytics toolbar did not remain sticky: ${JSON.stringify(analyticsToolbarState)}`);
+    }
+    await page.locator("#btnCloseAnalytics").click();
+
     await page.setViewportSize({ width: 390, height: 844 });
     instructionLayouts.push({ viewport: "mobile", lang: "initial", ...(await instructionLayout()) });
     await page.locator("#btnLang").click();
@@ -247,14 +444,25 @@ async function verifyStandalone(browser) {
       viewport: document.documentElement.clientWidth,
       page: document.documentElement.scrollWidth,
       targets: [...document.querySelectorAll(".subagent-toggle")].every((node) => node.getBoundingClientRect().height >= 44),
+      toolToggleTarget: document.querySelector("#toggleTools")?.getBoundingClientRect().height >= 44,
+      jumpTarget: document.querySelector("#jumpLastTurn")?.getBoundingClientRect().height >= 44,
     }));
     if (mobileLayout.page > mobileLayout.viewport) run.failures.push(`mobile layout overflows horizontally (${mobileLayout.page} > ${mobileLayout.viewport})`);
     if (!mobileLayout.targets) run.failures.push("subagent disclosure touch target is below 44px on mobile");
+    if (!mobileLayout.toolToggleTarget) run.failures.push("tool-visibility toggle touch target is below 44px on mobile");
+    if (!mobileLayout.jumpTarget) run.failures.push("last-turn jump touch target is below 44px on mobile");
 
     run.subagentHierarchy = {
       rootConversations: projectRows.length,
       linkedSubagents: 3,
       orphanVisible: !!await orphanRow.count(),
+      resumedLineageRows,
+      toolVisibilityToggle: true,
+      lastTurnJump: true,
+      conversationNav,
+      projectToolbar: projectToolbarState,
+      analyticsToolbar: analyticsToolbarState,
+      markdownTable: { ...tableStructure, mobile: mobileTable },
       mobileLayout,
       instructionLayouts,
     };
@@ -290,6 +498,27 @@ async function verifyDemo(browser) {
 
   const splashAccept = page.locator("#dsAccept");
   if (await splashAccept.count()) await splashAccept.click();
+
+  const analyticsButton = page.locator("#btnAnalytics");
+  if (await analyticsButton.count()) await analyticsButton.click();
+  await page.waitForTimeout(150);
+  const tokenCard = page.locator(".an-card", { hasText: /Tokens by model|Tokens por modelo/ });
+  const tokenLabels = await tokenCard.locator(".an-summary .lbl").allTextContents();
+  const tokenAccounting = {
+    labels: tokenLabels.map((label) => label.trim()),
+    models: await tokenCard.locator(".lg-bar-row").count(),
+    legacyNote: await tokenCard.locator(".lg-sub").count() > 0,
+  };
+  if (!tokenAccounting.labels.some((label) => /processed tokens|tokens procesados/i.test(label))
+    || !tokenAccounting.labels.some((label) => /cached input|entrada en caché/i.test(label))
+    || !tokenAccounting.labels.some((label) => /fresh input \+ output|entrada fresca \+ salida/i.test(label))) {
+    run.failures.push(`token accounting labels are not comparable: ${JSON.stringify(tokenAccounting)}`);
+  }
+  if (!tokenAccounting.models || tokenAccounting.legacyNote) {
+    run.failures.push(`normalized demo token accounting is incomplete: ${JSON.stringify(tokenAccounting)}`);
+  }
+  run.tokenAccounting = tokenAccounting;
+  await page.locator("#btnCloseAnalytics").click();
 
   const projectsButton = page.locator("#btnProjects");
   if (await projectsButton.count()) await projectsButton.click();

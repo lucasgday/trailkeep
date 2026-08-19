@@ -27,9 +27,13 @@ Private, trustworthy, and pragmatic. The voice is direct and honest about limita
 ## Design Principles
 
 1. Make privacy observable: every feature must preserve the zero-network viewer and local-only data flow.
-2. Preserve the narrative: show user intent, agent work, tools, and related sub-work in the context where they happened.
+2. Preserve the narrative and authored structure: show user intent, agent work,
+   tools, tables, and related sub-work in the context where they happened.
 3. Prefer cumulative truth over cleanup: never trade away captured history for a tidier presentation.
-4. Reveal density progressively: keep scanning calm, then expose detail inline when the user asks for it.
+4. Reveal density progressively: keep scanning calm, expose detail inline when
+   requested, keep primary navigation and actions reachable in long views, and
+   let readers temporarily hide tool execution or jump through a conversation
+   without changing the archive or copied conversation.
 5. Earn trust through consistency: reuse the viewer's established controls, source language, metadata, and evidence patterns.
 
 ## Accessibility & Inclusion

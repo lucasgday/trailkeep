@@ -274,13 +274,22 @@ Components are compact, familiar, and stateful. Controls reuse the same radii, b
 
 - The desktop shell uses a 340px dark sidebar and a flexible reader. Navigation rows are compact, left-aligned, and visibly respond to hover and active state.
 - At 860px and below, the sidebar becomes an app-owned bottom sheet opened by the menu button. Content becomes one column and practical touch targets remain at least 44px tall.
-- Sticky headers use translucent Archive Paper only to preserve context during scrolling; blur is functional, never decorative.
+- Long project, analytics, and run views keep their title or primary back/copy/archive actions in a sticky toolbar. Sticky headers use translucent Archive Paper only to preserve context during scrolling; blur is functional, never decorative.
 
 ### Conversation Turn
 
 - Turns use a stable label, checkbox, preview, and disclosure affordance. Expanded content stays in the timeline instead of opening a modal.
 - User, assistant, and tool identity use text plus stable color. Tool output moves onto Tool Paper and code moves onto Code Night.
+- A bilingual Hide/Show Tools action lives with the conversation controls. It uses the established secondary button pattern, remains keyboard-operable, and preserves its state while navigating conversations.
+- The sticky conversation context bar includes a bilingual jump to the last visible turn. It respects reduced motion and becomes an icon-only 44px target on narrow screens.
 - Related subagents nest inside the parent timeline with explicit status, depth, and a minimum 44px disclosure target.
+
+### Markdown Table
+
+- Valid GFM tables render as semantic HTML inside the conversation turn and preserve inline emphasis, code, and links.
+- An all-empty source header is omitted so key-value tables do not gain a blank visual band.
+- The table uses Quiet Line boundaries and compact system type. It remains flat and subordinate to the conversation.
+- Wide tables scroll inside a keyboard-focusable labeled region. They never widen the reader or the mobile page.
 
 ## Do's and Don'ts
 

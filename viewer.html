@@ -40,7 +40,11 @@
   .an-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
   .an-head h2{margin:0;font-size:20px;color:var(--ink)}
   .an-grid{display:flex;flex-direction:column;gap:24px;max-width:920px;margin:0 auto}
-  #projectsView{padding-top:0}
+  #analytics,#runsView,#projectsView,#projectHomeView{padding-top:0}
+  .view-sticky{position:sticky;top:0;z-index:9;background:rgba(250,250,246,.96);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);margin:0 -28px 24px;padding:18px 28px 14px}
+  .view-sticky:empty{display:none}
+  .view-sticky .an-head{max-width:920px;margin:0 auto}
+  .view-sticky .ph-toolbar{max-width:960px;margin:0 auto}
   .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:16px;max-width:960px;margin:0 auto}
   .pj-sticky{position:sticky;top:0;z-index:9;background:rgba(250,250,246,.96);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);margin:0 -28px 24px;padding:24px 28px 18px}
   .pj-sticky .an-head,.pj-toolbar{max-width:960px;margin-left:auto;margin-right:auto}
@@ -93,7 +97,8 @@
   .pj-foot-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .pj-foot .pj-count b{color:var(--ink);font-variant-numeric:tabular-nums}
   .pj-foot .pj-src{display:flex;gap:4px;flex-wrap:wrap}
-  .pj-foot .pj-date{margin-left:auto}
+  .pj-foot .pj-date{margin-left:auto;display:inline-flex;align-items:baseline;gap:4px;font-variant-numeric:tabular-nums}
+  .pj-date-label{font-weight:650;color:var(--ink)}
   .pj-card-actions{display:flex;justify-content:flex-end}
   .pj-card-action{font:inherit;font-size:11.5px;cursor:pointer;padding:3px 8px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);transition:.12s}
   .pj-card-action:hover{background:var(--tool-bg);border-color:var(--line-strong);color:var(--ink)}
@@ -470,7 +475,7 @@
   .subagent-count,.subagent-orphan{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:1px 6px;color:var(--ink-soft);background:var(--paper);font-size:9.5px;font-weight:700;line-height:1.25}
   .subagent-orphan{border-color:#e8c9a9;background:#fff8ee;color:#9a5c20}
 
-  .turn{border-bottom:1px solid var(--line);padding:0}
+  .turn{border-bottom:1px solid var(--line);padding:0;scroll-margin-top:58px}
   .turn-head{display:grid;grid-template-columns:24px minmax(64px,max-content) minmax(0,1fr) auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
   .turn-head .tcheck{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent}
   .turn-head .tcheck:hover{border-color:var(--claude)}
@@ -500,6 +505,8 @@
   .turn.done .preview{text-decoration:line-through}
   .turn[data-type="tool"] .turn-body{background:var(--tool-bg);border:1px solid #e6e0d2;border-radius:9px;padding:12px 14px;margin-left:88px;font-size:13.5px}
   .toollabel{font-family:var(--mono);font-size:12px;color:#6b5e3d;font-weight:600;margin-bottom:6px;display:block}
+  .tool-result{border-top:1px solid #ddd5c4;margin:12px -14px -12px;padding:10px 14px 12px}
+  .tool-result-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#786b49;font-weight:700;margin-bottom:7px;display:block}
 
   .turn-body p{margin:0 0 12px} .turn-body p:last-child{margin-bottom:0}
   .turn-body h1,.turn-body h2,.turn-body h3,.turn-body h4{font-family:var(--display);line-height:1.25;margin:16px 0 8px;font-weight:600}
@@ -511,6 +518,15 @@
   .turn-body pre code{background:transparent;padding:0;color:inherit;font-size:inherit}
   .turn-body a{color:var(--claude)}
   .turn-body strong{font-weight:650}
+  .md-table-wrap{max-width:100%;overflow-x:auto;margin:2px 0 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+  .turn-body table{border-collapse:collapse;width:100%;min-width:420px;font-size:13.5px;line-height:1.45}
+  .turn-body th,.turn-body td{padding:8px 11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  .turn-body th:last-child,.turn-body td:last-child{border-right:0}
+  .turn-body thead th{background:var(--tool-bg);font-weight:650;color:var(--ink)}
+  .turn-body tbody tr:last-child td{border-bottom:0}
+  .turn-body tbody td:first-child{white-space:nowrap}
+  .turn-body .md-align-center{text-align:center}
+  .turn-body .md-align-right{text-align:right}
 
   .countbar{position:sticky;top:0;z-index:5;background:rgba(250,250,246,.93);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:9px 38px;font-size:12px;color:var(--ink-soft);display:flex;gap:12px;align-items:center}
   .countbar .cb-title{font-weight:650;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -527,6 +543,8 @@
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
   .countbar .cb-count:hover{background:var(--tool-bg);color:var(--ink)}
   .countbar .cb-count.off{opacity:.4;text-decoration:line-through}
+  .countbar .cb-jump{font:inherit;font-size:11.5px;font-weight:650;color:var(--ink);background:var(--panel);border:1px solid var(--line);cursor:pointer;padding:4px 8px;border-radius:7px;white-space:nowrap}
+  .countbar .cb-jump:hover{background:var(--tool-bg);border-color:var(--line-strong)}
   .loadwrap{padding:50px 40px;text-align:center;color:var(--ink-soft)}
 
   .sidebar::-webkit-scrollbar,.reader::-webkit-scrollbar{width:10px}
@@ -548,12 +566,19 @@
     .doc{padding:20px 16px 100px}
     .doc-title-row{align-items:stretch;flex-direction:column}
     .doc-nav{justify-content:flex-start}
+    .view-sticky{margin:0 -28px 20px;padding:12px 28px}
     .pj-sticky{top:0;margin:0 -28px 20px;padding:20px 28px 14px}
+    .doc-actions .mini{min-height:44px;padding:8px 11px}
     .ph-head{grid-template-columns:1fr}
     .ph-top-metas,.ph-top-meta{align-items:flex-start}
     .ph-actions{justify-content:flex-start}
     .ph-grid,.ph-facts{grid-template-columns:1fr}
     .ph-toolbar{align-items:flex-start;flex-direction:column}
+    .view-sticky .ph-toolbar{align-items:stretch}
+    .view-sticky .ph-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+    .view-sticky .ph-toolbar .btn-log{min-height:44px;margin:0;white-space:normal}
+    .countbar .cb-jump{min-width:44px;min-height:44px;padding:5px}
+    .countbar .cb-jump span{display:none}
     .ph-review-btn{opacity:1}
     .ph-section-head{align-items:stretch;flex-direction:column}
     .ph-section-actions{justify-content:flex-start}
@@ -639,18 +664,22 @@
     </main>
 
     <section class="analytics" id="analytics" style="display:none">
-      <div class="an-head">
-        <h2 id="an-title">Analytics</h2>
-        <button class="btn-log" id="btnCloseAnalytics">← back to the list</button>
+      <div class="view-sticky">
+        <div class="an-head">
+          <h2 id="an-title">Analytics</h2>
+          <button class="btn-log" id="btnCloseAnalytics">← back to the list</button>
+        </div>
       </div>
       <div class="review-unread-slot" data-review-unread-slot></div>
       <div class="an-grid" id="anGrid"></div>
     </section>
 
     <section class="analytics" id="runsView" style="display:none">
-      <div class="an-head">
-        <h2 id="runs-title">Latest backup runs</h2>
-        <button class="btn-log" id="btnCloseRuns">← back to the list</button>
+      <div class="view-sticky">
+        <div class="an-head">
+          <h2 id="runs-title">Latest backup runs</h2>
+          <button class="btn-log" id="btnCloseRuns">← back to the list</button>
+        </div>
       </div>
       <div class="an-grid"><div class="an-card"><div id="logBody"><div class="log-empty"></div></div></div></div>
     </section>
@@ -667,6 +696,7 @@
     </section>
 
     <section class="analytics" id="projectHomeView" style="display:none">
+      <div class="view-sticky" id="projectHomeToolbar"></div>
       <div class="ph-wrap" id="projectHome"></div>
     </section>
   </div>
@@ -698,7 +728,7 @@ const I18N = {
     import_tip:"Load review progress from a file exported earlier",
     foot_cap:"Review progress (your marks — not the conversations)",
     analytics:"📊 Analytics", runs:"⟳ Runs", projects_nav:"📁 Projects", search:"Search…", search_projects:"Search projects…",
-    projects_title:"Projects", projects_recent_heading:"sorted by recent activity", pj_active:"active", pj_inactive:"inactive", pj_gone:"folder gone", pj_deployed:"deployed", pj_repo:"Repo", pj_nogit:"no git", pj_dirty:"uncommitted changes", pj_sessions:"conversations", pj_last:"last", pj_empty:"No project metadata yet — run a backup to generate it.", pj_clear:"Show all projects",
+    projects_title:"Projects", projects_recent_heading:"sorted by recent activity", pj_active:"active", pj_inactive:"inactive", pj_gone:"folder gone", pj_deployed:"deployed", pj_repo:"Repo", pj_nogit:"no git", pj_dirty:"uncommitted changes", pj_sessions:"conversations", pj_last:"Last conversation", pj_empty:"No project metadata yet — run a backup to generate it.", pj_clear:"Show all projects",
     pj_hide:"Hide", pj_hidden:"Hidden", pj_hidden_title:"Hidden / archived projects", pj_hidden_empty:"No hidden projects.", pj_restore:"Restore",
     pj_status:"Status", pj_source:"Source", pj_sort:"Sort", pj_f_all:"All", pj_none_match:"No projects match these filters.",
     pj_sort_recent:"Recent conversation", pj_sort_name:"Name (A–Z)", pj_sort_count:"Most conversations",
@@ -787,10 +817,10 @@ const I18N = {
     top_projects:"Projects by", top_projects_more:"View more", top_projects_less:"View less", no_activity:"no activity", total:"total", period_total:"period total",
     archived_badge:"archived", n_turns:"turns", mark_reviewed:"Mark as reviewed",
     project_pill:"Project", back_to_project:"← Project", copy_conv:"Copy conversation",
-    prev_project_conv:"Previous", next_project_conv:"Next",
+    newer_project_conv:"Newer", older_project_conv:"Older",
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
-    collapse_expand:"Collapse/expand all", copy:"copy", copied:"✓ copied",
-    mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool",
+    collapse_expand:"Collapse/expand all", hide_tools:"Hide tools", show_tools:"Show tools", go_last_turn:"Go to last turn", copy:"copy", copied:"✓ copied",
+    mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool", tool_result:"Result", table_region:"Table",
     subagent:"Subagent", subagents:"Subagents", subagent_total:"total",
     subagent_completed:"completed", subagent_in_progress:"in progress at backup", subagent_unknown:"status unavailable",
     subagent_parent_missing:"parent conversation missing", subagent_status_snapshot:"Status from the last backup",
@@ -803,8 +833,8 @@ const I18N = {
     lg_sessions:"sessions", lg_prompts:"prompts", lg_tool_calls:"tool calls",
     lg_unique_tools:"unique tools", lg_files:"files modified", lg_tests:"test runs",
     lg_builds:"build runs", lg_errors:"errors", lg_mcp:"MCP calls", lg_tpp:"tools / prompt",
-    lg_tokens_title:"Tokens by model", lg_top_tools:"Top tools", lg_total_tokens:"tokens (in+out)", lg_total_all:"total tokens", lg_inout:"in + out", lg_tok_total:"total",
-    lg_cache_read:"cache read", lg_cache_write:"cache write", lg_range:"activity", lg_calls:"calls",
+    lg_tokens_title:"Tokens by model", lg_top_tools:"Top tools", lg_total_tokens:"fresh input + output", lg_total_all:"processed tokens", lg_inout:"fresh input + output", lg_tok_total:"processed",
+    lg_cache_total:"cached input", lg_cache_read:"cache read", lg_cache_write:"cache write", lg_tokens_legacy_note:"Comparable totals use {normalized} normalized runs. {legacy} older runs are excluded until their raw transcript is recovered.", lg_range:"activity", lg_calls:"calls",
     tool_desc:{shell:"Runs a shell command", edit:"Edits a file in place", write:"Writes a new file", read:"Reads a file", grep:"Searches file contents (regex)", glob:"Finds files by name pattern", notebook:"Edits a Jupyter notebook", websearch:"Searches the web", webfetch:"Fetches a URL", plan:"Updates the task / plan list", agent:"Spawns a sub-agent", ask:"Asks the user a question", patch:"Applies a code patch", stdin:"Sends input to a running process", toolsearch:"Looks up available tools", mcp:"MCP tool", other:"Tool"},
     metric_desc:{unique_tools:"Distinct tools used across all sessions (Bash, Edit, Read, MCP tools…).", tpp:"Average tool calls per prompt — how much the agent does per message you send.", tests:"Shell commands that ran tests (pytest, jest, go test, npm test…).", builds:"Shell commands that built the project (make, tsc, webpack, cargo build…).", errors:"API errors plus tool calls that returned an error or non-zero exit.", mcp:"Calls to MCP tools (Model Context Protocol servers / connectors)."},
   },
@@ -817,7 +847,7 @@ const I18N = {
     import_tip:"Cargá el progreso de revisión desde un archivo exportado antes",
     foot_cap:"Progreso de revisión (tus marcas — no las conversaciones)",
     analytics:"📊 Analytics", runs:"⟳ Corridas", projects_nav:"📁 Proyectos", search:"Buscar…", search_projects:"Buscar proyectos…",
-    projects_title:"Proyectos", projects_recent_heading:"ordenado por actividad reciente", pj_active:"activo", pj_inactive:"inactivo", pj_gone:"carpeta ausente", pj_deployed:"deployado", pj_repo:"Repo", pj_nogit:"sin git", pj_dirty:"cambios sin commitear", pj_sessions:"conversaciones", pj_last:"último", pj_empty:"Sin metadata de proyectos todavía — corré un backup para generarla.", pj_clear:"Ver todos los proyectos",
+    projects_title:"Proyectos", projects_recent_heading:"ordenado por actividad reciente", pj_active:"activo", pj_inactive:"inactivo", pj_gone:"carpeta ausente", pj_deployed:"deployado", pj_repo:"Repo", pj_nogit:"sin git", pj_dirty:"cambios sin commitear", pj_sessions:"conversaciones", pj_last:"Última conversación", pj_empty:"Sin metadata de proyectos todavía — corré un backup para generarla.", pj_clear:"Ver todos los proyectos",
     pj_hide:"Ocultar", pj_hidden:"Ocultos", pj_hidden_title:"Proyectos ocultos / archivados", pj_hidden_empty:"No hay proyectos ocultos.", pj_restore:"Restaurar",
     pj_status:"Estado", pj_source:"Fuente", pj_sort:"Ordenar", pj_f_all:"Todos", pj_none_match:"Ningún proyecto coincide con estos filtros.",
     pj_sort_recent:"Conversación reciente", pj_sort_name:"Nombre (A–Z)", pj_sort_count:"Más conversaciones",
@@ -972,10 +1002,10 @@ Después del setup, reportá:
     top_projects:"Proyectos por", top_projects_more:"Ver más", top_projects_less:"Ver menos", no_activity:"sin actividad", total:"total", period_total:"total del período",
     archived_badge:"archivada", n_turns:"turnos", mark_reviewed:"Marcar como revisada",
     project_pill:"Proyecto", back_to_project:"← proyecto", copy_conv:"Copiar conversación",
-    prev_project_conv:"Anterior", next_project_conv:"Siguiente",
+    newer_project_conv:"Más reciente", older_project_conv:"Más antigua",
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
-    collapse_expand:"Colapsar/expandir todos", copy:"copiar", copied:"✓ copiado",
-    mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.",
+    collapse_expand:"Colapsar/expandir todos", hide_tools:"Ocultar herramientas", show_tools:"Mostrar herramientas", go_last_turn:"Ir al último turno", copy:"copiar", copied:"✓ copiado",
+    mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.", tool_result:"Resultado", table_region:"Tabla",
     subagent:"Subagente", subagents:"Subagentes", subagent_total:"total",
     subagent_completed:"completado", subagent_in_progress:"en curso al respaldar", subagent_unknown:"estado no disponible",
     subagent_parent_missing:"falta la conversación padre", subagent_status_snapshot:"Estado al último respaldo",
@@ -988,8 +1018,8 @@ Después del setup, reportá:
     lg_sessions:"sesiones", lg_prompts:"prompts", lg_tool_calls:"llamadas a tools",
     lg_unique_tools:"tools únicas", lg_files:"archivos modificados", lg_tests:"corridas de test",
     lg_builds:"builds", lg_errors:"errores", lg_mcp:"llamadas MCP", lg_tpp:"tools / prompt",
-    lg_tokens_title:"Tokens por modelo", lg_top_tools:"Top tools", lg_total_tokens:"tokens (in+out)", lg_total_all:"tokens totales", lg_inout:"in + out", lg_tok_total:"total",
-    lg_cache_read:"caché leído", lg_cache_write:"caché escrito", lg_range:"actividad", lg_calls:"llamadas",
+    lg_tokens_title:"Tokens por modelo", lg_top_tools:"Top tools", lg_total_tokens:"entrada fresca + salida", lg_total_all:"tokens procesados", lg_inout:"entrada fresca + salida", lg_tok_total:"procesados",
+    lg_cache_total:"entrada en caché", lg_cache_read:"caché leído", lg_cache_write:"caché escrito", lg_tokens_legacy_note:"Los totales comparables usan {normalized} ejecuciones normalizadas. Se excluyen {legacy} ejecuciones históricas hasta recuperar su transcripción raw.", lg_range:"actividad", lg_calls:"llamadas",
     tool_desc:{shell:"Corre un comando de shell", edit:"Edita un archivo", write:"Escribe un archivo nuevo", read:"Lee un archivo", grep:"Busca en el contenido (regex)", glob:"Busca archivos por patrón", notebook:"Edita un notebook Jupyter", websearch:"Busca en la web", webfetch:"Trae una URL", plan:"Actualiza la lista de tareas / plan", agent:"Lanza un sub-agente", ask:"Le pregunta al usuario", patch:"Aplica un patch de código", stdin:"Manda input a un proceso", toolsearch:"Busca tools disponibles", mcp:"Tool MCP", other:"Tool"},
     metric_desc:{unique_tools:"Tools distintas usadas en todas las sesiones (Bash, Edit, Read, tools MCP…).", tpp:"Promedio de llamadas a tools por prompt — cuánto hace el agente por cada mensaje tuyo.", tests:"Comandos de shell que corrieron tests (pytest, jest, go test, npm test…).", builds:"Comandos de shell que buildearon el proyecto (make, tsc, webpack, cargo build…).", errors:"Errores de API más llamadas a tools que devolvieron error o exit no-cero.", mcp:"Llamadas a tools MCP (servidores / conectores Model Context Protocol)."},
   }
@@ -1138,6 +1168,45 @@ function formatDate(iso, withTime){
     ? {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}
     : {day:'2-digit', month:'short', year:'numeric'};
   return d.toLocaleString(undefined, opts);  // zona horaria local del navegador
+}
+function compareTimestampsDesc(left,right){
+  const a=String(left||"").trim(), b=String(right||"").trim();
+  if(a===b) return 0;
+  if(!a) return 1;
+  if(!b) return -1;
+  const am=Date.parse(a), bm=Date.parse(b);
+  const av=Number.isFinite(am), bv=Number.isFinite(bm);
+  if(av&&bv){
+    if(am!==bm) return bm-am;
+    return b.localeCompare(a);
+  }
+  if(av!==bv) return av?-1:1;
+  return b.localeCompare(a);
+}
+function newestTimestamp(...values){
+  let best="";
+  for(const value of values){
+    const raw=String(value||"").trim();
+    if(raw&&(!best||compareTimestampsDesc(raw,best)<0)) best=raw;
+  }
+  return best;
+}
+function sessionActivityTimestamp(session){
+  let latest="";
+  const stack=session?[session]:[];
+  const seen=new Set();
+  while(stack.length){
+    const current=stack.pop();
+    if(!current||seen.has(current)) continue;
+    seen.add(current);
+    latest=newestTimestamp(latest,current.fecha,current.updatedAt,current.completedAt);
+    for(const child of current.children||[]) stack.push(child);
+  }
+  return latest;
+}
+function compareSessionActivity(left,right){
+  return compareTimestampsDesc(sessionActivityTimestamp(left),sessionActivityTimestamp(right))
+    || String(left&&left.title||"").localeCompare(String(right&&right.title||""),"es");
 }
 function emptyDataCard(message){
   return `<div class="an-card empty-card"><p>${escapeHtml(message||t("no_data"))}</p><button class="btn sm" data-open-folder>${escapeHtml(t("open_folder"))}</button></div>`;
@@ -1476,12 +1545,50 @@ function renderMarkdown(src){
     t=t.replace(/\u0000(\d+)\u0000/g,(m,n)=>`<code>${escapeHtml(codes[+n])}</code>`);
     return t;
   };
+  const splitTableRow=(row)=>{
+    let value=String(row||"").trim();
+    if(value.startsWith("|")) value=value.slice(1);
+    if(value.endsWith("|")) value=value.slice(0,-1);
+    const cells=[]; let cell="", code=false;
+    for(let n=0;n<value.length;n++){
+      const char=value[n];
+      if(char==="\\"&&value[n+1]==="|"){cell+="|";n++;continue;}
+      if(char==="`"){code=!code;cell+=char;continue;}
+      if(char==="|"&&!code){cells.push(cell.trim());cell="";continue;}
+      cell+=char;
+    }
+    cells.push(cell.trim());
+    return cells;
+  };
+  const tableDivider=(row)=>{
+    if(!String(row||"").includes("|")) return null;
+    const cells=splitTableRow(row);
+    return cells.length>0&&cells.every(cell=>/^:?-{3,}:?$/.test(cell)) ? cells : null;
+  };
+  const alignmentClass=(divider)=>divider.startsWith(":")&&divider.endsWith(":")
+    ? "md-align-center" : divider.endsWith(":") ? "md-align-right" : "";
   while(i<lines.length){
     let line=lines[i];
     const fence=line.match(/^```(\w*)\s*$/);
     if(fence){ let buf=[]; i++; while(i<lines.length&&!/^```\s*$/.test(lines[i])){buf.push(lines[i]);i++;} i++; html+=`<pre><code>${escapeHtml(buf.join("\n"))}</code></pre>`; continue; }
     const h=line.match(/^(#{1,4})\s+(.*)$/);
     if(h){ const lv=h[1].length; html+=`<h${lv}>${inline(h[2])}</h${lv}>`; i++; continue; }
+    const divider=i+1<lines.length ? tableDivider(lines[i+1]) : null;
+    if(line.includes("|")&&divider){
+      const headers=splitTableRow(line); const rows=[]; i+=2;
+      while(i<lines.length&&lines[i].includes("|")&&lines[i].trim()){rows.push(splitTableRow(lines[i]));i++;}
+      const columns=Math.max(headers.length,divider.length,...rows.map(row=>row.length));
+      const cellHtml=(value,index,tag)=>{
+        const cls=alignmentClass(divider[index]||"");
+        const scope=tag==="th"?' scope="col"':"";
+        return `<${tag}${scope}${cls?` class="${cls}"`:""}>${inline(value||"")}</${tag}>`;
+      };
+      const head=headers.some(value=>value.trim())
+        ? `<thead><tr>${Array.from({length:columns},(_,index)=>cellHtml(headers[index],index,"th")).join("")}</tr></thead>` : "";
+      const body=`<tbody>${rows.map(row=>`<tr>${Array.from({length:columns},(_,index)=>cellHtml(row[index],index,"td")).join("")}</tr>`).join("")}</tbody>`;
+      html+=`<div class="md-table-wrap" tabindex="0" role="region" aria-label="${escapeHtml(T("table_region"))}"><table>${head}${body}</table></div>`;
+      continue;
+    }
     if(/^\s*[-*]\s+/.test(line)){ let items=[]; while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*]\s+/,""));i++;} html+="<ul>"+items.map(x=>`<li>${inline(x)}</li>`).join("")+"</ul>"; continue; }
     if(/^\s*\d+\.\s+/.test(line)){ let items=[]; while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*\d+\.\s+/,""));i++;} html+="<ol>"+items.map(x=>`<li>${inline(x)}</li>`).join("")+"</ol>"; continue; }
     if(/^\s*$/.test(line)){ i++; continue; }
@@ -1495,7 +1602,7 @@ function renderMarkdown(src){
 /* ---------- parse .md ---------- */
 function parseMeta(text){
   const m = text.match(/<!--([^]*?)-->/);
-  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:"", internal:false, internalKind:""};
+  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:"", lineageId:"", messageCount:0, updatedAt:"", internal:false, internalKind:""};
   if(m){
     const body=m[1];
     // accept English (date/project/source/archived) and legacy Spanish keys
@@ -1503,6 +1610,9 @@ function parseMeta(text){
     meta.id=get("id"); meta.fecha=get("date","fecha"); meta.proyecto=get("project","proyecto"); meta.fuente=get("source","fuente");
     meta.parentId=get("parent_id"); meta.agentPath=get("agent_path"); meta.agentNickname=get("agent_nickname");
     meta.agentStatus=get("agent_status"); meta.completedAt=get("completed_at"); meta.formatVersion=get("format_version");
+    meta.lineageId=get("lineage_id"); meta.updatedAt=get("updated_at");
+    const messageCount=get("message_count");
+    meta.messageCount=messageCount!==""&&Number.isFinite(Number(messageCount)) ? Number(messageCount) : 0;
     meta.internalKind=get("internal_kind");
     meta.internal=/^true$/i.test(get("internal"))||!!meta.internalKind;
     const depth=get("agent_depth");
@@ -1537,7 +1647,7 @@ function parseTurns(text){
     buf.push(l);
   }
   flush();
-  return turns;
+  return groupToolExecutions(turns);
 }
 function splitTools(md, speaker){
   // within a block, separate text from [tool:]/[result] blocks
@@ -1548,16 +1658,43 @@ function splitTools(md, speaker){
     if(/^\s*\[(tool|result|herramienta|resultado)\b/i.test(l)){
       flushText();
       const label=l.trim().replace(/^\[/,"").replace(/\]\s*$/,"").trim();
+      const toolKind=/^(?:result|resultado)\b/i.test(label)?"result":"call";
       const spawn=label.match(/^(?:tool|herramienta)\s*:\s*(?:collaboration\.)?spawn_agent\s*(?:→|->)\s*(.+)$/i);
       let body=[]; i++;
       let j=i; while(j<lines.length&&lines[j].trim()==="") j++;
       if(j<lines.length&&/^```/.test(lines[j])){ body.push(lines[j]); j++; while(j<lines.length&&!/^```\s*$/.test(lines[j])){body.push(lines[j]);j++;} if(j<lines.length){body.push(lines[j]);j++;} i=j; }
-      out.push({type:"tool", label, md:body.join("\n").trim(), spawnTask:spawn?spawn[1].trim():""});
+      out.push({type:"tool", toolKind, label, md:body.join("\n").trim(), spawnTask:spawn?spawn[1].trim():""});
       continue;
     }
     textbuf.push(l); i++;
   }
   flushText();
+  return out;
+}
+function groupToolExecutions(turns){
+  const source=(turns||[]).map((turn,index)=>({...turn,progressKeys:[index]}));
+  const out=[];
+  let i=0;
+  while(i<source.length){
+    const current=source[i];
+    if(current.type!=="tool"||current.toolKind!=="call"){
+      out.push(current); i++; continue;
+    }
+    const calls=[];
+    while(i<source.length&&source[i].type==="tool"&&source[i].toolKind==="call") calls.push(source[i++]);
+    const results=[];
+    while(i<source.length&&source[i].type==="tool"&&source[i].toolKind==="result") results.push(source[i++]);
+    calls.forEach((call,index)=>{
+      const result=results[index];
+      out.push(result ? {
+        ...call,
+        resultLabel:result.label,
+        resultMd:result.md,
+        progressKeys:[...call.progressKeys,...result.progressKeys],
+      } : call);
+    });
+    for(let index=calls.length;index<results.length;index++) out.push(results[index]);
+  }
   return out;
 }
 function previewText(t){
@@ -1590,6 +1727,28 @@ function internalCodexApprovalReview(meta, turns){
     }catch(e){ return false; }
   });
 }
+function internalClaudeLocalCommandTurn(turn){
+  return !!turn&&turn.type==="user"
+    && /^<(?:local-command-(?:caveat|stdout|stderr|result)|command-(?:name|message|args))\b/i.test(String(turn.md||"").trim());
+}
+function withoutClaudeLocalCommandTurns(meta,turns){
+  const source=String(meta&&meta.fuente||"").trim().toLowerCase();
+  if(source!=="claude-code"&&source!=="cowork") return turns||[];
+  return (turns||[]).filter(turn=>!internalClaudeLocalCommandTurn(turn));
+}
+function internalClaudeLocalCommand(meta,turns,title){
+  const source=String(meta&&meta.fuente||"").trim().toLowerCase();
+  if(source!=="claude-code"&&source!=="cowork") return false;
+  if(!turns||!turns.length) return false;
+  if(turns.every(internalClaudeLocalCommandTurn)) return true;
+  if(!/^\/?config$/i.test(String(title||"").trim())) return false;
+  const first=turns[0];
+  if(first.type!=="user"||!/^\/?config$/i.test(String(first.md||"").trim())) return false;
+  const tools=turns.filter(turn=>turn.type==="tool");
+  return tools.length>0
+    && turns.every(turn=>turn.type==="user"||turn.type==="tool")
+    && tools.every(turn=>/^(?:tool|herramienta)\s*:\s*AskUserQuestion\b/i.test(String(turn.label||"")));
+}
 function cleanSessionTitleCandidate(text){
   if(!text||instructionContextTitle(text)) return "";
   let first=String(text).trim().split(/\n/).map(s=>s.trim()).find(Boolean)||"";
@@ -1614,25 +1773,43 @@ function displaySessionTitle(rawTitle, turns, fallback){
 function projectConversationNav(s){
   const rows=state.rootSessions
     .filter(x=>x.project===s.project)
-    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"") || String(a.title||"").localeCompare(String(b.title||""),"es"));
+    .sort(compareSessionActivity);
   const idx=rows.findIndex(x=>x.id===s.id);
   return {
-    previous: idx>0 ? rows[idx-1] : null,
-    next: idx>=0 && idx<rows.length-1 ? rows[idx+1] : null,
+    newer: idx>0 ? rows[idx-1] : null,
+    older: idx>=0 && idx<rows.length-1 ? rows[idx+1] : null,
   };
 }
 
 function stableSessionKey(s){
+  const lineage=String((s&&s.lineageId)||"").trim();
   const sid=String((s&&s.sessionId)||"").trim();
   const id=String((s&&s.id)||"").trim();
   const source=String((s&&s.fuente)||"").trim();
+  if(lineage&&source) return `${source}:lineage:${lineage}`;
   if(!sid||!source||sid===id) return "";
   return `${source}:${sid}`;
+}
+function sessionIdentityKeys(s){
+  const lineage=String((s&&s.lineageId)||"").trim();
+  const sid=String((s&&s.sessionId)||"").trim();
+  const source=String((s&&s.fuente)||"").trim();
+  if(!source) return [];
+  const keys=[];
+  if(sid) keys.push(`${source}:session:${sid}`);
+  if(lineage) keys.push(`${source}:lineage:${lineage}`);
+  return keys;
 }
 function newerSession(a,b){
   const av=Number(a&&a.formatVersion)||0;
   const bv=Number(b&&b.formatVersion)||0;
   if(av!==bv) return av>bv;
+  const au=Date.parse(a&&a.updatedAt)||0;
+  const bu=Date.parse(b&&b.updatedAt)||0;
+  if(au!==bu) return au>bu;
+  const am=Number(a&&a.messageCount)||0;
+  const bm=Number(b&&b.messageCount)||0;
+  if(am!==bm) return am>bm;
   const ad=Date.parse(a&&a.fecha)||0;
   const bd=Date.parse(b&&b.fecha)||0;
   if(ad!==bd) return ad>bd;
@@ -1650,18 +1827,39 @@ function mergeSupersededProgress(canonical, oldSession){
   for(const [idx,value] of Object.entries(turns)) if(value) cur.turns[idx]=true;
 }
 function canonicalizeSessions(sessions){
-  const bestByKey=new Map();
-  for(const s of sessions){
-    const key=stableSessionKey(s);
-    if(!key) continue;
-    const current=bestByKey.get(key);
-    if(!current||newerSession(s,current)) bestByKey.set(key,s);
+  const parent=sessions.map((_,index)=>index);
+  const find=index=>{
+    while(parent[index]!==index){ parent[index]=parent[parent[index]]; index=parent[index]; }
+    return index;
+  };
+  const union=(left,right)=>{
+    const a=find(left), b=find(right);
+    if(a!==b) parent[b]=a;
+  };
+  const owner=new Map();
+  sessions.forEach((session,index)=>{
+    for(const key of sessionIdentityKeys(session)){
+      if(owner.has(key)) union(index,owner.get(key));
+      else owner.set(key,index);
+    }
+  });
+  const bestByRoot=new Map();
+  sessions.forEach((session,index)=>{
+    const root=find(index);
+    const current=bestByRoot.get(root);
+    if(!current||newerSession(session,current)) bestByRoot.set(root,session);
+  });
+  // Union order can change roots, so normalize the selected map once more.
+  const normalizedBest=new Map();
+  for(const [root,best] of bestByRoot){
+    const normalized=find(root);
+    const current=normalizedBest.get(normalized);
+    if(!current||newerSession(best,current)) normalizedBest.set(normalized,best);
   }
   const canonical=[];
   const superseded=[];
-  for(const s of sessions){
-    const key=stableSessionKey(s);
-    const best=key?bestByKey.get(key):null;
+  sessions.forEach((s,index)=>{
+    const best=normalizedBest.get(find(index));
     if(best&&best!==s){
       s.superseded=true;
       s.supersededBy=best.id;
@@ -1672,7 +1870,7 @@ function canonicalizeSessions(sessions){
     } else {
       canonical.push(s);
     }
-  }
+  });
   state.supersededSessions=superseded;
   return canonical;
 }
@@ -1889,10 +2087,13 @@ async function handleFiles(fileList){
     if(!meta.valid) continue;
     if(meta.internal) continue;
     const tm=text.match(/^#\s+(.+)$/m);
-    const turns=parseTurns(text);
-    if(!turns.length) continue;
-    if(internalCodexApprovalReview(meta,turns)) continue;
     const rawTitle=tm?tm[1].trim():f.name.replace(/\.md$/,"");
+    const parsedTurns=parseTurns(text);
+    if(!parsedTurns.length) continue;
+    if(internalCodexApprovalReview(meta,parsedTurns)) continue;
+    if(internalClaudeLocalCommand(meta,parsedTurns,rawTitle)) continue;
+    const turns=withoutClaudeLocalCommandTurns(meta,parsedTurns);
+    if(!turns.length) continue;
     const title=displaySessionTitle(rawTitle, turns, f.name.replace(/\.md$/,""));
     const fuente=meta.fuente || (rel.toLowerCase().includes("codex")?"codex":"claude-code");
     const segs=rel.split("/");
@@ -1903,7 +2104,7 @@ async function handleFiles(fileList){
       archivada:meta.archivada, turns, chars:text.length,
       parentId:meta.parentId, agentPath:meta.agentPath, agentNickname:meta.agentNickname,
       agentDepth:meta.agentDepth, agentStatus:meta.agentStatus, completedAt:meta.completedAt,
-      formatVersion:meta.formatVersion,
+      formatVersion:meta.formatVersion, lineageId:meta.lineageId, messageCount:meta.messageCount, updatedAt:meta.updatedAt,
     };
     parsedSessions.push(s);
   }
@@ -1924,7 +2125,7 @@ async function handleFiles(fileList){
   // ordenar por fecha desc dentro de cada proyecto
   for(const pm of state.sources.values())
     for(const p of pm.values())
-      p.sessions.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+      p.sessions.sort(compareSessionActivity);
   // groups of the active mode start collapsed; the user expands whichever they want
   state.collapsedSources={};
   if(state.groupMode==="source"){
@@ -1937,7 +2138,7 @@ async function handleFiles(fileList){
   // pick the most recent active, unreviewed conversation
   const elegibles=state.rootSessions
     .filter(s=>!s.archivada && !prog(s.id).done)
-    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+    .sort(compareSessionActivity);
   const primera=elegibles[0]||state.rootSessions[0];
   state.defaultSessionId=primera ? primera.id : null;
   state.activeId=null;
@@ -1998,11 +2199,11 @@ function getProjectRows(){
     let p=byProj.get(name);
     if(!p){ p={name,count:0,last:"",sources:new Set()}; byProj.set(name,p); }
     p.count++; p.sources.add(s.fuente);
-    if((s.fecha||"")>p.last) p.last=s.fecha||"";
+    p.last=newestTimestamp(p.last,sessionActivityTimestamp(s));
   }
   return [...byProj.values()].map(p=>{
     const meta=state.projectMeta[p.name]||null;
-    return Object.assign(p,{meta, status:(meta&&meta.status)||"", lastSort:(meta&&meta.last_activity)||p.last||""});
+    return Object.assign(p,{meta, status:(meta&&meta.status)||"", lastSort:newestTimestamp(p.last,meta&&meta.last_activity)});
   });
 }
 function renderProjects(){
@@ -2076,8 +2277,8 @@ function renderProjGrid(all){
   const grid=document.getElementById("projGrid");
   let rows=all.filter(p=>!isProjectHidden(p.name) && (PJ.status==="all"||p.status===PJ.status) && (PJ.source==="all"||p.sources.has(PJ.source)));
   if(PJ.sort==="name") rows.sort((a,b)=>a.name.localeCompare(b.name));
-  else if(PJ.sort==="count") rows.sort((a,b)=>b.count-a.count || (b.lastSort||"").localeCompare(a.lastSort||""));
-  else rows.sort((a,b)=>(b.lastSort||"").localeCompare(a.lastSort||""));
+  else if(PJ.sort==="count") rows.sort((a,b)=>b.count-a.count || compareTimestampsDesc(a.lastSort,b.lastSort) || a.name.localeCompare(b.name,"es"));
+  else rows.sort((a,b)=>compareTimestampsDesc(a.lastSort,b.lastSort) || a.name.localeCompare(b.name,"es"));
   if(!rows.length){ grid.innerHTML=`<div class="an-card">${t("pj_none_match")}</div>`; return; }
   grid.innerHTML=rows.map(cardProject).join("");
   grid.querySelectorAll(".proj-card").forEach(c=>c.addEventListener("click",e=>{
@@ -2103,13 +2304,13 @@ function cardProject(p){
   else if(m.exists!==false && m.path) gitPill=`<span class="pj-pill pj-muted">${t("pj_nogit")}</span>`;
   const stackPills=(m.stack||[]).map(s=>`<span class="pj-pill pj-stack">${escapeHtml(s)}</span>`).join("");
   const srcMini=[...p.sources].map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
-  const lastRaw=(m.last_activity||p.last||"");
-  const lastDate=lastRaw?escapeHtml(formatDate(lastRaw.slice(0,10),false)):"";
+  const lastRaw=p.lastSort||newestTimestamp(p.last,m.last_activity);
+  const lastDate=lastRaw?escapeHtml(formatDate(lastRaw,true)):"";
   return `<div class="proj-card" data-proj="${escapeHtml(p.name)}">
     <div class="pj-head"><span class="pj-name">${escapeHtml(p.name)}</span><span class="pj-status-line">${statusPill}${deployLink(m)}${repoLink(m)}</span></div>
     <div class="pj-meta">${gitPill}${stackPills}</div>
     <div class="pj-foot">
-      <div class="pj-foot-main"><span class="pj-count"><b>${p.count}</b> ${t("pj_sessions")}</span><span class="pj-src">${srcMini}</span><span class="pj-date">${lastDate}</span></div>
+      <div class="pj-foot-main"><span class="pj-count"><b>${p.count}</b> ${t("pj_sessions")}</span><span class="pj-src">${srcMini}</span>${lastDate?`<time class="pj-date" datetime="${escapeHtml(lastRaw)}"><span class="pj-date-label">${escapeHtml(t("pj_last"))}</span> ${lastDate}</time>`:""}</div>
       <div class="pj-card-actions"><button class="pj-card-action" data-hide-project="${escapeHtml(p.name)}" data-stop>${t("pj_hide")}</button></div>
     </div>
   </div>`;
@@ -2123,7 +2324,7 @@ function projectStatusLabel(st){
 function projectSessions(name){
   return (state.rootSessions||[])
     .filter(s=>(s.project||"(no project)")===name)
-    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+    .sort(compareSessionActivity);
 }
 function projectLedgerStats(name){
   const rows=(state.ledger&&Array.isArray(state.ledger.projects)) ? state.ledger.projects : [];
@@ -2777,8 +2978,10 @@ function iconSvg(name){
     check:`<path d="M20 6 9 17l-5-5"></path>`,
     x:`<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>`,
     chevronsUpDown:`<path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path>`,
-    chevronLeft:`<path d="m15 18-6-6 6-6"></path>`,
-    chevronRight:`<path d="m9 18 6-6-6-6"></path>`,
+    eye:`<path d="M2.1 12c1.5-4 5.2-7 9.9-7s8.4 3 9.9 7c-1.5 4-5.2 7-9.9 7s-8.4-3-9.9-7Z"></path><circle cx="12" cy="12" r="3"></circle>`,
+    eyeOff:`<path d="m3 3 18 18"></path><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c4.7 0 8.4 3 9.9 7a12.3 12.3 0 0 1-2.1 3.5"></path><path d="M6.6 6.7A12 12 0 0 0 2.1 12c1.5 4 5.2 7 9.9 7 1.6 0 3.1-.4 4.4-1"></path>`,
+    arrowUp:`<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>`,
+    arrowDown:`<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>`,
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||""}</svg>`;
 }
@@ -2882,9 +3085,11 @@ function openProjectHome(name){
   document.getElementById("sidebar").classList.remove("open");
 }
 function renderProjectHome(name){
-  const host=document.getElementById("projectHome"); if(!host) return;
+  const host=document.getElementById("projectHome");
+  const toolbar=document.getElementById("projectHomeToolbar");
+  if(!host||!toolbar) return;
   const sessions=projectSessions(name);
-  if(!sessions.length){ host.innerHTML=emptyDataCard(); return; }
+  if(!sessions.length){ toolbar.innerHTML=""; host.innerHTML=emptyDataCard(); return; }
   const m=state.projectMeta[name]||{};
   const lg=projectLedgerStats(name);
   const srcs=new Set([...(m.sources||[]), ...sessions.map(s=>s.fuente)]);
@@ -2892,7 +3097,7 @@ function renderProjectHome(name){
   const statusPill = st ? `<span class="pj-status pj-${st}">${escapeHtml(projectStatusLabel(st))}</span>` : "";
   const deployedPill = deployLink(m);
   const srcMini=[...srcs].sort().map(f=>`<span class="src-mini src-${escapeHtml(f)}">${escapeHtml(niceSource(f))}</span>`).join(" ");
-  const lastRaw=m.last_activity||sessions[0].fecha||"";
+  const lastRaw=newestTimestamp(sessionActivityTimestamp(sessions[0]),m.last_activity);
   const lastDate=lastRaw?formatDate(lastRaw,true):"";
   const metaDate=state.projectMetaGenerated ? formatDate(state.projectMetaGenerated,true) : "";
   const g=m.git||null;
@@ -2936,15 +3141,16 @@ function renderProjectHome(name){
   }).join("") : `<div class="log-empty">${t("no_results")}</div>`;
   const reviewCard=projectReviewSection(name);
   const reviewEntry=projectReviewEntry(name);
-  host.innerHTML=`
-    ${reviewUnreadBannerHtml()}
+  toolbar.innerHTML=`
     <div class="ph-toolbar">
       <button class="btn-log" id="phBack">${t("ph_back_projects")}</button>
       <div class="ph-toolbar-actions">
         <button class="btn-log" id="phHide">${t("ph_hide_project")}</button>
-        <button class="btn-log" id="phCopy" disabled>${t("ph_copy_brief")}</button>
+        <button class="btn-log" id="phCopy">${t("ph_copy_brief")}</button>
       </div>
-    </div>
+    </div>`;
+  host.innerHTML=`
+    ${reviewUnreadBannerHtml()}
     <div class="ph-head">
       <div class="ph-title">
         <h2>${escapeHtml(name)}</h2>
@@ -2977,12 +3183,13 @@ function renderProjectHome(name){
       <div class="ph-convs">${convs}</div>
     </div>`;
   bindReviewUnreadBanners(host);
-  host.querySelector("#phBack").addEventListener("click",showProjects);
-  host.querySelector("#phHide").addEventListener("click",()=>{
+  toolbar.querySelector("#phBack").addEventListener("click",showProjects);
+  toolbar.querySelector("#phHide").addEventListener("click",()=>{
     setProjectHidden(name,true);
     PJ.showHidden=true;
     showProjects();
   });
+  toolbar.querySelector("#phCopy").addEventListener("click",e=>copyText(projectHomeText(name,sessions,m,lg),e.currentTarget));
   host.querySelectorAll("#phCopyReviewSetup,[data-copy-review-setup]").forEach(btn=>btn.addEventListener("click",e=>copyText(projectReviewSetupPrompt(), e.currentTarget)));
   host.querySelectorAll("#phCopyProjectReview,[data-copy-project-review]").forEach(btn=>btn.addEventListener("click",e=>copyText(projectReviewPrompt(name, sessions, m, lg), e.currentTarget)));
   const copyNextPrompt=host.querySelector("[data-copy-next-prompt]");
@@ -3082,7 +3289,7 @@ function projectHomeText(name, sessions, meta, ledger){
 function openProjectInList(name){
   // focus the sidebar on this project, then open its most recent conversation
   focusProjectSidebar(name);
-  const ss=(state.rootSessions||[]).filter(s=>(s.project||"(no project)")===name).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const ss=projectSessions(name);
   if(ss.length) openSession(ss[0].id);
   else { showView("reader"); renderSidebar(); }
 }
@@ -3342,15 +3549,28 @@ function aggregateLedger(doc){
   const sources = (doc.sources && typeof doc.sources==="object") ? doc.sources : {"_":doc};
   const T={sessions:0,user_messages:0,assistant_messages:0,tool_calls:0,mcp_tool_calls:0,files_modified:0,test_runs:0,build_runs:0,errors:0,web_searches:0};
   const tok={input:0,output:0,cache_creation:0,cache_read:0};
+  const legacyTok={input:0,output:0,cache_creation:0,cache_read:0};
+  const coverage={normalized_runs:0,legacy_runs:0,unmeasured_runs:0};
   const byModel={}, tools={}; let projects=[]; let first=null,last=null;
   for(const s of Object.values(sources)){
     if(!s||typeof s!=="object") continue;
     const tt=s.totals||{};
     for(const k in T) T[k]+=(+tt[k]||0);
-    const st=s.tokens||{}; for(const k in tok) tok[k]+=(+st[k]||0);
-    for(const [m,v] of Object.entries(s.tokens_by_model||{})){
-      const d=byModel[m]||(byModel[m]={input:0,output:0,cache_creation:0,cache_read:0});
-      for(const k in d) d[k]+=(+v[k]||0);
+    const normalized=(+s.token_accounting_version||0)>=2;
+    const st=s.tokens||{};
+    if(normalized){
+      for(const k in tok) tok[k]+=(+st[k]||0);
+      for(const [m,v] of Object.entries(s.tokens_by_model||{})){
+        const d=byModel[m]||(byModel[m]={input:0,output:0,cache_creation:0,cache_read:0});
+        for(const k in d) d[k]+=(+v[k]||0);
+      }
+      const sourceCoverage=s.token_coverage||{};
+      for(const k in coverage) coverage[k]+=(+sourceCoverage[k]||0);
+      const sl=s.legacy_tokens||{}; for(const k in legacyTok) legacyTok[k]+=(+sl[k]||0);
+    }else{
+      for(const k in legacyTok) legacyTok[k]+=(+st[k]||0);
+      if(Object.values(st).some(value=>(+value||0)>0)) coverage.legacy_runs+=(+tt.sessions||1);
+      else coverage.unmeasured_runs+=(+tt.sessions||0);
     }
     for(const [name,n] of Object.entries(s.tools||{})) tools[name]=(tools[name]||0)+(+n||0);
     if(Array.isArray(s.projects)) projects=projects.concat(s.projects);
@@ -3362,7 +3582,7 @@ function aggregateLedger(doc){
   T.tools_per_user_msg=upm?Math.round(T.tool_calls/upm*10)/10:0;
   projects.sort((a,b)=>(b.tool_calls||0)-(a.tool_calls||0));
   const sortedTools=Object.entries(tools).sort((a,b)=>b[1]-a[1]);
-  return {totals:T,tokens:tok,tokens_by_model:byModel,tools:sortedTools,projects,first_activity:first,last_activity:last};
+  return {totals:T,tokens:tok,token_accounting_version:2,token_coverage:coverage,legacy_tokens:legacyTok,tokens_by_model:byModel,tools:sortedTools,projects,first_activity:first,last_activity:last};
 }
 
 function fmtNum(n){
@@ -3408,7 +3628,8 @@ function cardTokensByModel(lg){
   const card=document.createElement("div"); card.className="an-card";
   const tk=lg.tokens||{};
   const base=(tk.input||0)+(tk.output||0);
-  const totalAll=base+(tk.cache_read||0)+(tk.cache_creation||0);
+  const cached=(tk.cache_read||0)+(tk.cache_creation||0);
+  const totalAll=base+cached;
   const byTotal = AN.tokMode!=="base";  // bars by total (base+cache) or in+out
   card.innerHTML=`<div class="an-card-head"><h3>${t("lg_tokens_title")}</h3>`+
     `<div class="tok-toggle">`+
@@ -3418,10 +3639,18 @@ function cardTokensByModel(lg){
   const head=document.createElement("div"); head.className="an-summary";
   head.innerHTML=[
     [fmtNum(totalAll),t("lg_total_all")],
-    [fmtNum(tk.cache_read),t("lg_cache_read")],
+    [fmtNum(cached),t("lg_cache_total")],
     [fmtNum(base),t("lg_inout")],
   ].map(([n,l])=>`<div class="an-stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join("");
   card.appendChild(head);
+  const coverage=lg.token_coverage||{};
+  if((coverage.legacy_runs||0)>0){
+    const note=document.createElement("p"); note.className="lg-sub";
+    note.textContent=t("lg_tokens_legacy_note")
+      .replace("{normalized}",fmtNum(coverage.normalized_runs||0))
+      .replace("{legacy}",fmtNum(coverage.legacy_runs||0));
+    card.appendChild(note);
+  }
   // Bars rank by the active metric. Default is TOTAL (base + cache): base alone
   // wildly under-counts heavily-cached models (e.g. Claude prompt caching).
   const models=Object.entries(lg.tokens_by_model||{})
@@ -3430,7 +3659,8 @@ function cardTokensByModel(lg){
   const max=models.length?models[0][1]:1;
   const wrap=document.createElement("div"); wrap.className="lg-bars";
   wrap.innerHTML=models.map(([m,val,b,cr,tot])=>{
-    const tip=`<b>${escapeHtml(m)}</b><br>${fmtNum(tot)} ${t("lg_total_all")}<br><span style='opacity:.7'>${fmtNum(b)} ${t("lg_inout")} · ${fmtNum(cr)} ${t("lg_cache_read")}</span>`;
+    const cw=(lg.tokens_by_model[m]?.cache_creation||0);
+    const tip=`<b>${escapeHtml(m)}</b><br>${fmtNum(tot)} ${t("lg_total_all")}<br><span style='opacity:.7'>${fmtNum(b)} ${t("lg_inout")} · ${fmtNum(cr)} ${t("lg_cache_read")} · ${fmtNum(cw)} ${t("lg_cache_write")}</span>`;
     return `<div class="lg-bar-row" data-tip="${tip}"><span class="lg-bar-name">${escapeHtml(m)}</span>`+
     `<span class="lg-bar-track"><span class="lg-bar-fill" style="width:${Math.max(val/max*100,1.5)}%"></span></span>`+
     `<span class="lg-bar-val">${fmtNum(val)}</span></div>`;
@@ -3502,7 +3732,7 @@ function makeSessionLi(s){
 function makeSubgroup(label, sessions, flat){
   const vis=sessions.filter(sessionVisible);
   if(!vis.length) return null;
-  vis.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  vis.sort(compareSessionActivity);
   // flat: no subgroup header, just the list (project mode)
   if(flat){
     const ul=document.createElement("ul"); ul.className="sessions sessions-flat";
@@ -3537,7 +3767,7 @@ function renderConversationSidebarChrome(){
 function renderProjectNavSidebar(activeName){
   renderProjectSidebarChrome();
   const root=document.getElementById("projects"); root.innerHTML="";
-  let rows=getProjectRows().filter(p=>!isProjectHidden(p.name)).sort((a,b)=>(b.lastSort||"").localeCompare(a.lastSort||"") || a.name.localeCompare(b.name,"es"));
+  let rows=getProjectRows().filter(p=>!isProjectHidden(p.name)).sort((a,b)=>compareTimestampsDesc(a.lastSort,b.lastSort) || a.name.localeCompare(b.name,"es"));
   if(state.query){
     const q=state.query;
     rows=rows.filter(p=>p.name.toLowerCase().includes(q) || [...p.sources].some(f=>niceSource(f).toLowerCase().includes(q)));
@@ -3657,8 +3887,13 @@ function subagentToggleLabel(s, expanded){
 function renderTurnHtml(owner, turn, idx){
   const isInstruction=instructionContextTurn(turn);
   const tagText=isInstruction?T("context_tag"):turn.type==="user"?T("you"):turn.type==="assistant"?sessionAssistantName(owner):T("tool_tag");
-  const done=!!prog(owner.id).turns[idx];
-  const body=(turn.type==="tool"&&turn.label)?`<span class="toollabel">${escapeHtml(turn.label)}</span>`+renderMarkdown(turn.md||""):renderMarkdown(turn.md||"");
+  const progressKeys=turn.progressKeys&&turn.progressKeys.length?turn.progressKeys:[idx];
+  const done=progressKeys.some(key=>!!prog(owner.id).turns[key]);
+  const resultBody=turn.resultLabel!==undefined
+    ? `<div class="tool-result"><span class="tool-result-label">${escapeHtml(T("tool_result"))}</span>${renderMarkdown(turn.resultMd||"")}</div>` : "";
+  const body=(turn.type==="tool"&&turn.label)
+    ? `<span class="toollabel">${escapeHtml(turn.label)}</span>${renderMarkdown(turn.md||"")}${resultBody}`
+    : renderMarkdown(turn.md||"");
   return `<div class="turn ${state.collapseAll?'collapsed':''} ${done?'done':''}" data-type="${escapeHtml(turn.type)}" ${isInstruction?'data-kind="instruction"':''} data-session="${escapeHtml(owner.id)}" data-idx="${idx}">
     <div class="turn-head">
       <input type="checkbox" class="tcheck" ${done?'checked':''} aria-label="${escapeHtml(T('mark_turn'))}">
@@ -3714,13 +3949,15 @@ function bindSessionInteractions(container){
     const idx=+el.dataset.idx;
     if(!owner||!owner.turns[idx]) return;
     const progress=prog(owner.id);
+    const turn=owner.turns[idx];
+    const progressKeys=turn.progressKeys&&turn.progressKeys.length?turn.progressKeys:[idx];
     el.querySelector(".turn-head").addEventListener("click",event=>{
       if(event.target.classList.contains("tcheck")||event.target.closest(".turn-copy")) return;
       el.classList.toggle("collapsed");
     });
     el.querySelector(".tcheck").addEventListener("change",event=>{
       event.stopPropagation();
-      progress.turns[idx]=event.target.checked;
+      for(const key of progressKeys) progress.turns[key]=event.target.checked;
       el.classList.toggle("done",event.target.checked);
       saveProgress();
     });
@@ -3779,6 +4016,7 @@ function openSession(id){
         <button class="cb-count${state.types.tool?'':' off'}" data-type="tool" title="${t("show_blocks")}"><span class="n">${counts.tool}</span> ${t("tools").toLowerCase()}</button>
         ${s.archivada?`<span class="n" style="color:#9a7b2e">· ${t("archived_badge")}</span>`:''}
       </span>
+      <button class="cb-jump has-icon" id="jumpLastTurn" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button>
     </div>
     <article class="doc">
       ${reviewUnreadBannerHtml()}
@@ -3786,8 +4024,8 @@ function openSession(id){
         <div class="doc-title-row">
           <h1>${escapeHtml(s.title)}</h1>
           <div class="doc-nav" aria-label="${escapeHtml(s.project)}">
-            <button class="mini has-icon" id="prevProjectConv" ${nav.previous?"":'disabled'} title="${nav.previous?escapeHtml(nav.previous.title):""}">${iconLabel("chevronLeft", t("prev_project_conv"))}</button>
-            <button class="mini has-icon" id="nextProjectConv" ${nav.next?"":'disabled'} title="${nav.next?escapeHtml(nav.next.title):""}">${iconLabel("chevronRight", t("next_project_conv"))}</button>
+            <button class="mini has-icon" id="newerProjectConv" ${nav.newer?"":'disabled'} title="${nav.newer?escapeHtml(nav.newer.title):""}">${iconLabel("arrowUp", t("newer_project_conv"))}</button>
+            <button class="mini has-icon" id="olderProjectConv" ${nav.older?"":'disabled'} title="${nav.older?escapeHtml(nav.older.title):""}">${iconLabel("arrowDown", t("older_project_conv"))}</button>
           </div>
         </div>
         <div class="crumbs">
@@ -3801,11 +4039,12 @@ function openSession(id){
         <div class="doc-actions">
           <button class="mini has-icon" id="copyConv">${iconLabel("copy", t("copy_conv"))}</button>
           <button class="mini has-icon" id="markDone">${iconLabel(pr.done?"x":"check", pr.done?t("unmark_conv"):t("mark_conv"))}</button>
+          ${counts.tool?`<button class="mini has-icon" id="toggleTools" aria-controls="conversationTurns">${iconLabel(state.types.tool?"eyeOff":"eye", state.types.tool?t("hide_tools"):t("show_tools"))}</button>`:""}
           <button class="mini has-icon" id="toggleAllTurns">${iconLabel("chevronsUpDown", t("collapse_expand"))}</button>
         </div>
       </div>
       ${conversationSummaryCard(s)}
-      ${turnsHtml}
+      <div id="conversationTurns">${turnsHtml}</div>
     </article>`;
   reader.scrollTop=0;
   bindReviewUnreadBanners(reader);
@@ -3814,12 +4053,21 @@ function openSession(id){
   document.getElementById("markDone").addEventListener("click",()=>{ pr.done=!pr.done; saveProgress(); renderSidebar(); renderGlobalCount(); openSession(s.id); });
   document.getElementById("cbBackProject").addEventListener("click",()=>openProjectHome(s.project));
   document.getElementById("crumbProjectHome").addEventListener("click",()=>openProjectHome(s.project));
-  document.getElementById("prevProjectConv").addEventListener("click",()=>{ if(nav.previous) openSession(nav.previous.id); });
-  document.getElementById("nextProjectConv").addEventListener("click",()=>{ if(nav.next) openSession(nav.next.id); });
+  document.getElementById("newerProjectConv").addEventListener("click",()=>{ if(nav.newer) openSession(nav.newer.id); });
+  document.getElementById("olderProjectConv").addEventListener("click",()=>{ if(nav.older) openSession(nav.older.id); });
+  const toggleTools=document.getElementById("toggleTools");
+  if(toggleTools) toggleTools.addEventListener("click",()=>toggleType("tool"));
   document.getElementById("toggleAllTurns").addEventListener("click",()=>{
     const allCollapsed=[...reader.querySelectorAll(".turn")].every(turn=>turn.classList.contains("collapsed"));
     state.collapseAll=!allCollapsed;
     reader.querySelectorAll(".turn").forEach(turn=>turn.classList.toggle("collapsed",state.collapseAll));
+  });
+  document.getElementById("jumpLastTurn").addEventListener("click",()=>{
+    const turns=[...reader.querySelectorAll("#conversationTurns .turn")].filter(turn=>turn.getClientRects().length);
+    const target=turns[turns.length-1]||reader.querySelector("#conversationTurns");
+    if(!target) return;
+    const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({block:"start",behavior:reduceMotion?"auto":"smooth"});
   });
   document.getElementById("copyConv").addEventListener("click",event=>{
     const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.project}`, "", sessionBodyToText(s,2)];
@@ -3843,6 +4091,7 @@ function turnToText(t,s){
   const toolWord = state.lang==="es" ? "Herramienta" : "Tool";
   const who = instructionContextTurn(t) ? T("context_tag") : t.type==="user" ? T("you") : t.type==="assistant" ? (s.fuente==="claude-code"||s.fuente==="cowork"?"Claude":niceSource(s.fuente)) : toolWord;
   let body = (t.type==="tool"&&t.label) ? (t.label+"\n"+(t.md||"")) : (t.md||"");
+  if(t.type==="tool"&&t.resultLabel!==undefined) body+=`\n\n${T("tool_result")}\n${t.resultMd||""}`;
   return `### ${who}\n${body.trim()}`;
 }
 function subagentSectionToText(s,level){
