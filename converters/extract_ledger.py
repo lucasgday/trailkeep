@@ -38,14 +38,24 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from convert_claude import project_label
+    from convert_claude import project_from_cwd, project_label
 except Exception:
     def project_label(folder):
         parts = [p for p in folder.split("-") if p]
         return parts[-1] if parts else folder
+    def project_from_cwd(cwd):
+        return os.path.basename(cwd.rstrip("/")) if isinstance(cwd, str) and cwd else ""
+from claude_internal import (
+    is_config_command_messages,
+    is_legacy_local_command_markdown,
+    is_local_command_content,
+    strip_local_command_markdown_turns,
+)
 from codex_internal import is_guardian_source, is_legacy_guardian_markdown
 
-CACHE_VERSION = 6
+CACHE_VERSION = 10
+TOKEN_ACCOUNTING_VERSION = 2
+TOKEN_KEYS = ("input", "output", "cache_creation", "cache_read")
 
 # Recovered-raw archives often hold duplicate project folders with a localized
 # "(del respaldo)" / "(copy)" suffix; strip it so they map to the real project.
@@ -105,12 +115,15 @@ def new_session(project):
     return {
         "id": None,
         "parent_id": None,
+        "lineage_id": None,
+        "message_count": 0,
         "project": project or "(no project)", "sessions": 1,
         "subagent_runs": 0,
         "user_messages": 0, "assistant_messages": 0,
         "tool_calls": 0, "mcp_tool_calls": 0,
         "test_runs": 0, "build_runs": 0, "errors": 0, "web_searches": 0,
         "tokens": {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 0},
+        "token_accounting_version": None,
         "models": {}, "tools": {}, "files": [],
         "first": None, "last": None, "_files": set(),
     }
@@ -151,6 +164,20 @@ def model_tokens(s, model):
         "input": 0, "output": 0, "cache_creation": 0, "cache_read": 0})
 
 
+def record_token_usage(s, model, values):
+    """Add one provider response using the shared accounting contract.
+
+    input is uncached/fresh prompt input, output already includes any reasoning,
+    and cache creation/read remain separate so processed = sum(TOKEN_KEYS).
+    """
+    s["token_accounting_version"] = TOKEN_ACCOUNTING_VERSION
+    mm = model_tokens(s, model)
+    for key in TOKEN_KEYS:
+        value = int(values.get(key, 0) or 0)
+        s["tokens"][key] += value
+        mm[key] += value
+
+
 def record_tool(s, name, cmd=None, fpath=None):
     """Common bookkeeping for one tool call (name + optional command/file)."""
     s["tool_calls"] += 1
@@ -173,10 +200,14 @@ def record_tool(s, name, cmd=None, fpath=None):
 # --------------------------------------------------------------------------
 # Claude Code / Cowork  (.jsonl)
 # --------------------------------------------------------------------------
-def scan_claude(path, plabel):
+def scan_claude(path, plabel, prefer_cwd=True):
     s = new_session(plabel)
     s["id"] = os.path.splitext(os.path.basename(path))[0]  # uuid == the .md's id
-    for line in open(path, errors="ignore"):
+    cwd_project = None
+    visible_message_kinds = []
+    message_sequence = []
+    usage_by_response = {}
+    for line_no, line in enumerate(open(path, errors="ignore"), 1):
         line = line.strip()
         if not line:
             continue
@@ -184,6 +215,10 @@ def scan_claude(path, plabel):
             d = json.loads(line)
         except Exception:
             continue
+        if prefer_cwd and cwd_project is None and d.get("cwd"):
+            cwd_project = project_from_cwd(d["cwd"])
+            if cwd_project:
+                s["project"] = cwd_project
         bump_time(s, d.get("timestamp"))
         if d.get("isApiErrorMessage"):
             s["errors"] += 1
@@ -193,22 +228,38 @@ def scan_claude(path, plabel):
         msg = d.get("message")
         if not isinstance(msg, dict):
             continue
+        if d.get("type") in ("user", "assistant") and d.get("uuid"):
+            s["message_count"] += 1
+            if s["lineage_id"] is None and d.get("parentUuid") is None:
+                s["lineage_id"] = d["uuid"]
         role = msg.get("role", d.get("type"))
         content = msg.get("content")
+        message_sequence.append((role, content))
         model = msg.get("model")
         usage = msg.get("usage")
-        if usage and model and model != "<synthetic>":
-            s["tokens"]["input"] += usage.get("input_tokens", 0) or 0
-            s["tokens"]["output"] += usage.get("output_tokens", 0) or 0
-            s["tokens"]["cache_creation"] += usage.get("cache_creation_input_tokens", 0) or 0
-            s["tokens"]["cache_read"] += usage.get("cache_read_input_tokens", 0) or 0
-            mm = model_tokens(s, model)
-            mm["input"] += usage.get("input_tokens", 0) or 0
-            mm["output"] += usage.get("output_tokens", 0) or 0
-            mm["cache_creation"] += usage.get("cache_creation_input_tokens", 0) or 0
-            mm["cache_read"] += usage.get("cache_read_input_tokens", 0) or 0
+        if isinstance(usage, dict) and model and model != "<synthetic>":
+            # Claude may serialize one API response as separate thinking, text,
+            # and tool_use rows. They share message.id/requestId and repeat the
+            # same usage object, so count only the most complete snapshot.
+            message_id = str(msg.get("id") or "").strip()
+            request_id = str(d.get("requestId") or "").strip()
+            usage_key = (
+                ("message", message_id) if message_id
+                else ("request", request_id) if request_id
+                else ("line", line_no)
+            )
+            values = {
+                "input": usage.get("input_tokens", 0) or 0,
+                "output": usage.get("output_tokens", 0) or 0,
+                "cache_creation": usage.get("cache_creation_input_tokens", 0) or 0,
+                "cache_read": usage.get("cache_read_input_tokens", 0) or 0,
+            }
+            current = usage_by_response.get(usage_key)
+            if current is None or sum(values.values()) >= sum(current[1].values()):
+                usage_by_response[usage_key] = (model, values)
         has_text = isinstance(content, str) and content.strip()
         has_tool_result = False
+        has_tool_use = False
         if isinstance(content, list):
             for b in content:
                 if not isinstance(b, dict):
@@ -221,14 +272,32 @@ def scan_claude(path, plabel):
                     if b.get("is_error"):
                         s["errors"] += 1
                 elif bt == "tool_use":
+                    has_tool_use = True
                     inp = b.get("input") or {}
                     record_tool(s, b.get("name", "tool"),
                                 cmd=inp.get("command"),
                                 fpath=inp.get("file_path") or inp.get("path"))
-        if role == "user" and has_text and not has_tool_result:
+        local_command = (
+            role == "user" and has_text and not has_tool_result
+            and not has_tool_use and is_local_command_content(content)
+        )
+        if role == "user" and has_text and not has_tool_result and not local_command:
             s["user_messages"] += 1
         elif role == "assistant" and (has_text or usage) and model != "<synthetic>":
             s["assistant_messages"] += 1
+        if has_text or has_tool_result or has_tool_use or (role == "assistant" and usage):
+            visible_message_kinds.append(
+                "local"
+                if local_command
+                else "conversation"
+            )
+    s["lineage_id"] = s["lineage_id"] or s["id"]
+    s["internal"] = (
+        bool(visible_message_kinds)
+        and all(kind == "local" for kind in visible_message_kinds)
+    ) or is_config_command_messages(message_sequence)
+    for model, values in usage_by_response.values():
+        record_token_usage(s, model, values)
     return finish_session(s)
 
 
@@ -401,14 +470,14 @@ def scan_codex(path, _plabel=None):
         # split cached input out so semantics match Claude (input = fresh prompt)
         inp = best_total.get("input_tokens", 0) or 0
         cached = best_total.get("cached_input_tokens", 0) or 0
-        out = (best_total.get("output_tokens", 0) or 0) + (best_total.get("reasoning_output_tokens", 0) or 0)
-        s["tokens"]["input"] = max(inp - cached, 0)
-        s["tokens"]["cache_read"] = cached
-        s["tokens"]["output"] = out
-        mm = model_tokens(s, model)
-        mm["input"] = s["tokens"]["input"]
-        mm["cache_read"] = cached
-        mm["output"] = out
+        # Codex output_tokens already includes reasoning_output_tokens: the raw
+        # invariant is total_tokens == input_tokens + output_tokens.
+        record_token_usage(s, model, {
+            "input": max(inp - cached, 0),
+            "output": best_total.get("output_tokens", 0) or 0,
+            "cache_read": cached,
+            "cache_creation": 0,
+        })
     return finish_session(s)
 
 
@@ -456,13 +525,12 @@ def scan_opencode_db(db_path):
                     o = (tk.get("output", 0) or 0) + (tk.get("reasoning", 0) or 0)
                     cr = (cache.get("read", 0) or 0)
                     cw = (cache.get("write", 0) or 0)
-                    s["tokens"]["input"] += inp
-                    s["tokens"]["output"] += o
-                    s["tokens"]["cache_read"] += cr
-                    s["tokens"]["cache_creation"] += cw
-                    mm = model_tokens(s, model)
-                    mm["input"] += inp; mm["output"] += o
-                    mm["cache_read"] += cr; mm["cache_creation"] += cw
+                    record_token_usage(s, model, {
+                        "input": inp,
+                        "output": o,
+                        "cache_read": cr,
+                        "cache_creation": cw,
+                    })
                 if md.get("error"):
                     s["errors"] += 1
             try:
@@ -581,6 +649,19 @@ def scan_markdown(path):
     project = _markdown_meta_value(meta, "project", "proyecto")
     if project:
         s["project"] = project
+    format_version = _markdown_meta_value(meta, "format_version")
+    try:
+        s["_format_version"] = int(format_version or 0)
+    except (TypeError, ValueError):
+        s["_format_version"] = 0
+    s["lineage_id"] = _markdown_meta_value(meta, "lineage_id") or None
+    try:
+        s["message_count"] = int(_markdown_meta_value(meta, "message_count") or 0)
+    except (TypeError, ValueError):
+        s["message_count"] = 0
+    updated_at = _markdown_meta_value(meta, "updated_at")
+    if updated_at:
+        bump_time(s, updated_at)
     parent = _markdown_meta_value(meta, "parent_id")
     if parent:
         s["parent_id"] = parent
@@ -590,11 +671,13 @@ def scan_markdown(path):
         _markdown_meta_value(meta, "internal").lower() == "true"
         or bool(_markdown_meta_value(meta, "internal_kind"))
     )
-    if explicit_internal or is_legacy_guardian_markdown(txt, source, parent):
+    if explicit_internal or is_legacy_guardian_markdown(txt, source, parent) \
+            or is_legacy_local_command_markdown(txt, source):
         s["internal"] = True
-    s["user_messages"] = len(MD_USER_RE.findall(txt))
-    s["assistant_messages"] = len(MD_ASSIST_RE.findall(txt))
-    for tm in MD_TOOL_RE.finditer(txt):
+    metrics_txt = strip_local_command_markdown_turns(txt, source)
+    s["user_messages"] = len(MD_USER_RE.findall(metrics_txt))
+    s["assistant_messages"] = len(MD_ASSIST_RE.findall(metrics_txt))
+    for tm in MD_TOOL_RE.finditer(metrics_txt):
         name = (tm.group(1) or "tool").strip().split()
         name = name[0] if name else "tool"
         target = (tm.group(2) or "").strip()
@@ -613,7 +696,7 @@ def scan_markdown(path):
                 s["test_runs"] += 1
             if cb:
                 s["build_runs"] += 1
-    for bm in MD_BASH_RE.finditer(txt):  # claude/codex keep it in a bash block
+    for bm in MD_BASH_RE.finditer(metrics_txt):  # claude/codex keep it in a bash block
         ct, cb = classify_cmd(bm.group(1))
         if ct:
             s["test_runs"] += 1
@@ -622,32 +705,66 @@ def scan_markdown(path):
     return finish_session(s)
 
 
-def newer_markdown_metrics(left, right):
+def newer_session_metrics(left, right):
     left_key = (
+        int(left.get("_format_version") or 0),
         str(left.get("last") or ""),
-        int(left.get("user_messages") or 0) + int(left.get("assistant_messages") or 0) + int(left.get("tool_calls") or 0),
+        int(left.get("message_count") or 0),
+        int(left.get("user_messages") or 0) + int(left.get("assistant_messages") or 0)
+        + int(left.get("tool_calls") or 0),
         str(left.get("id") or ""),
     )
     right_key = (
+        int(right.get("_format_version") or 0),
         str(right.get("last") or ""),
-        int(right.get("user_messages") or 0) + int(right.get("assistant_messages") or 0) + int(right.get("tool_calls") or 0),
+        int(right.get("message_count") or 0),
+        int(right.get("user_messages") or 0) + int(right.get("assistant_messages") or 0)
+        + int(right.get("tool_calls") or 0),
         str(right.get("id") or ""),
     )
     return left_key > right_key
 
 
-def canonical_markdown_metrics(sessions):
-    best_by_id = {}
-    without_id = []
-    for metrics in sessions:
-        sid = metrics.get("id")
-        if not sid:
-            without_id.append(metrics)
-            continue
-        current = best_by_id.get(sid)
-        if current is None or newer_markdown_metrics(metrics, current):
-            best_by_id[sid] = metrics
-    return without_id + list(best_by_id.values())
+def session_metrics_keys(metrics):
+    keys = []
+    sid = str(metrics.get("id") or "").strip()
+    if sid:
+        keys.append("session:" + sid)
+    lineage_id = str(metrics.get("lineage_id") or "").strip()
+    if lineage_id:
+        keys.append("lineage:" + lineage_id)
+    return keys
+
+
+def canonical_session_metrics(sessions):
+    parent = list(range(len(sessions)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left, right):
+        left_root, right_root = find(left), find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    owner = {}
+    for index, metrics in enumerate(sessions):
+        for key in session_metrics_keys(metrics):
+            if key in owner:
+                union(index, owner[key])
+            else:
+                owner[key] = index
+
+    best_by_root = {}
+    for index, metrics in enumerate(sessions):
+        root = find(index)
+        current = best_by_root.get(root)
+        if current is None or newer_session_metrics(metrics, current):
+            best_by_root[root] = metrics
+    return list(best_by_root.values())
 
 
 def collect_markdown(out_dir, old):
@@ -675,7 +792,7 @@ def collect_markdown(out_dir, old):
                 misses += 1
             cache[key] = {"sig": sig, "metrics": metrics}
             sessions.append(metrics)
-    return cache, canonical_markdown_metrics(sessions), hits, misses
+    return cache, canonical_session_metrics(sessions), hits, misses
 
 
 # --------------------------------------------------------------------------
@@ -687,20 +804,38 @@ SCALAR_KEYS = ("sessions", "subagent_runs", "user_messages", "assistant_messages
 
 def aggregate(sessions):
     T = {k: 0 for k in SCALAR_KEYS}
-    tok = {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 0}
-    models, tools, files = {}, {}, set()
+    tok = {k: 0 for k in TOKEN_KEYS}
+    legacy_tok = {k: 0 for k in TOKEN_KEYS}
+    models, legacy_models, tools, files = {}, {}, {}, set()
+    token_coverage = {"normalized_runs": 0, "legacy_runs": 0, "unmeasured_runs": 0}
     projects = {}
     first = last = None
     for s in sessions:
         for k in SCALAR_KEYS:
             T[k] += s.get(k, 0)
-        for k in tok:
-            tok[k] += s.get("tokens", {}).get(k, 0)
+        session_tokens = s.get("tokens", {})
+        normalized = int(s.get("token_accounting_version") or 0) >= TOKEN_ACCOUNTING_VERSION
+        has_token_evidence = normalized or any(session_tokens.get(k, 0) for k in TOKEN_KEYS)
+        if normalized:
+            token_coverage["normalized_runs"] += 1
+            token_bucket = tok
+            model_bucket = models
+        elif has_token_evidence:
+            token_coverage["legacy_runs"] += 1
+            token_bucket = legacy_tok
+            model_bucket = legacy_models
+        else:
+            token_coverage["unmeasured_runs"] += 1
+            token_bucket = None
+            model_bucket = None
+        if token_bucket is not None:
+            for k in TOKEN_KEYS:
+                token_bucket[k] += session_tokens.get(k, 0)
         for m, v in s.get("models", {}).items():
-            d = models.setdefault(m, {"input": 0, "output": 0,
-                                      "cache_creation": 0, "cache_read": 0})
-            for k in d:
-                d[k] += v.get(k, 0)
+            if model_bucket is not None:
+                d = model_bucket.setdefault(m, {k: 0 for k in TOKEN_KEYS})
+                for k in TOKEN_KEYS:
+                    d[k] += v.get(k, 0)
         for name, n in s.get("tools", {}).items():
             tools[name] = tools.get(name, 0) + n
         sf = s.get("files", [])
@@ -714,7 +849,8 @@ def aggregate(sessions):
                                  "user_messages": 0, "files": set()})
         p["sessions"] += s.get("sessions", 0)
         p["tool_calls"] += s.get("tool_calls", 0)
-        p["tokens"] += s.get("tokens", {}).get("input", 0) + s.get("tokens", {}).get("output", 0)
+        if normalized:
+            p["tokens"] += session_tokens.get("input", 0) + session_tokens.get("output", 0)
         p["user_messages"] += s.get("user_messages", 0)
         p["files"].update(sf)
     upm = T["user_messages"]
@@ -730,7 +866,11 @@ def aggregate(sessions):
             "files_modified": len(files),
         },
         "tokens": tok,
+        "token_accounting_version": TOKEN_ACCOUNTING_VERSION,
+        "token_coverage": token_coverage,
+        "legacy_tokens": legacy_tok,
         "tokens_by_model": models,
+        "legacy_tokens_by_model": legacy_models,
         "tools": dict(sorted(tools.items(), key=lambda kv: -kv[1])),
         "projects": proj_list,
         "first_activity": first,
@@ -746,7 +886,7 @@ def load_cache(path):
         version = c.get("version")
         if version == CACHE_VERSION:
             return c["sessions"]
-        if version in (4, 5):
+        if version in (4, 5, 6, 7, 8, 9):
             # Legacy metrics remain the only token/model evidence after raw pruning.
             # Keep every entry available to the cumulative carry path, but make
             # its signature intentionally stale so any raw/Markdown that still
@@ -764,7 +904,7 @@ def load_cache(path):
     return {}
 
 
-def collect_file_source(input_path, fmt, old):
+def collect_file_source(input_path, fmt, old, source=None):
     """Claude/Codex: one .jsonl per session, cached by file size:mtime."""
     best = {}  # key -> (size, mtime, path, plabel)
     if fmt == "claude":
@@ -787,7 +927,11 @@ def collect_file_source(input_path, fmt, old):
                         continue
                     f = os.path.join(root, base)
                     uuid = os.path.splitext(base)[0]
-                    plabel = project_label(clean_project_dir(os.path.basename(os.path.dirname(f))))
+                    plabel = (
+                        "cowork"
+                        if source == "cowork"
+                        else project_label(clean_project_dir(os.path.basename(os.path.dirname(f))))
+                    )
                     try:
                         st = os.stat(f); size, mtime = st.st_size, int(st.st_mtime)
                     except OSError:
@@ -795,7 +939,6 @@ def collect_file_source(input_path, fmt, old):
                     cur = best.get(uuid)
                     if cur is None or size > cur[0]:
                         best[uuid] = (size, mtime, f, plabel)
-        scanner = scan_claude
     else:  # codex — several roots (os.pathsep): active + archived sessions, both
         # carrying token usage; dedup by the rollout uuid.
         for root_dir in input_path.split(os.pathsep):
@@ -809,7 +952,6 @@ def collect_file_source(input_path, fmt, old):
                     size, mtime = 0, 0
                 if key not in best or size > best[key][0]:
                     best[key] = (size, mtime, f, None)
-        scanner = scan_codex
 
     new_cache, sessions, hits, misses = {}, [], 0, 0
     for key, (size, mtime, f, plabel) in best.items():
@@ -819,7 +961,10 @@ def collect_file_source(input_path, fmt, old):
             metrics = entry["metrics"]; hits += 1
         else:
             try:
-                metrics = scanner(f, plabel)
+                if fmt == "claude":
+                    metrics = scan_claude(f, plabel, prefer_cwd=source != "cowork")
+                else:
+                    metrics = scan_codex(f, plabel)
             except Exception:
                 continue
             misses += 1
@@ -893,7 +1038,7 @@ def main():
     cache_path = os.path.join(out_dir, "_ledger-cache.json")
     old = load_cache(cache_path)
     if fmt in ("claude", "codex"):
-        new_cache, sessions, hits, misses = collect_file_source(input_path, fmt, old)
+        new_cache, sessions, hits, misses = collect_file_source(input_path, fmt, old, source)
     else:
         new_cache, sessions, hits, misses = collect_db_source(input_path, fmt, old)
 
@@ -904,10 +1049,10 @@ def main():
     #     with tokens) — token data, once computed, persists in the data folder and
     #     travels with the markdowns; no dependency on the raw after the first read;
     #   - sessions whose raw was never seen fall back to the .md (counts only).
-    sessions = [m for m in sessions if not m.get("internal")]
+    sessions = canonical_session_metrics([m for m in sessions if not m.get("internal")])
     raw_ids = {m.get("id") for m in sessions if m.get("id")}
     md_cache, md_all, md_hits, md_misses = collect_markdown(out_dir, old)
-    md_all = [m for m in md_all if not m.get("internal")]
+    md_all = canonical_session_metrics([m for m in md_all if not m.get("internal")])
     md_ids = {m.get("id") for m in md_all if m.get("id")}
     md_by_id = {m.get("id"): m for m in md_all if m.get("id")}
     carried = 0
@@ -923,6 +1068,14 @@ def main():
             markdown_metrics = md_by_id.get(sid) or {}
             parent_id = markdown_metrics.get("parent_id")
             m["parent_id"] = parent_id or m.get("parent_id")
+            m["lineage_id"] = markdown_metrics.get("lineage_id") or m.get("lineage_id")
+            m["message_count"] = max(
+                int(markdown_metrics.get("message_count") or 0),
+                int(m.get("message_count") or 0),
+            )
+            if markdown_metrics.get("last"):
+                m["last"] = max(str(m.get("last") or ""), str(markdown_metrics["last"]))
+            m["project"] = markdown_metrics.get("project") or m.get("project")
             m["subagent_runs"] = 1 if m.get("parent_id") else m.get("subagent_runs", 0)
             sessions.append(m)        # keep its tokens
             carried_entry = dict(entry)
@@ -932,7 +1085,7 @@ def main():
             carried += 1
     md_sessions = [m for m in md_all if not (m.get("id") and m["id"] in raw_ids)]
     new_cache.update(md_cache)
-    sessions = sessions + md_sessions
+    sessions = canonical_session_metrics(sessions + md_sessions)
 
     # Drop empty sessions (no messages, no tools) so the ledger's session count
     # matches what the Markdown converters emit (they skip empties too).
@@ -966,10 +1119,13 @@ def main():
     tt = ledger["totals"]
     md_note = f", {len(md_sessions)} from .md (raw pruned)" if md_sessions else ""
     md_note += f", {carried} carried (cumulative)" if carried else ""
+    legacy_runs = ledger["token_coverage"]["legacy_runs"]
+    token_note = f", {legacy_runs} legacy token run(s) excluded" if legacy_runs else ""
     print(f"Ledger [{source}]: {tt['sessions']} sessions "
           f"({hits + md_hits} cached, {misses + md_misses} scanned{md_note}), "
           f"{tt['tool_calls']} tool calls, {tt['files_modified']} files, "
-          f"{ledger['tokens']['input'] + ledger['tokens']['output']:,} base tokens")
+          f"{ledger['tokens']['input'] + ledger['tokens']['output']:,} normalized base tokens"
+          f"{token_note}")
 
 
 if __name__ == "__main__":

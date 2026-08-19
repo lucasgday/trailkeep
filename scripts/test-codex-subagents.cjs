@@ -492,7 +492,7 @@ try {
   run("python3", [LEDGER, prunedSessions, output, "codex", "codex"]);
   const migratedDoc = JSON.parse(fs.readFileSync(path.join(output, "_ledger.json"), "utf8")).sources.codex;
   const migratedCache = JSON.parse(fs.readFileSync(cachePath, "utf8"));
-  assert(migratedCache.version === 6, "legacy ledger cache was not upgraded after the safe carry");
+  assert(migratedCache.version === 10, "legacy ledger cache was not upgraded after the safe carry");
   assert(JSON.stringify(migratedDoc.tokens) === baselineTokens, "v4 migration lost raw-pruned token metrics");
   assert(JSON.stringify(migratedDoc.tokens_by_model) === baselineModels, "v4 migration lost raw-pruned model metrics");
   assert(migratedDoc.totals.sessions === 6, "legacy carry lost child-parent root attribution");
