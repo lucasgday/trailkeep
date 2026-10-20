@@ -105,6 +105,20 @@ OpenCode, Cowork). macOS and Linux (paths resolved per-OS; Cowork is macOS-only)
   `_review_preprocessed_inputs.json` and points the plan at that sanitized input
   instead of requiring raw-context approval by default. No LLM, no network; the
   viewer only reads the sidecars.
+- `converters/extract_digest.py` — **Open-items digest**: deterministic, $0,
+  on-device. Writes `_open_items_inputs/<project>/part-NNN.md` plus
+  `_manifest.json`: every exchange of every canonical conversation (owner
+  message + last agent text reply, tool calls dropped), oldest first, secrets
+  redacted, Codex subagents and repeated-title automated runs skipped. Parts fit
+  one agent read; batches fit one agent context.
+- `skills/trailkeep-open-items/` — the simple generative layer: one Sonnet
+  subagent per batch (`batch-prompt.md`) keeps pending / unblock / test /
+  decisions / resolved lists with conversation evidence, cross-checks the repo
+  (git log, backlog, STATUS.md) in the final batch, and
+  `scripts/merge_open_items.py` validates and merges into `_open_items.json`.
+  `scripts/write_status.py` renders a repo `STATUS.md` (dry-run unless
+  `--write`; never commits). The legacy review preflight below only runs in
+  `update-backup.sh` with `TRAILKEEP_REVIEW_PLAN=1`.
 - `converters/eval_review_plan.py` — **Review plan evals**: deterministic, $0,
   on-device. Reads `_review_run_plan.json` and writes `_review_eval_report.json`
   with schema, manifest, no-full-dump, privacy, token-estimate,
@@ -203,7 +217,7 @@ changes. See any existing converter as a reference.
 ## Verifying changes
 
 - Shell: `bash -n update-backup.sh *.command scripts/run-project-review-agent-gates.sh`
-- Converters/skills: `python3 -m py_compile converters/atomic_io.py converters/claude_internal.py converters/codex_internal.py converters/convert_*.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py`
+- Converters/skills: `python3 -m py_compile converters/atomic_io.py converters/claude_internal.py converters/codex_internal.py converters/convert_*.py converters/extract_digest.py converters/extract_ledger.py converters/extract_projects.py converters/plan_reviews.py converters/eval_review_plan.py converters/eval_generated_reviews.py skills/trailkeep-project-review/scripts/pre_model_gate.py skills/trailkeep-project-review/scripts/validate_conversation_summary.py skills/trailkeep-project-review/scripts/check_repo_sync.py skills/trailkeep-project-review/scripts/prepare_review_test.py skills/trailkeep-project-review/scripts/finalize_review_run.py skills/trailkeep-open-items/scripts/merge_open_items.py skills/trailkeep-open-items/scripts/write_status.py`
 - Generated review eval fixtures: `node scripts/test-generated-review-evals.cjs`
 - Backup retry transaction: `node scripts/test-backup-retry.cjs`
 - Codex subagent hierarchy: `node scripts/test-codex-subagents.cjs`

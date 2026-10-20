@@ -625,11 +625,14 @@ atomic_json(log_path, hist)
 atomic_json(public_log_path, hist)
 PYEOF
 
-# Review preflight: deterministic selected-context plan and evals for the
-# optional coding-agent layer. This runs after log.json is written so the
-# pre-model gate can verify the latest backup run before any model call.
-python3 "$PY_REVIEW_PLAN" "$BASE" || true
-python3 "$PY_REVIEW_EVAL" "$BASE" || true
+# Review preflight for the legacy project-review layer (opt-in). It runs after
+# log.json is written so the pre-model gate can verify the latest backup run.
+# Off by default: it rewrites a very large preprocessed-input file every run,
+# and the open-items layer (skills/trailkeep-open-items) does not need it.
+if [ "${TRAILKEEP_REVIEW_PLAN:-0}" = "1" ]; then
+  python3 "$PY_REVIEW_PLAN" "$BASE" || true
+  python3 "$PY_REVIEW_EVAL" "$BASE" || true
+fi
 
 # desktop notification (macOS osascript, or Linux notify-send if present)
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
