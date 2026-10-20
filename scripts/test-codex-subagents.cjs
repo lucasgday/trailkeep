@@ -6,6 +6,9 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
+// Real backups run here; never fire desktop notifications from tests.
+process.env.TRAILKEEP_NO_NOTIFY = "1";
+
 const ROOT = path.resolve(__dirname, "..");
 const CONVERTER = path.join(ROOT, "converters", "convert_codex.py");
 const LEDGER = path.join(ROOT, "converters", "extract_ledger.py");

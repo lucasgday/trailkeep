@@ -634,10 +634,13 @@ if [ "${TRAILKEEP_REVIEW_PLAN:-0}" = "1" ]; then
   python3 "$PY_REVIEW_EVAL" "$BASE" || true
 fi
 
-# desktop notification (macOS osascript, or Linux notify-send if present)
+# desktop notification (macOS osascript, or Linux notify-send if present).
+# TRAILKEEP_NO_NOTIFY=1 silences it (tests run real backups into temp dirs).
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
 if [ "$HEALTH_WARN" -gt 0 ]; then BODY="$BODY · WARNING: $HEALTH_WARN source(s) need attention"; fi
-if command -v osascript >/dev/null 2>&1; then
+if [ "${TRAILKEEP_NO_NOTIFY:-0}" = "1" ]; then
+  :
+elif command -v osascript >/dev/null 2>&1; then
   osascript -e "display notification \"$BODY\" with title \"trailkeep\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true
 elif command -v notify-send >/dev/null 2>&1; then
   notify-send "trailkeep — backup updated" "$BODY" >/dev/null 2>&1 || true

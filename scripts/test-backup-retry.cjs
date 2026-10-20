@@ -6,6 +6,9 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
+// Real backups run here; never fire desktop notifications from tests.
+process.env.TRAILKEEP_NO_NOTIFY = "1";
+
 const root = path.resolve(__dirname, "..");
 const script = path.join(root, "update-backup.sh");
 const installer = path.join(root, "install-auto.command");
