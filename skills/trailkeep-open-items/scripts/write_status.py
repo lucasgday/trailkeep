@@ -88,12 +88,49 @@ def is_duplicate(text, existing_lines):
     return False
 
 
+SOURCE_NAMES = {
+    "claude-code": "Claude Code", "claude": "Claude Code", "codex": "Codex",
+    "cowork": "Cowork", "cursor": "Cursor", "opencode": "OpenCode",
+}
+DIGEST_HEAD = re.compile(r"(?m)^## (\d{4}-\d{2}-\d{2}) · (.+)\nid: (\S+) · source: (\S*)")
+LEGACY_REF = re.compile(r"_\(conv (\d{4}-\d{2}-\d{2}) · ([0-9A-Za-z-]{4,})\)_")
+# id -> (date, title, source) for the project being rendered; filled from its digest.
+CONVS = {}
+
+
+def load_conversations(backup_dir, project):
+    manifest = load_json(os.path.join(backup_dir, "_open_items_inputs", "_manifest.json"), {})
+    folder = os.path.join(backup_dir, (manifest.get(project) or {}).get("dir", ""))
+    convs = {}
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if name.startswith("part-"):
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                for date, title, cid, source in DIGEST_HEAD.findall(f.read()):
+                    convs[cid] = (date, title.strip(), source)
+    return convs
+
+
+def readable_ref(cid, date):
+    """«Title» · Tool · dd/mm, so a human can find the conversation in the agent's UI."""
+    match = CONVS.get(cid) or next((v for k, v in CONVS.items() if cid and k.startswith(cid)), None)
+    title, source = (match[1], match[2]) if match else ("", "")
+    if len(title) > 60:
+        title = title[:60].rsplit(" ", 1)[0] + "…"
+    day = f"{date[8:10]}/{date[5:7]}" if len(date) >= 10 else date
+    parts = [f"«{title}»" if title else "", SOURCE_NAMES.get(source, source), day]
+    return f" _({' · '.join(p for p in parts if p)})_"
+
+
 def ref(item):
     evidence = item.get("evidence") or []
     if not evidence:
         return ""
     first = evidence[0]
-    return f" _(conv {first.get('date', '')} · {str(first.get('id', ''))[:8]})_"
+    return readable_ref(str(first.get("id", "")), str(first.get("date", "")))
+
+
+def upgrade_refs(lines):
+    return [LEGACY_REF.sub(lambda m: readable_ref(m.group(2), m.group(1)).strip(), line) for line in lines]
 
 
 def bullet_test(item):
@@ -132,6 +169,7 @@ def last_commit(repo):
 
 def render(project, entry, existing_text, agent):
     sections, order = parse_status(existing_text)
+    sections = {name: upgrade_refs(lines) for name, lines in sections.items()}
     repo = entry.get("repo_path") or ""
     probar = merge_bullets(sections.get("Probar", []), [bullet_test(i) for i in entry.get("test", [])])
     destrabar = merge_bullets(
@@ -163,7 +201,8 @@ def main():
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args()
 
-    data = load_json(os.path.join(os.path.abspath(args.backup_dir), "_open_items.json"), {})
+    backup_dir = os.path.abspath(args.backup_dir)
+    data = load_json(os.path.join(backup_dir, "_open_items.json"), {})
     failed = False
     for project in args.project:
         entry = (data.get("projects") or {}).get(project)
@@ -176,6 +215,8 @@ def main():
             print(f"!! {project}: repo path missing ({repo or 'unknown'})", file=sys.stderr)
             failed = True
             continue
+        CONVS.clear()
+        CONVS.update(load_conversations(backup_dir, project))
         path = os.path.join(repo, "STATUS.md")
         existing = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
         text = render(project, entry, existing, args.agent)
