@@ -25,9 +25,6 @@ from plan_reviews import load_json  # noqa: E402
 
 SECTIONS = ["Probar", "Destrabar", "Pendiente sin backlog", "Último cambio", "Próxima sesión"]
 EMPTY = "Nada."
-MAX_PENDING = 6
-MAX_TEST = 5
-MAX_UNBLOCK = 5
 WORD = re.compile(r"[a-záéíóúñü0-9]{4,}")
 
 
@@ -63,7 +60,7 @@ def parse_status(text):
                 sections.setdefault("Notas", []).append(line)
                 if "Notas" not in order:
                     order.append("Notas")
-        else:
+        elif "`_open_items.json` de trailkeep" not in line:
             sections[current].append(line)
     for name in sections:
         lines = sections[name]
@@ -113,20 +110,14 @@ def bullet_pending(item):
     return f"- {item['text']}{ref(item)}"
 
 
-def merge_bullets(existing, generated, limit=None, more=""):
+def merge_bullets(existing, generated):
     out = list(existing)
     for line in generated:
         if not is_duplicate(line, out):
             out.append(line)
     if any(not NOTHING.match(line.strip()) for line in out if line.strip()):
         out = [line for line in out if not NOTHING.match(line.strip())]
-    overflow = 0
-    if limit is not None and len(out) > limit:
-        overflow = len(out) - limit
-        out = out[:limit]
-        if more:
-            out.append(f"- …y {overflow} más {more}")
-    return out, overflow
+    return out
 
 
 def last_commit(repo):
@@ -142,16 +133,12 @@ def last_commit(repo):
 def render(project, entry, existing_text, agent):
     sections, order = parse_status(existing_text)
     repo = entry.get("repo_path") or ""
-    more = "en `_open_items.json` de trailkeep."
-    probar, _ = merge_bullets(
-        sections.get("Probar", []), [bullet_test(i) for i in entry.get("test", [])], MAX_TEST, more)
-    destrabar, _ = merge_bullets(
-        sections.get("Destrabar", []), [bullet_unblock(i) for i in entry.get("unblock", [])],
-        MAX_UNBLOCK, more)
-    pending, _ = merge_bullets(
+    probar = merge_bullets(sections.get("Probar", []), [bullet_test(i) for i in entry.get("test", [])])
+    destrabar = merge_bullets(
+        sections.get("Destrabar", []), [bullet_unblock(i) for i in entry.get("unblock", [])])
+    pending = merge_bullets(
         sections.get("Pendiente sin backlog", []),
         [bullet_pending(i) for i in entry.get("pending", []) if not i.get("backlog_ref")],
-        MAX_PENDING, more + " Pasarlos al backlog.",
     )
     commit = last_commit(repo) if repo else ""
     last = sections.get("Último cambio") or ([f"- {commit}"] if commit else [])

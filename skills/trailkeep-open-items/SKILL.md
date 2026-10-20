@@ -58,8 +58,7 @@ Fill `{final_step}` with:
 > done there to `resolved`. For pending items tracked in the backlog, add
 > `backlog_ref` (file and id or heading). Then consolidate: merge related
 > items, drop items superseded by later work in the same area or older than the
-> repo's newer state, and keep at most 15 `pending`, 8 `unblock` and 10 `test`,
-> most important first. Then write `next_session`.
+> repo's newer state, and order each list most important first. Then write `next_session`.
 
 If the repo path is unknown or missing, skip the check and say so in
 `next_session`.
