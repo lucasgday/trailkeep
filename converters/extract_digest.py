@@ -42,6 +42,19 @@ NOISE_BLOCKS = [
     re.compile(r"(?is)<command-(?:name|message|args)>.*?</command-(?:name|message|args)>"),
     re.compile(r"(?is)\[INSTRUCTION_CONTEXT_\d+:[^\]]*\]"),
 ]
+# Extra secret shapes seen in conversations that the shared SECRET_PATTERNS miss.
+EXTRA_SECRETS = [
+    ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}")),
+    ("supabase_key", re.compile(r"\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{10,}")),
+    ("github_token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}")),
+    ("stripe_key", re.compile(r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{10,}")),
+    ("slack_token", re.compile(r"\bxox[abpr]-[A-Za-z0-9-]{10,}")),
+    ("google_key", re.compile(r"\bAIza[0-9A-Za-z_-]{30,}")),
+    ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{10,}")),
+    ("password", re.compile(
+        r"(?i)\b(?:password|passwd|contraseña|pass)\b(\s*(?:es|is|:|=)\s*)[`\"']?[^\s`\"']{6,}")),
+    ("db_url_credentials", re.compile(r"(postgres(?:ql)?|mysql|mongodb(?:\+srv)?)://[^:\s/]+:[^@\s]+@")),
+]
 COMMIT_HINT = re.compile(r"\bgit\s+(?:-C\s+\S+\s+)?(commit|push)\b")
 # A title repeated this many times inside one project is treated as a
 # scheduled/automated run (e.g. a daily trading update) and skipped.
@@ -57,6 +70,13 @@ def clean(text):
     for pattern in NOISE_BLOCKS:
         text = pattern.sub("", text)
     return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def redact(text):
+    text, _ = redact_secrets(text)
+    for label, pattern in EXTRA_SECRETS:
+        text = pattern.sub(f"[REDACTED_{label.upper()}]", text)
+    return text
 
 
 def clip(text, limit):
@@ -174,7 +194,7 @@ def build(backup_dir, projects_filter, max_chars):
                 os.remove(os.path.join(project_dir, stale))
         parts, current = [], "\n".join(header) + "\n"
         for s in kept:
-            block, _ = redact_secrets(render_conversation(s, max_chars))
+            block = redact(render_conversation(s, max_chars))
             if len(current) + len(block) > PART_CHARS and current.strip():
                 parts.append(current)
                 current = f"# Conversation digest: {project} (continued)\n\n"
