@@ -50,6 +50,7 @@ EXTRA_SECRETS = [
     ("stripe_key", re.compile(r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{10,}")),
     ("slack_token", re.compile(r"\bxox[abpr]-[A-Za-z0-9-]{10,}")),
     ("google_key", re.compile(r"\bAIza[0-9A-Za-z_-]{30,}")),
+    ("resend_key", re.compile(r"\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{10,}")),
     ("anthropic_key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{10,}")),
     ("password", re.compile(
         r"(?i)\b(?:password|passwd|contraseña|pass)\b(\s*(?:es|is|:|=)\s*)[`\"']?[^\s`\"']{6,}")),
