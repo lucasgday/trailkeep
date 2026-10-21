@@ -1,7 +1,8 @@
 You extract what is still open in one project from the owner's past AI-coding
 conversations, so the owner never has to read transcripts. Project: `{project}`.
 
-Inputs (read every file fully, in this order; the digest is oldest first):
+Inputs (read every file fully with your file-reading tool, in this order; the
+digest is oldest first; do not pre-filter or truncate it with scripts):
 - Running state from earlier batches (may not exist yet): `{state_path}`
 - Digest parts for this batch: {parts}
 
