@@ -78,6 +78,15 @@ generated-review inputs, or release verification.
   `conversion` Markdown files remain preserved but produce no canonical ghost
   project. The Claude Ledger has 190 canonical root sessions in total after the
   cache-v10 rescan excluded remaining command-only traffic from metrics.
+- **Open-items layer (2026-10-21):** `converters/extract_digest.py` +
+  `skills/trailkeep-open-items/` replace the gated review layer for "what is
+  still open per project". First full run over the whole history: 61 projects,
+  Sonnet subagents, one per batch (featherlist-web needed 15 sequential
+  batches), ~25% of a Pro weekly limit. Output `_open_items.json`; STATUS.md
+  written to the owner's repos with `write_status.py --write`. Known gaps: very
+  long conversations (thousands of exchanges) lose their middle exchanges in
+  the digest; runs are full, not incremental yet; agents sometimes pre-filter
+  parts with scripts unless told not to (now in `batch-prompt.md`).
 
 ## Verification
 
