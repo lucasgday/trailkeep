@@ -17,7 +17,7 @@ Nada.
 
 - Commitear en partes lo que está sin commit: búsqueda dentro de la conversación, índice de Project Home, sticky de Analytics, perfil del agente colapsable y fix del modelo unknown de Codex (viewer.html, docs/index.html, extract_ledger.py, DESIGN/PRODUCT/ROADMAP). _(«Definir próximos pasos» · Codex · 19/08)_
 - Pushear a origin/main los 7 commits locales (deploy_url, continuidad Claude, tokens, viewer) para que la demo de GitHub Pages tome el viewer nuevo. _(«Revisar actualización de deploy URL» · Codex · 19/08)_
-- Correr open-items (trailkeep) en el resto del historial después del 2026-10-25; featherlist-web es la mitad del costo. _(sesión 2026-10-20)_
+- Conversaciones gigantes (miles de intercambios) llegan al digest con el medio omitido; partirlas en varias partes en vez de recortar (`converters/extract_digest.py`). _(sesión 2026-10-21)_
 - Recuperar los raws de Claude de las 132 sesiones históricas con tokens legacy (TRAILKEEP_CLAUDE_RAW_EXTRA) para normalizarlas; hoy quedan excluidas del ranking por modelo. _(«Corrige conversaciones faltantes» · Codex · 19/08)_
 
 ## Último cambio
@@ -27,5 +27,5 @@ Nada.
 ## Próxima sesión
 
 Leé docs/agent-handoff.md y ROADMAP.md. Mergeá a main el branch `claude/open-items-rescue-ec4e91` (layer simple de open items, `skills/trailkeep-open-items/`); la automation `trailkeep-generative-review` queda pausada.
-Después del reinicio semanal del 2026-10-25, revisá el presupuesto y corré open-items en el resto de los proyectos (piloto hecho: tercyon, agentlog, facturante-conversion).
+El rescate ya corrió sobre todo el historial (61 proyectos en `_open_items.json`, STATUS.md en 30 repos). Próximo paso: hacerlo incremental (solo conversaciones nuevas) y partir las conversaciones gigantes en vez de omitir el medio.
 Hay trabajo sin commitear en viewer.html, docs/index.html y extract_ledger.py: commitealo en partes y pusheá los 7 commits locales.
