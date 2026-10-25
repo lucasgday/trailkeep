@@ -543,8 +543,11 @@
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
   .countbar .cb-count:hover{background:var(--tool-bg);color:var(--ink)}
   .countbar .cb-count.off{opacity:.4;text-decoration:line-through}
-  .countbar .cb-jump{font:inherit;font-size:11.5px;font-weight:650;color:var(--ink);background:var(--panel);border:1px solid var(--line);cursor:pointer;padding:4px 8px;border-radius:7px;white-space:nowrap}
-  .countbar .cb-jump:hover{background:var(--tool-bg);border-color:var(--line-strong)}
+  .jump-last-wrap{position:sticky;bottom:22px;height:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 24px;pointer-events:none;z-index:5}
+  .jump-last{pointer-events:auto;transform:translateY(-100%);font:inherit;font-size:13px;font-weight:650;color:#fff;background:var(--claude);border:0;cursor:pointer;padding:10px 16px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 18px rgba(26,36,33,.22);transition:opacity .15s,transform .15s}
+  .jump-last:hover{filter:brightness(1.08)}
+  .jump-last:focus-visible{outline:2px solid var(--you);outline-offset:3px}
+  .jump-last.is-hidden{opacity:0;pointer-events:none;transform:translateY(calc(-100% + 8px))}
   .loadwrap{padding:50px 40px;text-align:center;color:var(--ink-soft)}
 
   .sidebar::-webkit-scrollbar,.reader::-webkit-scrollbar{width:10px}
@@ -577,8 +580,8 @@
     .view-sticky .ph-toolbar{align-items:stretch}
     .view-sticky .ph-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
     .view-sticky .ph-toolbar .btn-log{min-height:44px;margin:0;white-space:normal}
-    .countbar .cb-jump{min-width:44px;min-height:44px;padding:5px}
-    .countbar .cb-jump span{display:none}
+    .jump-last-wrap{padding:0 16px;bottom:16px}
+    .jump-last{min-width:44px;min-height:44px}
     .ph-review-btn{opacity:1}
     .ph-section-head{align-items:stretch;flex-direction:column}
     .ph-section-actions{justify-content:flex-start}
@@ -4016,7 +4019,6 @@ function openSession(id){
         <button class="cb-count${state.types.tool?'':' off'}" data-type="tool" title="${t("show_blocks")}"><span class="n">${counts.tool}</span> ${t("tools").toLowerCase()}</button>
         ${s.archivada?`<span class="n" style="color:#9a7b2e">· ${t("archived_badge")}</span>`:''}
       </span>
-      <button class="cb-jump has-icon" id="jumpLastTurn" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button>
     </div>
     <article class="doc">
       ${reviewUnreadBannerHtml()}
@@ -4045,7 +4047,8 @@ function openSession(id){
       </div>
       ${conversationSummaryCard(s)}
       <div id="conversationTurns">${turnsHtml}</div>
-    </article>`;
+    </article>
+    <div class="jump-last-wrap"><button class="jump-last has-icon is-hidden" id="jumpLastTurn" type="button" tabindex="-1" aria-hidden="true" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button></div>`;
   reader.scrollTop=0;
   bindReviewUnreadBanners(reader);
   bindSessionInteractions(reader);
@@ -4069,6 +4072,7 @@ function openSession(id){
     const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({block:"start",behavior:reduceMotion?"auto":"smooth"});
   });
+  updateJumpLast();
   document.getElementById("copyConv").addEventListener("click",event=>{
     const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.project}`, "", sessionBodyToText(s,2)];
     copyText(lines.join("\n"),event.currentTarget);
@@ -4147,6 +4151,23 @@ function toggleType(type){
 document.getElementById("types").addEventListener("click",e=>{ const chip=e.target.closest(".chip"); if(chip) toggleType(chip.dataset.type); });
 // the sticky count bar's counts double as You / Agent / Tool show-toggles
 document.getElementById("reader").addEventListener("click",e=>{ const b=e.target.closest(".cb-count"); if(b) toggleType(b.dataset.type); });
+// Floating "go to last turn" shows only while the end of a long conversation is out of view.
+function updateJumpLast(){
+  const reader=document.getElementById("reader"), btn=document.getElementById("jumpLastTurn");
+  if(!btn) return;
+  const turns=reader.querySelectorAll("#conversationTurns .turn");
+  let last=null;
+  for(let i=turns.length-1;i>=0&&!last;i--) if(turns[i].getClientRects().length) last=turns[i];
+  const hide=!last||last.getBoundingClientRect().top<reader.getBoundingClientRect().bottom-80;
+  btn.classList.toggle("is-hidden",hide);
+  btn.tabIndex=hide?-1:0;
+  btn.setAttribute("aria-hidden",hide?"true":"false");
+}
+let jumpLastFrame=0;
+function scheduleJumpLast(){ if(!jumpLastFrame) jumpLastFrame=requestAnimationFrame(()=>{ jumpLastFrame=0; updateJumpLast(); }); }
+document.getElementById("reader").addEventListener("scroll",scheduleJumpLast,{passive:true});
+document.getElementById("reader").addEventListener("click",scheduleJumpLast);
+window.addEventListener("resize",scheduleJumpLast);
 let st=null;
 document.getElementById("search").addEventListener("input",e=>{ clearTimeout(st); st=setTimeout(()=>{ state.query=e.target.value.trim().toLowerCase(); renderCurrentSidebar(); },140); });
 document.getElementById("hideDone").addEventListener("change",e=>{ state.hideDone=e.target.checked; renderSidebar(); });

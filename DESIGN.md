@@ -281,7 +281,7 @@ Components are compact, familiar, and stateful. Controls reuse the same radii, b
 - Turns use a stable label, checkbox, preview, and disclosure affordance. Expanded content stays in the timeline instead of opening a modal.
 - User, assistant, and tool identity use text plus stable color. Tool output moves onto Tool Paper and code moves onto Code Night.
 - A bilingual Hide/Show Tools action lives with the conversation controls. It uses the established secondary button pattern, remains keyboard-operable, and preserves its state while navigating conversations.
-- The sticky conversation context bar includes a bilingual jump to the last visible turn. It respects reduced motion and becomes an icon-only 44px target on narrow screens.
+- Long conversations show a floating, accent-filled "go to last turn" pill at the reader's bottom-right while the last visible turn is out of view; it fades out once that turn is on screen, respects reduced motion, and keeps a 44px target on narrow screens.
 - Related subagents nest inside the parent timeline with explicit status, depth, and a minimum 44px disclosure target.
 
 ### Markdown Table

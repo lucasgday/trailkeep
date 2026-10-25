@@ -15,7 +15,7 @@ _Actualizado 2026-10-24 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-24 · fix(projects): deploy URL ya no toma archivos ni código (app.py, base.get) ni dominios ajenos de las conversaciones
+- 2026-10-24 · feat(viewer): «Ir al último turno» pasa a botón flotante que aparece mientras el final no está a la vista
 
 ## Próxima sesión
 
