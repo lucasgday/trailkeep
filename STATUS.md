@@ -1,6 +1,6 @@
 # Estado
 
-_Actualizado 2026-10-24 · Claude Code_
+_Actualizado 2026-10-25 · Claude Code_
 
 ## Probar
 
@@ -11,14 +11,13 @@ _Actualizado 2026-10-24 · Claude Code_
 
 ## Destrabar
 
-- [PRIORIDAD] Mergear a main el branch `claude/open-items-rescue-ec4e91` (layer simple de open items, ya pusheado). **Recomiendo:** mergearlo esta semana, antes de la próxima corrida de open-items, así sale desde main. (opciones: mergear ahora / revisar el diff primero / dejarlo en el branch) _(«Rescate de pendientes en Trailkeep» · Claude Code · 21/10)_
+- Tu checkout local de `main` quedó atrás de `origin/main` (el merge de open items se pusheó directo para no pisar lo que tenés sin commitear); `docs/agent-handoff.md` y `scripts/test-codex-subagents.cjs` cambiaron en los dos lados. **Recomiendo:** commitear lo tuyo y hacer `git pull`; si choca, es en esos dos archivos. (opciones: commitear y pull / stash con nombre, pull y aplicar / dejarlo para la próxima sesión) _(«Rescate de pendientes en Trailkeep» · Claude Code · 25/10)_
 
 ## Último cambio
 
-- 2026-10-25 · feat: las conversaciones guardan `client` (CLI / app / IDE) y el viewer marca las de CLI; backfill aplicado al backup real
+- 2026-10-25 · merge del layer simple de open items a main (`0885d23`): `extract_digest.py` + `skills/trailkeep-open-items/`, planner viejo opt-in
 
 ## Próxima sesión
 
-Leé docs/agent-handoff.md y ROADMAP.md. Mergeá a main el branch `claude/open-items-rescue-ec4e91` (layer simple de open items, `skills/trailkeep-open-items/`); la automation `trailkeep-generative-review` queda pausada.
-El rescate ya corrió sobre todo el historial (61 proyectos en `_open_items.json`, STATUS.md en 30 repos). Próximo paso: hacerlo incremental (solo conversaciones nuevas) y partir las conversaciones gigantes en vez de omitir el medio.
-Hay trabajo sin commitear en viewer.html, docs/index.html y extract_ledger.py: commitealo en partes y pusheá los 7 commits locales.
+Leé STATUS.md, BACKLOG.md y docs/agent-handoff.md. El layer de open items ya está en main y corrió sobre todo el historial (61 proyectos en `_open_items.json`, STATUS.md en 30 repos); la automation `trailkeep-generative-review` sigue pausada, no reabrirla.
+Próximo: que `write_status.py` mande lo pendiente al backlog y marque `[PRIORIDAD]`, después corrida incremental y partir las conversaciones gigantes (ver BACKLOG.md).
