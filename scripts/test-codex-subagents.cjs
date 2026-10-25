@@ -39,12 +39,13 @@ function event(type, payload, timestamp) {
   return JSON.stringify({ timestamp, type, payload });
 }
 
-function meta(id, source, timestamp) {
+function meta(id, source, timestamp, originator) {
   return event("session_meta", {
     id,
     timestamp,
     cwd: "/tmp/fixture-project",
     source,
+    ...(originator ? { originator } : {}),
   }, timestamp);
 }
 
@@ -164,7 +165,7 @@ function markerlessChildEvents({ id, parentId, agentPath, nickname, start, compl
 function writeFixtures(sessions) {
   fs.mkdirSync(sessions, { recursive: true });
   const parent = [
-    meta(IDS.parent, "vscode", "2026-07-16T10:00:00Z"),
+    meta(IDS.parent, "vscode", "2026-07-16T10:00:00Z", "codex_cli_rs"),
     message("user", "Build the parent dossier", "2026-07-16T10:00:01Z"),
     message("assistant", "I will delegate the audits.", "2026-07-16T10:00:02Z", "commentary"),
     spawn("detail_audit", "2026-07-16T10:00:03Z"),
@@ -386,6 +387,13 @@ try {
   assert(detailText.includes("pnpm test"), "custom tool command body missing");
   assert(!detailText.includes("encrypted-task"), "spawn marker leaked the delegated task payload");
   assert(detailText.includes("format_version: 2"), "new Codex format version missing");
+  assert(parentText.includes("client: cli"), "Codex CLI originator should become client metadata");
+  const clientMap = spawnSync("python3", ["-c", [
+    "import sys; sys.path.insert(0, sys.argv[1]); from convert_codex import client_from_meta as c",
+    "print(c('Codex Desktop', 'vscode'), c('', 'vscode'), c('', 'exec'), c('codex-chrome-extension-sidepanel', 'vscode'), c('Codex Desktop', {'subagent': {}}) )",
+  ].join("\n"), path.dirname(CONVERTER)], { encoding: "utf8" });
+  assert(clientMap.stdout.trim() === "desktop ide cli chrome desktop",
+    `Codex client mapping changed: ${clientMap.stdout}${clientMap.stderr}`);
   assert(markdownById(files, IDS.emptyParentChild), "child of an unreadable parent was not preserved");
   assert(!markdownById(files, IDS.markerlessStarting), "markerless starting snapshot was populated from inherited parent history");
   assert(markerlessText.includes("Markerless child result is preserved."), "completed markerless child tail was not preserved");

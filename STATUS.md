@@ -15,7 +15,7 @@ _Actualizado 2026-10-24 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-24 · feat(viewer): «Ir al último turno» pasa a botón flotante que aparece mientras el final no está a la vista
+- 2026-10-25 · feat: las conversaciones guardan `client` (CLI / app / IDE) y el viewer marca las de CLI; backfill aplicado al backup real
 
 ## Próxima sesión
 

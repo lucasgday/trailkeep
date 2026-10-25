@@ -147,8 +147,23 @@ def message_fingerprint(payload):
     except Exception:
         return ""
 
+def client_from_meta(originator, source):
+    """Map Codex session_meta originator/source to the app the session ran in."""
+    o = str(originator or "").strip().lower()
+    s = source.strip().lower() if isinstance(source, str) else ""
+    if "desktop" in o:
+        return "desktop"
+    if "chrome" in o:
+        return "chrome"
+    if o.startswith("codex_cli") or s in ("cli", "exec"):
+        return "cli"
+    if "vscode" in o or s == "vscode":
+        return "ide"
+    return ""
+
 def parse_session(path, index, archived=False):
     sid = None
+    client = ""
     sess_ts = None
     cwd = None
     blocks = []
@@ -174,6 +189,7 @@ def parse_session(path, index, archived=False):
             sess_ts = payload.get("timestamp") or d.get("timestamp")
             cwd = payload.get("cwd")
             source = payload.get("source")
+            client = client_from_meta(payload.get("originator"), source)
             internal = is_guardian_source(source)
             child = subagent_meta(source)
         elif child and d.get("type") == "session_meta":
@@ -294,6 +310,7 @@ def parse_session(path, index, archived=False):
         "deferred": bool(child and not blocks and status != "completed"),
         "unreadable_completed": bool(child and not blocks and status == "completed"),
         "internal": internal,
+        "client": client,
     }
 
 def safe_filename(s):
@@ -412,6 +429,8 @@ def main():
             "source: codex", f"archived: {str(s['archived']).lower()}",
             "format_version: 2",
         ]
+        if s["client"]:
+            metadata.append(f"client: {s['client']}")
         if s["parent_id"]:
             metadata.extend([
                 f"parent_id: {s['parent_id']}",

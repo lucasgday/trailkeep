@@ -108,6 +108,7 @@ try {
     "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab", "2026-07-30T10:02:00Z",
     [{ type: "tool_result", content: "checks passed" }],
   );
+  rootUser.entrypoint = "cli";
   writeJsonl(path.join(rawProject, `${ids.old}.jsonl`), [rootUser, toolCall, toolResult]);
 
   writeJsonl(path.join(rawProject, `${ids.resumed}.jsonl`), [
@@ -218,6 +219,8 @@ try {
   assert.match(markdown.get(ids.old).text, new RegExp(`lineage_id: ${ids.lineage}`));
   assert.match(markdown.get(ids.resumed).text, new RegExp(`lineage_id: ${ids.lineage}`));
   assert.match(markdown.get(ids.resumed).text, /message_count: 6/);
+  assert.match(markdown.get(ids.old).text, /\| client: cli -->/, "Claude entrypoint should become client metadata");
+  assert.match(markdown.get(ids.resumed).text, /\| client: cli -->/, "a resumed branch keeps the session's client");
   assert.match(markdown.get(ids.resumed).text, /internal-secret-value/,
     "the cumulative Markdown should preserve embedded local-command evidence");
   assert.match(markdown.get(ids.resumed).text, /updated_at: 2026-07-31T12:00:00Z/,
