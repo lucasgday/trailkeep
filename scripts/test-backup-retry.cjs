@@ -23,7 +23,7 @@ function runBackup(home, output, extraArgs = [], scriptPath = script) {
   if (output) args.push(output);
   const result = spawnSync("/bin/bash", args, {
     cwd: root,
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, HOME: home, TRAILKEEP_NO_NOTIFY: "1" },
     encoding: "utf8",
   });
   const combined = `${result.stdout || ""}${result.stderr || ""}`;
@@ -139,7 +139,7 @@ try {
   fs.chmodSync(path.join(fakeBin, "crontab"), 0o755);
   const installResult = spawnSync("/bin/bash", [installer, "7:30", installOutput], {
     cwd: root,
-    env: { ...process.env, HOME: installHome, PATH: `${fakeBin}:${process.env.PATH}`, CRON_CAPTURE: cronCapture },
+    env: { ...process.env, HOME: installHome, TRAILKEEP_NO_NOTIFY: "1", PATH: `${fakeBin}:${process.env.PATH}`, CRON_CAPTURE: cronCapture },
     encoding: "utf8",
   });
   const installLog = `${installResult.stdout || ""}${installResult.stderr || ""}`;

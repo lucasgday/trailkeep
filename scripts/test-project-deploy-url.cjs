@@ -45,7 +45,9 @@ try {
   const previewPath = path.join(temp, "preview-only");
   const codexPath = path.join(temp, "codex-site");
   const tldPath = path.join(temp, "tld-site");
-  for (const dir of [claudeRoot, codexRoot, productionPath, previewPath, codexPath, tldPath]) {
+  const filePath = path.join(temp, "script-only");
+  const partialPath = path.join(temp, "notes-hub");
+  for (const dir of [claudeRoot, codexRoot, productionPath, previewPath, codexPath, tldPath, filePath, partialPath]) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
@@ -86,6 +88,19 @@ try {
     claudeRow("assistant", tldPath, "2026-08-18T09:01:00Z", "The site looks healthy."),
   ].map((row) => JSON.stringify(row)).join("\n") + "\n";
   fs.writeFileSync(path.join(claudeRoot, "tld.jsonl"), tldSession);
+
+  const fileSession = [
+    claudeRow("user", filePath, "2026-08-18T09:00:00Z", "Fix the production export."),
+    claudeRow("assistant", filePath, "2026-08-18T09:01:00Z", "Production fix is in app.py and deploy.sh; base.get and monkeypatch.setenv changed. See https://claude.ai for the public docs. Live at https://other-app.up.railway.app. Public: script-only.project and script-only.xcodeproj."),
+  ].map((row) => JSON.stringify(row)).join("\n") + "\n";
+  fs.writeFileSync(path.join(claudeRoot, "file.jsonl"), fileSession);
+
+  const partialSession = [
+    claudeRow("assistant", partialPath, "2026-08-18T09:00:00Z", "Production: https://notes-hub.vercel.app"),
+    claudeRow("assistant", partialPath, "2026-08-18T09:30:00Z", "Production deployment: https://notes-hub-ab12cd34e-team-projects.vercel.app"),
+    claudeRow("assistant", partialPath, "2026-08-18T10:00:00Z", "The production API is https://api.othernotes.com"),
+  ].map((row) => JSON.stringify(row)).join("\n") + "\n";
+  fs.writeFileSync(path.join(claudeRoot, "partial.jsonl"), partialSession);
 
   const codexSession = [
     codexEvent("session_meta", {
@@ -152,6 +167,18 @@ try {
     projects["tld-site"].deploy_url,
     "https://tld-site.dev",
     "a production .dev domain must not be mistaken for a development URL",
+  );
+
+  assert.strictEqual(
+    projects["script-only"].deploy_url,
+    null,
+    "file names, code attributes and AI tool hosts must not become deploy URLs",
+  );
+
+  assert.strictEqual(
+    projects["notes-hub"].deploy_url,
+    "https://notes-hub.vercel.app",
+    "a host with the full project name should beat a newer partial token match",
   );
 
   console.log("Project production deploy URL detection: ok");

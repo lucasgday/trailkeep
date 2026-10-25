@@ -408,6 +408,8 @@
   .sess-title{display:block;overflow:hidden;text-overflow:ellipsis}
   .sess .meta{display:flex;gap:7px;flex-wrap:wrap;font-size:10px;color:#6f928c;margin-top:3px}
   .sess .badge-arch{background:#c79a4a;color:#241402;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700}
+  .client-mini{display:inline-flex;align-items:center;padding:0 5px;border:1px solid var(--line-strong);border-radius:4px;font-size:9.5px;font-weight:700;line-height:1.35;letter-spacing:.03em;color:var(--ink)}
+  .sess .client-mini{color:#d7e8e3;border-color:rgba(215,232,227,.45)}
   .sess .src-mini,.pj-foot .src-mini,.project-side-meta .src-mini,.ph-sub .src-mini,.ph-fact .src-mini,.ph-conv-meta .src-mini,.ph-plan-input .src-mini{display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;line-height:1.25}
   .src-mini.src-claude-code{background:#2f8f82;color:#fff}
   .src-mini.src-codex{background:#8b7fd4;color:#fff}
@@ -543,8 +545,11 @@
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
   .countbar .cb-count:hover{background:var(--tool-bg);color:var(--ink)}
   .countbar .cb-count.off{opacity:.4;text-decoration:line-through}
-  .countbar .cb-jump{font:inherit;font-size:11.5px;font-weight:650;color:var(--ink);background:var(--panel);border:1px solid var(--line);cursor:pointer;padding:4px 8px;border-radius:7px;white-space:nowrap}
-  .countbar .cb-jump:hover{background:var(--tool-bg);border-color:var(--line-strong)}
+  .jump-last-wrap{position:sticky;bottom:22px;height:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 24px;pointer-events:none;z-index:5}
+  .jump-last{pointer-events:auto;transform:translateY(-100%);font:inherit;font-size:13px;font-weight:650;color:#fff;background:var(--claude);border:0;cursor:pointer;padding:10px 16px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 18px rgba(26,36,33,.22);transition:opacity .15s,transform .15s}
+  .jump-last:hover{filter:brightness(1.08)}
+  .jump-last:focus-visible{outline:2px solid var(--you);outline-offset:3px}
+  .jump-last.is-hidden{opacity:0;pointer-events:none;transform:translateY(calc(-100% + 8px))}
   .loadwrap{padding:50px 40px;text-align:center;color:var(--ink-soft)}
 
   .sidebar::-webkit-scrollbar,.reader::-webkit-scrollbar{width:10px}
@@ -577,8 +582,8 @@
     .view-sticky .ph-toolbar{align-items:stretch}
     .view-sticky .ph-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
     .view-sticky .ph-toolbar .btn-log{min-height:44px;margin:0;white-space:normal}
-    .countbar .cb-jump{min-width:44px;min-height:44px;padding:5px}
-    .countbar .cb-jump span{display:none}
+    .jump-last-wrap{padding:0 16px;bottom:16px}
+    .jump-last{min-width:44px;min-height:44px}
     .ph-review-btn{opacity:1}
     .ph-section-head{align-items:stretch;flex-direction:column}
     .ph-section-actions{justify-content:flex-start}
@@ -819,7 +824,7 @@ const I18N = {
     project_pill:"Project", back_to_project:"← Project", copy_conv:"Copy conversation",
     newer_project_conv:"Newer", older_project_conv:"Older",
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
-    collapse_expand:"Collapse/expand all", hide_tools:"Hide tools", show_tools:"Show tools", go_last_turn:"Go to last turn", copy:"copy", copied:"✓ copied",
+    collapse_expand:"Collapse/expand all", hide_tools:"Hide tools", show_tools:"Show tools", go_last_turn:"Go to last turn", client_desktop:"Desktop app", copy:"copy", copied:"✓ copied",
     mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool", tool_result:"Result", table_region:"Table",
     subagent:"Subagent", subagents:"Subagents", subagent_total:"total",
     subagent_completed:"completed", subagent_in_progress:"in progress at backup", subagent_unknown:"status unavailable",
@@ -1004,7 +1009,7 @@ Después del setup, reportá:
     project_pill:"Proyecto", back_to_project:"← proyecto", copy_conv:"Copiar conversación",
     newer_project_conv:"Más reciente", older_project_conv:"Más antigua",
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
-    collapse_expand:"Colapsar/expandir todos", hide_tools:"Ocultar herramientas", show_tools:"Mostrar herramientas", go_last_turn:"Ir al último turno", copy:"copiar", copied:"✓ copiado",
+    collapse_expand:"Colapsar/expandir todos", hide_tools:"Ocultar herramientas", show_tools:"Mostrar herramientas", go_last_turn:"Ir al último turno", client_desktop:"App de escritorio", copy:"copiar", copied:"✓ copiado",
     mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.", tool_result:"Resultado", table_region:"Tabla",
     subagent:"Subagente", subagents:"Subagentes", subagent_total:"total",
     subagent_completed:"completado", subagent_in_progress:"en curso al respaldar", subagent_unknown:"estado no disponible",
@@ -1602,7 +1607,7 @@ function renderMarkdown(src){
 /* ---------- parse .md ---------- */
 function parseMeta(text){
   const m = text.match(/<!--([^]*?)-->/);
-  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:"", lineageId:"", messageCount:0, updatedAt:"", internal:false, internalKind:""};
+  const meta = {id:"", fecha:"", proyecto:"", fuente:"", archivada:false, valid:false, parentId:"", agentPath:"", agentNickname:"", agentDepth:null, agentStatus:"", completedAt:"", formatVersion:"", lineageId:"", messageCount:0, updatedAt:"", client:"", internal:false, internalKind:""};
   if(m){
     const body=m[1];
     // accept English (date/project/source/archived) and legacy Spanish keys
@@ -1610,7 +1615,7 @@ function parseMeta(text){
     meta.id=get("id"); meta.fecha=get("date","fecha"); meta.proyecto=get("project","proyecto"); meta.fuente=get("source","fuente");
     meta.parentId=get("parent_id"); meta.agentPath=get("agent_path"); meta.agentNickname=get("agent_nickname");
     meta.agentStatus=get("agent_status"); meta.completedAt=get("completed_at"); meta.formatVersion=get("format_version");
-    meta.lineageId=get("lineage_id"); meta.updatedAt=get("updated_at");
+    meta.lineageId=get("lineage_id"); meta.updatedAt=get("updated_at"); meta.client=get("client").toLowerCase();
     const messageCount=get("message_count");
     meta.messageCount=messageCount!==""&&Number.isFinite(Number(messageCount)) ? Number(messageCount) : 0;
     meta.internalKind=get("internal_kind");
@@ -2105,6 +2110,7 @@ async function handleFiles(fileList){
       parentId:meta.parentId, agentPath:meta.agentPath, agentNickname:meta.agentNickname,
       agentDepth:meta.agentDepth, agentStatus:meta.agentStatus, completedAt:meta.completedAt,
       formatVersion:meta.formatVersion, lineageId:meta.lineageId, messageCount:meta.messageCount, updatedAt:meta.updatedAt,
+      client:meta.client,
     };
     parsedSessions.push(s);
   }
@@ -2164,6 +2170,10 @@ function sessionVisible(s){
   if(!matchesQuery(s)) return false;
   return true;
 }
+// App the session ran in (optional `client` metadata). Desktop is the common case,
+// so lists only flag the others (CLI, IDE, SDK...).
+function niceClient(c){ return c==="cli"?"CLI":c==="desktop"?t("client_desktop"):c==="ide"?"IDE":c==="sdk"?"SDK":c==="web"?"Web":c==="chrome"?"Chrome":c; }
+function clientTag(s){ return s.client&&s.client!=="desktop"?`<span class="client-mini">${escapeHtml(niceClient(s.client))}</span>`:""; }
 function niceSource(f){ return f==="claude-code"?"Claude Code":f==="codex"?"Codex":f==="cowork"?"Cowork":f==="opencode"?"OpenCode":f==="cursor"?"Cursor":f; }
 
 const SRC_COLORS={"claude-code":"#2f8f82","codex":"#8b7fd4","cowork":"#d49a52","opencode":"#5b9bd8","cursor":"#d87093"};
@@ -3131,7 +3141,7 @@ function renderProjectHome(name){
     return `<div class="ph-conv${pr.done?" done":""}">
       <button class="ph-conv-main" data-session="${escapeHtml(s.id)}">
         <span class="ph-conv-title">${escapeHtml(s.title)}</span>
-        <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
+        <span class="ph-conv-meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>${clientTag(s)}${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${s.archivada?`<span class="badge-arch">${t("archived_badge")}</span>`:""}</span>
       </button>
       <span class="ph-conv-actions">
         <span class="ph-conv-turns">${conversationTurnCount(s)} ${t("n_turns")}</span>
@@ -3723,7 +3733,7 @@ function makeSessionLi(s){
   const srcTag = state.groupMode==="project" ? `<span class="src-mini src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>` : "";
   li.innerHTML=`<input type="checkbox" class="sess-check" ${pr.done?"checked":""} title="${t("mark_reviewed")}">
     <span class="sess-body"><span class="sess-title">${escapeHtml(s.title)}</span>
-    <span class="meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span>${tc} ${t("n_turns")}</span>${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${srcTag}${arch}</span></span>`;
+    <span class="meta"><span>${escapeHtml(formatDate(s.fecha,false))}</span><span>${tc} ${t("n_turns")}</span>${agents?`<span class="subagent-count">${fmtNum(agents)} ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}${srcTag}${clientTag(s)}${arch}</span></span>`;
   li.querySelector(".sess-check").addEventListener("change",e=>{ e.stopPropagation(); pr.done=e.target.checked; saveProgress(); renderSidebar(); renderGlobalCount(); });
   li.querySelector(".sess-body").addEventListener("click",()=>openSession(s.id));
   return li;
@@ -4016,7 +4026,6 @@ function openSession(id){
         <button class="cb-count${state.types.tool?'':' off'}" data-type="tool" title="${t("show_blocks")}"><span class="n">${counts.tool}</span> ${t("tools").toLowerCase()}</button>
         ${s.archivada?`<span class="n" style="color:#9a7b2e">· ${t("archived_badge")}</span>`:''}
       </span>
-      <button class="cb-jump has-icon" id="jumpLastTurn" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button>
     </div>
     <article class="doc">
       ${reviewUnreadBannerHtml()}
@@ -4030,6 +4039,7 @@ function openSession(id){
         </div>
         <div class="crumbs">
           <span class="pill src-pill src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>
+          ${s.client?`<span class="pill client-pill">${escapeHtml(niceClient(s.client))}</span>`:""}
           <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></button>
           <span class="pill"><b>${escapeHtml(formatDate(s.fecha,true))}</b></span>
           <span class="pill"><b>${conversationTurnCount(s)}</b> ${t("n_turns")}</span>
@@ -4045,7 +4055,8 @@ function openSession(id){
       </div>
       ${conversationSummaryCard(s)}
       <div id="conversationTurns">${turnsHtml}</div>
-    </article>`;
+    </article>
+    <div class="jump-last-wrap"><button class="jump-last has-icon is-hidden" id="jumpLastTurn" type="button" tabindex="-1" aria-hidden="true" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button></div>`;
   reader.scrollTop=0;
   bindReviewUnreadBanners(reader);
   bindSessionInteractions(reader);
@@ -4069,6 +4080,7 @@ function openSession(id){
     const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({block:"start",behavior:reduceMotion?"auto":"smooth"});
   });
+  updateJumpLast();
   document.getElementById("copyConv").addEventListener("click",event=>{
     const lines=[`# ${s.title}`, `${formatDate(s.fecha,true)} · ${niceSource(s.fuente)} · ${s.project}`, "", sessionBodyToText(s,2)];
     copyText(lines.join("\n"),event.currentTarget);
@@ -4147,6 +4159,23 @@ function toggleType(type){
 document.getElementById("types").addEventListener("click",e=>{ const chip=e.target.closest(".chip"); if(chip) toggleType(chip.dataset.type); });
 // the sticky count bar's counts double as You / Agent / Tool show-toggles
 document.getElementById("reader").addEventListener("click",e=>{ const b=e.target.closest(".cb-count"); if(b) toggleType(b.dataset.type); });
+// Floating "go to last turn" shows only while the end of a long conversation is out of view.
+function updateJumpLast(){
+  const reader=document.getElementById("reader"), btn=document.getElementById("jumpLastTurn");
+  if(!btn) return;
+  const turns=reader.querySelectorAll("#conversationTurns .turn");
+  let last=null;
+  for(let i=turns.length-1;i>=0&&!last;i--) if(turns[i].getClientRects().length) last=turns[i];
+  const hide=!last||last.getBoundingClientRect().top<reader.getBoundingClientRect().bottom-80;
+  btn.classList.toggle("is-hidden",hide);
+  btn.tabIndex=hide?-1:0;
+  btn.setAttribute("aria-hidden",hide?"true":"false");
+}
+let jumpLastFrame=0;
+function scheduleJumpLast(){ if(!jumpLastFrame) jumpLastFrame=requestAnimationFrame(()=>{ jumpLastFrame=0; updateJumpLast(); }); }
+document.getElementById("reader").addEventListener("scroll",scheduleJumpLast,{passive:true});
+document.getElementById("reader").addEventListener("click",scheduleJumpLast);
+window.addEventListener("resize",scheduleJumpLast);
 let st=null;
 document.getElementById("search").addEventListener("input",e=>{ clearTimeout(st); st=setTimeout(()=>{ state.query=e.target.value.trim().toLowerCase(); renderCurrentSidebar(); },140); });
 document.getElementById("hideDone").addEventListener("change",e=>{ state.hideDone=e.target.checked; renderSidebar(); });

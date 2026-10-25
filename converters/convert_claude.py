@@ -98,6 +98,23 @@ def clean_title(s):
         s = (cut or s[:70]) + "…"
     return s
 
+def client_from_entrypoint(entrypoint):
+    """Map Claude's raw entrypoint to the app the session ran in (cli/desktop/ide/...)."""
+    e = str(entrypoint or "").strip().lower()
+    if not e or e == "local-agent":  # Cowork is already its own source
+        return ""
+    if e == "cli":
+        return "cli"
+    if "desktop" in e:
+        return "desktop"
+    if any(k in e for k in ("vscode", "jetbrains", "ide")):
+        return "ide"
+    if e.startswith("sdk"):
+        return "sdk"
+    if "web" in e or "remote" in e:
+        return "web"
+    return re.sub(r"[^a-z0-9-]+", "", e)
+
 def parse_session(path, history=None, source="claude-code"):
     title = None
     first_user = None
@@ -106,6 +123,7 @@ def parse_session(path, history=None, source="claude-code"):
     last_conversation_ts = None
     cwd = None
     sid = None
+    entrypoint = None
     blocks = []
     lineage_id = None
     message_count = 0
@@ -131,6 +149,8 @@ def parse_session(path, history=None, source="claude-code"):
             cwd = d["cwd"]
         if sid is None and d.get("sessionId"):
             sid = d["sessionId"]
+        if entrypoint is None and d.get("entrypoint"):
+            entrypoint = d["entrypoint"]
 
         if t == "ai-title":
             title = d.get("aiTitle")
@@ -173,6 +193,7 @@ def parse_session(path, history=None, source="claude-code"):
         "blocks": blocks,
         "lineage_id": lineage_id or sid or os.path.splitext(os.path.basename(path))[0],
         "message_count": message_count,
+        "client": client_from_entrypoint(entrypoint),
         "internal": (
             bool(visible_message_kinds) and all(kind == "local" for kind in visible_message_kinds)
         ) or is_config_command_messages(message_sequence),
@@ -349,7 +370,9 @@ def main():
             f"# {s['title']}\n\n"
             f"<!-- date: {s['datetime']} | id: {uuid} | project: {proj} | source: {source} | "
             f"format_version: {FORMAT_VERSION} | lineage_id: {s['lineage_id']} | "
-            f"message_count: {s['message_count']} | updated_at: {s['updated_at']} -->\n\n"
+            f"message_count: {s['message_count']} | updated_at: {s['updated_at']}"
+            + (f" | client: {s['client']}" if s["client"] else "")
+            + " -->\n\n"
             + "\n".join(s["blocks"])
         )
         atomic_write_text(out_path, body)

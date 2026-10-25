@@ -201,6 +201,12 @@ the base contract above. A `spawn_agent` tool marker anchors the child in the
 parent timeline, while an unmatched child still renders through the viewer's
 related-subagents fallback.
 
+Claude Code and Codex may append `client` (`cli`, `desktop`, `ide`, `sdk`,
+`web`, `chrome`): the app the session ran in, from Claude's raw `entrypoint` or
+Codex's `session_meta` originator/source. It is optional; Markdown whose raw was
+pruned before this field existed simply has none. The viewer shows it on the
+conversation and flags only non-desktop sessions in lists.
+
 Claude Code may append `format_version`, `lineage_id`, `message_count`, and
 `updated_at`; the latter is the final visible non-internal conversation event,
 not trailing local-command traffic. Files sharing a source + lineage are

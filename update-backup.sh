@@ -41,6 +41,9 @@ OPTIONS:
       --dry-run     Show what would be processed without converting or
                     writing anything (does not touch the sync state).
 
+ENVIRONMENT:
+  TRAILKEEP_NO_NOTIFY=1  Skip the desktop notification (tests, CI).
+
 SOURCES (auto-detected, skipped if absent):
   claude    ~/.claude/projects/*/*.jsonl
   codex     ~/.codex/sessions and ~/.codex/archived_sessions
@@ -638,7 +641,7 @@ fi
 # TRAILKEEP_NO_NOTIFY=1 silences it (tests run real backups into temp dirs).
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
 if [ "$HEALTH_WARN" -gt 0 ]; then BODY="$BODY · WARNING: $HEALTH_WARN source(s) need attention"; fi
-if [ "${TRAILKEEP_NO_NOTIFY:-0}" = "1" ]; then
+if [ "${TRAILKEEP_NO_NOTIFY:-}" = "1" ]; then
   :
 elif command -v osascript >/dev/null 2>&1; then
   osascript -e "display notification \"$BODY\" with title \"trailkeep\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true

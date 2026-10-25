@@ -64,14 +64,22 @@ NON_DEPLOY_HOSTS = {
     "supabase.com", "resend.com", "tally.so", "discord.com", "x.com",
     "twitter.com", "linkedin.com", "mail.google.com", "google.com",
     "docs.github.com", "developer.mozilla.org", "nextjs.org",
+    "claude.ai", "claude.com", "anthropic.com", "openai.com", "chatgpt.com",
 }
 NON_DEPLOY_TLDS = {
     "db", "json", "lock", "md", "sqlite", "toml", "ts", "tsx", "vscdb",
     "yaml", "yml",
 }
+# A bare "name.tld" without a scheme is usually code (base.get, app.py,
+# foo.xcodeproj, Foo.app bundles); only accept TLDs projects deploy on.
+SCHEMELESS_TLDS = {
+    "com", "net", "org", "io", "ai", "dev", "co", "xyz", "me", "so",
+    "site", "page", "tech", "cloud", "online", "store", "ar", "mx", "cl",
+    "uy", "br", "es", "us", "uk",
+}
 PROJECT_TOKEN_STOPWORDS = {
     "app", "web", "site", "api", "server", "admin", "client", "frontend",
-    "backend", "service", "repo", "project", "codex",
+    "backend", "service", "repo", "project", "projects", "codex",
 }
 ACTIVE_DAYS = 30
 DEPLOY_URL_PATTERN = re.compile(
@@ -105,6 +113,9 @@ PREVIEW_URL_MARKERS = (
     "-preview", "-staging", "-stage", "-development", "-dev", "-testing",
     "-test", "-qa", "-review", "-branch", "-git-",
 )
+VERCEL_DEPLOYMENT_HOST = re.compile(r"-(?=[a-z]*[0-9])[a-z0-9]{7,12}-[a-z0-9]+-projects\.vercel\.app$")
+# The team scope (<project>-<scope>-projects.vercel.app) names the owner, not the project.
+VERCEL_SCOPE_SUFFIX = re.compile(r"-[a-z0-9]+-projects(?=\.vercel\.app$)")
 TEXT_FIELDS = (
     "text", "content", "output", "result", "input", "arguments", "command",
     "cmd", "url", "uri", "message", "data", "value",
@@ -136,7 +147,11 @@ def is_preview_url(url):
         parts = urlsplit(url)
     except Exception:
         return False
-    labels = [label for label in (parts.hostname or "").lower().split(".") if label]
+    hostname = (parts.hostname or "").lower()
+    # Immutable per-deployment Vercel URLs: <project>-<hash>-<scope>.vercel.app
+    if VERCEL_DEPLOYMENT_HOST.search(hostname):
+        return True
+    labels = [label for label in hostname.split(".") if label]
     host_labels = labels[:-1] if len(labels) > 1 else []
     for label in host_labels:
         if label in PREVIEW_URL_LABELS:
@@ -190,12 +205,16 @@ def conversation_deploy_candidates(path, evidence):
                 if not explicit_production:
                     continue
                 url = url_origin(url)
-                score = deploy_url_score(url, path, source_priority=120)
+                # Transcripts quote docs, APIs and other projects near words like
+                # "production"; only a host named after this project is evidence.
+                score = deploy_url_score(url, path, source_priority=120,
+                                         require_project_match=True)
                 if score is None:
                     continue
                 candidates.append({
                     "url": url,
                     "timestamp": timestamp,
+                    "full_match": host_matches_full_name(url_host(url), path),
                     "score": score,
                     "ordinal": ordinal,
                 })
@@ -214,9 +233,13 @@ def select_conversation_deploy_url(candidates):
             parsed = datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-            return 1, parsed.timestamp(), candidate.get("score", 0), candidate.get("ordinal", 0)
+            dated = (1, parsed.timestamp())
         except (TypeError, ValueError, OverflowError):
-            return 0, 0, candidate.get("score", 0), candidate.get("ordinal", 0)
+            dated = (0, 0)
+        # A host carrying the whole project name beats a partial token match
+        # (tradernotes.app over savvytrader.com), then the newest mention wins.
+        return (bool(candidate.get("full_match")), *dated,
+                candidate.get("score", 0), candidate.get("ordinal", 0))
 
     return max(candidates, key=key)["url"]
 
@@ -485,7 +508,8 @@ def normalize_http_url(value):
         return None
     if value.startswith(("http://", "https://")):
         return value[:-4] if value.endswith(".git") else value.rstrip("/")
-    if re.match(r"^[A-Za-z0-9.-]+\.[A-Za-z]{2,}(/.*)?$", value):
+    m = re.match(r"^[A-Za-z0-9.-]+\.([A-Za-z]{2,})(/.*)?$", value)
+    if m and m.group(1).lower() in SCHEMELESS_TLDS:
         return "https://" + value.strip("/")
     return None
 
@@ -523,13 +547,23 @@ def is_non_deploy_host(host):
 
 def project_tokens(path):
     name = os.path.basename(os.path.abspath(path)).lower()
-    tokens = [t for t in re.split(r"[^a-z0-9]+", name) if len(t) >= 3]
+    tokens = [t for t in re.split(r"[^a-z0-9]+", name) if len(t) >= 4]
     return [t for t in tokens if t not in PROJECT_TOKEN_STOPWORDS]
 
 
 def host_matches_project(host, path):
-    compact = re.sub(r"[^a-z0-9]+", "", host.lower())
-    return any(t in compact for t in project_tokens(path))
+    compact = re.sub(r"[^a-z0-9]+", "", VERCEL_SCOPE_SUFFIX.sub("", host.lower()))
+    # Names made only of stopwords (codex-site) fall back to the whole name.
+    tokens = project_tokens(path) or [
+        re.sub(r"[^a-z0-9]+", "", os.path.basename(os.path.abspath(path)).lower())
+    ]
+    return any(len(t) >= 4 and t in compact for t in tokens)
+
+
+def host_matches_full_name(host, path):
+    name = re.sub(r"[^a-z0-9]+", "", os.path.basename(os.path.abspath(path)).lower())
+    host = VERCEL_SCOPE_SUFFIX.sub("", host.lower())
+    return len(name) >= 4 and name in re.sub(r"[^a-z0-9]+", "", host)
 
 
 def deploy_url_score(url, path, source_priority=0, require_project_match=False):
@@ -539,6 +573,10 @@ def deploy_url_score(url, path, source_priority=0, require_project_match=False):
     is_platform = is_deploy_platform_host(host)
     matches_project = host_matches_project(host, path)
     if require_project_match and not matches_project:
+        return None
+    # Custom domains need the whole project name; a shared token
+    # (trader -> savvytrader.com) is only enough on deploy platforms.
+    if require_project_match and not is_platform and not host_matches_full_name(host, path):
         return None
     score = source_priority
     score += 10 if is_platform else 100
