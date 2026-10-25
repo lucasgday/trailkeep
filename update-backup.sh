@@ -41,6 +41,9 @@ OPTIONS:
       --dry-run     Show what would be processed without converting or
                     writing anything (does not touch the sync state).
 
+ENVIRONMENT:
+  TRAILKEEP_NO_NOTIFY=1  Skip the desktop notification (tests, CI).
+
 SOURCES (auto-detected, skipped if absent):
   claude    ~/.claude/projects/*/*.jsonl
   codex     ~/.codex/sessions and ~/.codex/archived_sessions
@@ -634,7 +637,9 @@ python3 "$PY_REVIEW_EVAL" "$BASE" || true
 # desktop notification (macOS osascript, or Linux notify-send if present)
 if [ "$NEW" -gt 0 ]; then BODY="+$NEW new · $TOTAL total conversations"; else BODY="$TOTAL conversations · no new"; fi
 if [ "$HEALTH_WARN" -gt 0 ]; then BODY="$BODY · WARNING: $HEALTH_WARN source(s) need attention"; fi
-if command -v osascript >/dev/null 2>&1; then
+if [ "${TRAILKEEP_NO_NOTIFY:-}" = "1" ]; then
+  :
+elif command -v osascript >/dev/null 2>&1; then
   osascript -e "display notification \"$BODY\" with title \"trailkeep\" subtitle \"Backup updated\" sound name \"\"" >/dev/null 2>&1 || true
 elif command -v notify-send >/dev/null 2>&1; then
   notify-send "trailkeep — backup updated" "$BODY" >/dev/null 2>&1 || true

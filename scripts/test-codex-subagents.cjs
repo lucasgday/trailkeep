@@ -503,7 +503,7 @@ try {
   const backupOutput = path.join(temp, "backup-output");
   fs.mkdirSync(liveSessions, { recursive: true });
   for (const file of fs.readdirSync(sessions)) fs.copyFileSync(path.join(sessions, file), path.join(liveSessions, file));
-  const backupEnv = { ...process.env, HOME: home };
+  const backupEnv = { ...process.env, HOME: home, TRAILKEEP_NO_NOTIFY: "1" };
   const first = run("/bin/bash", [BACKUP, "--only", "codex", backupOutput], { env: backupEnv });
   assert(/Converted: 10/.test(first), "backup orchestrator did not convert the fixture", first);
   const stateDir = path.join(backupOutput, ".sync-state");
