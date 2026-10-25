@@ -1,6 +1,6 @@
 # Estado
 
-_Actualizado 2026-10-21 · Claude Code_
+_Actualizado 2026-10-24 · Claude Code_
 
 ## Probar
 
@@ -15,7 +15,7 @@ _Actualizado 2026-10-21 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-04 · docs: add CLAUDE.md importing AGENTS.md (8243ad5)
+- 2026-10-24 · fix(projects): deploy URL ya no toma archivos ni código (app.py, base.get) ni dominios ajenos de las conversaciones
 
 ## Próxima sesión
 
