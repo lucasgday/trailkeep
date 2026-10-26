@@ -15,7 +15,7 @@ _Actualizado 2026-10-25 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-26 · feat: cada turno guarda su hora (`### You <!-- at: … -->`) y el viewer la muestra; backfill aplicado a 478 conversaciones de Claude y 1008 de Codex
+- 2026-10-26 · feat(viewer): separador de día entre turnos cuando la conversación cambia de fecha
 
 ## Próxima sesión
 
