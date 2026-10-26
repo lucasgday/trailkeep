@@ -35,7 +35,8 @@ from plan_reviews import (  # noqa: E402
 
 OUTPUT_DIR = "_open_items_inputs"
 USER_HEADERS = {"you", "tú", "tu", "user"}
-TURN = re.compile(r"(?m)^###\s+(.+?)\s*$")
+# Headers may carry the message time: `### You <!-- at: ISO -->`.
+TURN = re.compile(r"(?m)^###\s+(.+?)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$")
 NOISE_BLOCKS = [
     re.compile(r"(?is)<system-reminder>.*?</system-reminder>"),
     re.compile(r"(?is)<local-command-stdout>.*?</local-command-stdout>"),

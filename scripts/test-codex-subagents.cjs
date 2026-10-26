@@ -391,6 +391,7 @@ try {
   assert(!detailText.includes("encrypted-task"), "spawn marker leaked the delegated task payload");
   assert(detailText.includes("format_version: 2"), "new Codex format version missing");
   assert(parentText.includes("client: cli"), "Codex CLI originator should become client metadata");
+  assert(/^### (?:You|Codex) <!-- at: 2026-07-16T\S+ -->$/m.test(parentText), "Codex turn headers should carry the message time");
   const clientMap = spawnSync("python3", ["-c", [
     "import sys; sys.path.insert(0, sys.argv[1]); from convert_codex import client_from_meta as c",
     "print(c('Codex Desktop', 'vscode'), c('', 'vscode'), c('', 'exec'), c('codex-chrome-extension-sidepanel', 'vscode'), c('Codex Desktop', {'subagent': {}}) )",

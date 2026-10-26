@@ -20,7 +20,7 @@ APPROVAL_REVIEW_PROMPT = re.compile(
     re.I,
 )
 MARKDOWN_TURN = re.compile(
-    r"(?ims)^###\s+(You|Tú|Tu|User|Codex)\s*$\n+(.*?)(?=^###\s+|\Z)"
+    r"(?ims)^###\s+(You|Tú|Tu|User|Codex)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$\n+(.*?)(?=^###\s+|\Z)"
 )
 
 

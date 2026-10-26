@@ -15,7 +15,7 @@ _Actualizado 2026-10-25 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-25 · merge del layer simple de open items a main (`0885d23`): `extract_digest.py` + `skills/trailkeep-open-items/`, planner viejo opt-in
+- 2026-10-26 · feat: cada turno guarda su hora (`### You <!-- at: … -->`) y el viewer la muestra; backfill aplicado a 478 conversaciones de Claude y 1008 de Codex
 
 ## Próxima sesión
 

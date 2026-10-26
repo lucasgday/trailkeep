@@ -220,6 +220,7 @@ try {
   assert.match(markdown.get(ids.resumed).text, new RegExp(`lineage_id: ${ids.lineage}`));
   assert.match(markdown.get(ids.resumed).text, /message_count: 6/);
   assert.match(markdown.get(ids.old).text, /\| client: cli -->/, "Claude entrypoint should become client metadata");
+  assert.match(markdown.get(ids.old).text, /^### You <!-- at: 2026-07-30T10:00:00Z -->$/m, "turn headers should carry the message time");
   assert.match(markdown.get(ids.resumed).text, /\| client: cli -->/, "a resumed branch keeps the session's client");
   assert.match(markdown.get(ids.resumed).text, /internal-secret-value/,
     "the cumulative Markdown should preserve embedded local-command evidence");

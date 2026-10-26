@@ -98,6 +98,11 @@ def clean_title(s):
         s = (cut or s[:70]) + "…"
     return s
 
+def turn_header(label, timestamp):
+    """`### Label`, plus the message time as an HTML comment when known."""
+    ts = str(timestamp or "").strip()
+    return f"### {label} <!-- at: {ts} -->" if ts else f"### {label}"
+
 def client_from_entrypoint(entrypoint):
     """Map Claude's raw entrypoint to the app the session ran in (cli/desktop/ide/...)."""
     e = str(entrypoint or "").strip().lower()
@@ -172,7 +177,7 @@ def parse_session(path, history=None, source="claude-code"):
                 if kind == "conversation":
                     last_conversation_ts = latest_timestamp(last_conversation_ts, d.get("timestamp"))
                 label = "You" if role == "user" else "Claude"
-                blocks.append(f"### {label}\n\n{txt}\n")
+                blocks.append(f"{turn_header(label, d.get('timestamp'))}\n\n{txt}\n")
 
     # title priority: ai-title > history.jsonl (real first prompt) > first message > uuid
     if not title and history and sid and sid in history:

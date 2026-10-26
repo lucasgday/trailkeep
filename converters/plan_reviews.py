@@ -166,7 +166,7 @@ def clean_session_title(text):
 
 
 def first_user_title_from_markdown(text):
-    for match in re.finditer(r"(?ims)^###\s+(You|Tú|Tu|User)\s*$\n+(.*?)(?=^###\s+|\Z)", text or ""):
+    for match in re.finditer(r"(?ims)^###\s+(You|Tú|Tu|User)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$\n+(.*?)(?=^###\s+|\Z)", text or ""):
         title = clean_session_title(match.group(2))
         if title:
             return title

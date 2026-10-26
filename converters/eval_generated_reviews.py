@@ -119,7 +119,7 @@ PROMPT_OUTPUT_RE = re.compile(
     r".{0,160}\b(sidecar|_project_reviews|_conversation_summaries|roadmap|backlog|todo|docs?|"
     r"tests?|fixture|eval|viewer|file|output|result|archivo|salida|resultado)\b"
 )
-USER_TURN_RE = re.compile(r"(?ims)^###\s+(You|Tú|Tu|User)\s*$\n+(.*?)(?=^###\s+|\Z)")
+USER_TURN_RE = re.compile(r"(?ims)^###\s+(You|Tú|Tu|User)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$\n+(.*?)(?=^###\s+|\Z)")
 SUMMARY_BOILERPLATE_RE = re.compile(
     r"(?i)\b("
     r"bootstrap summary for|"

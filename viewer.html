@@ -478,7 +478,7 @@
   .subagent-orphan{border-color:#e8c9a9;background:#fff8ee;color:#9a5c20}
 
   .turn{border-bottom:1px solid var(--line);padding:0;scroll-margin-top:58px}
-  .turn-head{display:grid;grid-template-columns:24px minmax(64px,max-content) minmax(0,1fr) auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
+  .turn-head{display:grid;grid-template-columns:24px minmax(64px,max-content) minmax(0,1fr) auto auto;align-items:center;gap:0;padding:14px 0 14px;cursor:pointer}
   .turn-head .tcheck{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;cursor:pointer;position:relative;transition:background .12s,border-color .12s;background:transparent}
   .turn-head .tcheck:hover{border-color:var(--claude)}
   .turn-head .tcheck:checked{background:var(--claude);border-color:var(--claude)}
@@ -488,6 +488,7 @@
   .turn[data-type="assistant"] .tag{background:var(--claude)}
   .turn[data-type="tool"] .tag{background:var(--tool)}
   .turn[data-kind="instruction"] .tag{background:#667a74}
+  .turn-head .turn-time{font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap;padding:0 10px}
   .turn-head .preview{font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px}
   .turn-copy{font:inherit;font-size:11px;color:var(--ink-soft);background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;opacity:0;transition:opacity .12s;margin-left:8px;white-space:nowrap}
   .turn-copy svg{width:12px;height:12px}
@@ -589,7 +590,8 @@
     .ph-section-actions{justify-content:flex-start}
     .ph-review-grid{grid-template-columns:1fr}
     .turn-body,.turn[data-type="tool"] .turn-body{padding-left:0;margin-left:0}
-    .turn-head{grid-template-columns:24px minmax(56px,max-content) minmax(0,1fr) auto}
+    .turn-head{grid-template-columns:24px minmax(56px,max-content) minmax(0,1fr) auto auto}
+    .turn-head .turn-time{padding:0 6px;font-size:11px}
     .subagent-node{margin-left:0}
     .subagent-toggle{grid-template-columns:18px minmax(0,1fr);align-items:start}
     .subagent-status{grid-column:2;justify-self:start}
@@ -1632,20 +1634,20 @@ function parseMeta(text){
 function parseTurns(text){
   // split by ### You / ### Claude / ### Codex headers; tools inside assistant blocks
   const lines=text.replace(/\r\n/g,"\n").split("\n");
-  const turns=[]; let speaker=null, buf=[];
+  const turns=[]; let speaker=null, buf=[], turnAt="";
   const flush=()=>{
     if(speaker===null) { buf=[]; return; }
     const md=buf.join("\n").trim();
     if(md){
-      // split into sub-turns by tool markers
+      // split into sub-turns by tool markers; the message time goes on the first part
       const parts=splitTools(md, speaker);
-      for(const p of parts) turns.push(p);
+      parts.forEach((p,i)=>{ if(i===0&&turnAt) p.at=turnAt; turns.push(p); });
     }
     buf=[];
   };
   for(const l of lines){
     const head=l.match(/^###\s+(.+?)\s*$/);
-    if(head){ flush(); const who=head[1].toLowerCase(); speaker=(who.includes("tú")||who.includes("tu")||who.includes("you")||who.includes("user"))?"user":"assistant"; continue; }
+    if(head){ flush(); const at=head[1].match(/<!--\s*at:\s*([^\s>]+)\s*-->/); turnAt=at?at[1]:""; const who=head[1].replace(/<!--[^]*?-->/g,"").trim().toLowerCase(); speaker=(who.includes("tú")||who.includes("tu")||who.includes("you")||who.includes("user"))?"user":"assistant"; continue; }
     if(/^#\s+/.test(l)) continue;        // title
     if(/^<!--/.test(l)) continue;        // metadata
     if(speaker===null) continue;
@@ -3894,6 +3896,17 @@ function subagentDomId(s){
 function subagentToggleLabel(s, expanded){
   return `${expanded?t("subagent_hide"):t("subagent_show")}: ${subagentLabel(s)}`;
 }
+// Message time from `### You <!-- at: ISO -->`; the day is added only when it
+// differs from the conversation's start day.
+function turnTimeHtml(owner, turn){
+  if(!turn.at) return "";
+  const d=new Date(turn.at);
+  if(isNaN(d)) return "";
+  const start=new Date(owner.fecha);
+  const sameDay=!isNaN(start)&&d.toDateString()===start.toDateString();
+  const label=d.toLocaleString(undefined, sameDay?{hour:'2-digit',minute:'2-digit'}:{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  return `<time class="turn-time" datetime="${escapeHtml(turn.at)}" aria-label="${escapeHtml(formatDate(turn.at,true))}">${escapeHtml(label)}</time>`;
+}
 function renderTurnHtml(owner, turn, idx){
   const isInstruction=instructionContextTurn(turn);
   const tagText=isInstruction?T("context_tag"):turn.type==="user"?T("you"):turn.type==="assistant"?sessionAssistantName(owner):T("tool_tag");
@@ -3909,6 +3922,7 @@ function renderTurnHtml(owner, turn, idx){
       <input type="checkbox" class="tcheck" ${done?'checked':''} aria-label="${escapeHtml(T('mark_turn'))}">
       <span class="tag">${escapeHtml(tagText)}</span>
       <span class="preview">${escapeHtml(previewText(turn))}</span>
+      ${turnTimeHtml(owner, turn)||"<span></span>"}
       <button class="turn-copy has-icon" data-idx="${idx}" aria-label="${escapeHtml(T('copy_turn'))}">${iconLabel("copy", T("copy"))}</button>
     </div>
     <div class="turn-body">${body}</div>

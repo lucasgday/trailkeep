@@ -616,8 +616,9 @@ def scan_cursor_db(db_path):
 # Markdown fallback (any source) — covers sessions whose raw was pruned but
 # whose cumulative .md backup survives. Counts only: tokens/model live in raw.
 # --------------------------------------------------------------------------
-MD_USER_RE = re.compile(r"^###\s+(?:You|Tú)\s*$", re.M)
-MD_ASSIST_RE = re.compile(r"^###\s+(?:Claude|Codex|Cursor|OpenCode)\s*$", re.M)
+# Turn headers may carry the message time: `### You <!-- at: ISO -->`.
+MD_USER_RE = re.compile(r"^###\s+(?:You|Tú)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$", re.M)
+MD_ASSIST_RE = re.compile(r"^###\s+(?:Claude|Codex|Cursor|OpenCode)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$", re.M)
 MD_TOOL_RE = re.compile(r"\[(?:tool|herramienta):\s*([^\]\n→]+?)(?:\s*→\s*([^\]\n]*))?\]")
 MD_BASH_RE = re.compile(r"```bash\n(.*?)\n```", re.S)
 

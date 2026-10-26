@@ -79,12 +79,17 @@ def fmt_function_output(payload):
         out = out[:500] + " …(truncated)"
     return f"[result]\n```\n{out}\n```" if out else ""
 
-def msg_to_md(role, content):
+def turn_header(label, timestamp=None):
+    """`### Label`, plus the message time as an HTML comment when known."""
+    ts = str(timestamp or "").strip()
+    return f"### {label} <!-- at: {ts} -->" if ts else f"### {label}"
+
+def msg_to_md(role, content, timestamp=None):
     txt = text_from_content(content)
     if not txt.strip():
         return None
     label = "You" if role == "user" else "Codex"
-    return f"### {label}\n\n{txt}\n"
+    return f"{turn_header(label, timestamp)}\n\n{txt}\n"
 
 def instruction_context_title(s):
     if not s:
@@ -238,16 +243,16 @@ def parse_session(path, index, archived=False):
             if ptype == "message":
                 role = payload.get("role")
                 if role in ("user", "assistant"):
-                    md = msg_to_md(role, payload.get("content", []))
+                    md = msg_to_md(role, payload.get("content", []), d.get("timestamp"))
                     if md:
                         blocks.append(md)
                 # developer / system → ignored (internal instructions)
             elif ptype in ("function_call", "custom_tool_call"):
-                blocks.append("### Codex\n\n" + fmt_function_call(payload) + "\n")
+                blocks.append(turn_header("Codex", d.get("timestamp")) + "\n\n" + fmt_function_call(payload) + "\n")
             elif ptype in ("function_call_output", "custom_tool_call_output"):
                 out = fmt_function_output(payload)
                 if out:
-                    blocks.append("### Codex\n\n" + out + "\n")
+                    blocks.append(turn_header("Codex", d.get("timestamp")) + "\n\n" + out + "\n")
             # reasoning → ignored (internal reasoning)
 
         elif typ == "compacted":

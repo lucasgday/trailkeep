@@ -194,6 +194,11 @@ an adjacent call and result into one visual execution while the Markdown remains
 unchanged. If you change the format, update **both** the converters and the
 viewer's parser, and keep reading the legacy Spanish keys (rule 2).
 
+Claude Code, Cowork and Codex turn headers may carry the message time as an
+HTML comment: `### You <!-- at: 2026-10-20T14:32:05Z -->`. Every parser of
+turn headers must accept that optional trailing comment; older Markdown has
+none and the viewer simply shows no time for those turns.
+
 Codex subagents may append `format_version`, `parent_id`, `agent_path`,
 `agent_nickname`, `agent_depth`, `agent_status`, and `completed_at` to the same
 metadata comment. These fields are optional; older and non-Codex Markdown keeps

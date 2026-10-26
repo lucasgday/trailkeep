@@ -17,7 +17,7 @@ LOCAL_COMMAND_START = re.compile(
     re.I,
 )
 MARKDOWN_TURN = re.compile(
-    r"(?ims)^###\s+(You|Tú|Tu|User|Claude)\s*$\n+(.*?)(?=^###\s+|\Z)"
+    r"(?ims)^###\s+(You|Tú|Tu|User|Claude)[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$\n+(.*?)(?=^###\s+|\Z)"
 )
 CONFIG_TITLE = re.compile(r"(?im)^#\s+/?config\s*$")
 CONFIG_TOOL_BODY = re.compile(r"(?is)^\[tool:\s*AskUserQuestion\b.*\]\s*$")
