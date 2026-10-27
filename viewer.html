@@ -429,11 +429,12 @@
   .doc-head{border-bottom:2px solid var(--line-strong);padding-bottom:16px;margin-bottom:6px}
   .doc-head h1{font-family:var(--display);font-weight:600;font-size:26px;line-height:1.2;margin:0 0 8px}
   .doc-head .crumbs{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-soft)}
-  .crumbs .pill{background:var(--panel);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
+  .crumbs .pill{background:none;border:0;padding:0;border-radius:0}
+  .crumbs .pill:not(.src-pill)+.pill::before{content:"·";margin-right:9px;color:var(--line-strong);font-weight:400}
   .crumbs .pill b{color:var(--ink);font-weight:600}
-  .crumbs .pill.project-link{font:inherit;color:var(--ink-soft);cursor:pointer}
-  .crumbs .pill.project-link:hover{background:var(--tool-bg);border-color:var(--line-strong);color:var(--ink)}
-  .crumbs .src-pill{border:none;font-weight:700}
+  .crumbs .pill.project-link{font:inherit;color:var(--ink-soft);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+  .crumbs .pill.project-link:hover{color:var(--ink);text-decoration-color:currentColor}
+  .crumbs .src-pill{border:none;font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px}
   .crumbs .src-pill.src-claude-code{background:#2f8f82;color:#fff}
   .crumbs .src-pill.src-codex{background:#8b7fd4;color:#fff}
   .crumbs .src-pill.src-cowork{background:#d49a52;color:#fff}
@@ -442,6 +443,9 @@
   .doc-title-row{display:flex;align-items:flex-start;gap:12px;margin:0 0 8px}
   .doc-title-row h1{flex:1;min-width:0;margin:0}
   .doc-nav{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex:0 0 auto}
+  .doc-nav .mini{border-color:transparent;background:transparent}
+  .doc-nav .mini:hover:not(:disabled){background:var(--tool-bg);color:var(--ink)}
+  .doc-nav .mini:disabled{background:transparent}
   .doc-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
   .mini{font:inherit;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-soft)}
   .mini:hover{background:var(--tool-bg)}
@@ -4067,7 +4071,7 @@ function openSession(id){
         <div class="crumbs">
           <span class="pill src-pill src-${escapeHtml(s.fuente)}">${escapeHtml(niceSource(s.fuente))}</span>
           ${s.client?`<span class="pill client-pill">${escapeHtml(niceClient(s.client))}</span>`:""}
-          <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} · <b>${escapeHtml(s.project)}</b></button>
+          <button class="pill project-link" id="crumbProjectHome">${t("project_pill")} <b>${escapeHtml(s.project)}</b></button>
           <span class="pill"><b>${escapeHtml(formatDate(s.fecha,true))}</b></span>
           <span class="pill"><b>${conversationTurnCount(s)}</b> ${t("n_turns")}</span>
           ${agents?`<span class="pill"><b>${agents}</b> ${escapeHtml(agents===1?t("subagent"):t("subagents"))}</span>`:""}

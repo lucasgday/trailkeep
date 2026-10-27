@@ -15,7 +15,7 @@ _Actualizado 2026-10-25 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-26 · feat(viewer): separador de día entre turnos cuando la conversación cambia de fecha
+- 2026-10-27 · fix(viewer): encabezado de conversación con jerarquía (datos como texto, navegación fantasma, acciones con borde)
 
 ## Próxima sesión
 

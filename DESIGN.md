@@ -254,6 +254,7 @@ Components are compact, familiar, and stateful. Controls reuse the same radii, b
 ### Chips
 
 - **Style:** pill geometry, compact metadata type, quiet lines, and panel backgrounds.
+- **Facts are not chips:** in the conversation header only the source keeps its colored badge; client, project, date and turn count read as one dot-separated text line, with the project as an underlined link. Bordered buttons are reserved for actions, and newer/older navigation uses ghost buttons.
 - **State:** selected chips invert to Privacy Spine or their source color. State is also communicated by text and contrast, never color alone.
 
 ### Cards / Containers
