@@ -430,7 +430,7 @@
   .doc-head h1{font-family:var(--display);font-weight:600;font-size:26px;line-height:1.2;margin:0 0 8px}
   .doc-head .crumbs{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-soft)}
   .crumbs .pill{background:none;border:0;padding:0;border-radius:0}
-  .crumbs .pill:not(.src-pill)+.pill::before{content:"·";margin-right:9px;color:var(--line-strong);font-weight:400}
+  .crumbs .pill:not(.src-pill)+.pill::before{content:"·";display:inline-block;margin-right:9px;color:var(--line-strong);font-weight:400;text-decoration:none}
   .crumbs .pill b{color:var(--ink);font-weight:600}
   .crumbs .pill.project-link{font:inherit;color:var(--ink-soft);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
   .crumbs .pill.project-link:hover{color:var(--ink);text-decoration-color:currentColor}
@@ -446,7 +446,11 @@
   .doc-nav .mini{border-color:transparent;background:transparent}
   .doc-nav .mini:hover:not(:disabled){background:var(--tool-bg);color:var(--ink)}
   .doc-nav .mini:disabled{background:transparent}
-  .doc-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .doc-actions{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  .doc-actions .mini{border-color:transparent;background:transparent}
+  .doc-actions .mini:hover{background:var(--tool-bg);color:var(--ink)}
+  .doc-actions .mini.primary{background:var(--claude);border-color:var(--claude);color:#fff;font-weight:650;margin-right:8px}
+  .doc-actions .mini.primary:hover{background:var(--claude);color:#fff;filter:brightness(1.08)}
   .mini{font:inherit;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink-soft)}
   .mini:hover{background:var(--tool-bg)}
   .mini:disabled{cursor:not-allowed;opacity:.45;background:var(--paper)}
@@ -552,9 +556,11 @@
   .countbar .cb-count{font:inherit;font-size:12px;color:var(--ink-soft);background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:6px;display:inline-flex;gap:5px;align-items:center;line-height:1}
   .countbar .cb-count:hover{background:var(--tool-bg);color:var(--ink)}
   .countbar .cb-count.off{opacity:.4;text-decoration:line-through}
-  .jump-last-wrap{position:sticky;bottom:22px;height:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:0 24px;pointer-events:none;z-index:5}
+  .jump-last-wrap{position:sticky;bottom:22px;height:0;display:flex;gap:8px;align-items:flex-start;justify-content:flex-end;padding:0 24px;pointer-events:none;z-index:5}
   .jump-last{pointer-events:auto;transform:translateY(-100%);font:inherit;font-size:13px;font-weight:650;color:#fff;background:var(--claude);border:0;cursor:pointer;padding:10px 16px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 18px rgba(26,36,33,.22);transition:opacity .15s,transform .15s}
   .jump-last:hover{filter:brightness(1.08)}
+  .jump-last.jump-top{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line-strong),0 6px 18px rgba(26,36,33,.14)}
+  .jump-last.jump-top:hover{filter:none;background:var(--tool-bg)}
   .jump-last:focus-visible{outline:2px solid var(--you);outline-offset:3px}
   .jump-last.is-hidden{opacity:0;pointer-events:none;transform:translateY(calc(-100% + 8px))}
   .loadwrap{padding:50px 40px;text-align:center;color:var(--ink-soft)}
@@ -832,7 +838,7 @@ const I18N = {
     project_pill:"Project", back_to_project:"← Project", copy_conv:"Copy conversation",
     newer_project_conv:"Newer", older_project_conv:"Older",
     mark_conv:"Mark conversation as reviewed", unmark_conv:"Unmark conversation",
-    collapse_expand:"Collapse/expand all", hide_tools:"Hide tools", show_tools:"Show tools", go_last_turn:"Go to last turn", client_desktop:"Desktop app", copy:"copy", copied:"✓ copied",
+    collapse_expand:"Collapse/expand all", hide_tools:"Hide tools", show_tools:"Show tools", go_last_turn:"Go to last turn", go_top:"Back to top", client_desktop:"Desktop app", copy:"copy", copied:"✓ copied",
     mark_turn:"Mark turn", copy_turn:"Copy this turn", tool_tag:"Tool", tool_result:"Result", table_region:"Table",
     subagent:"Subagent", subagents:"Subagents", subagent_total:"total",
     subagent_completed:"completed", subagent_in_progress:"in progress at backup", subagent_unknown:"status unavailable",
@@ -1017,7 +1023,7 @@ Después del setup, reportá:
     project_pill:"Proyecto", back_to_project:"← proyecto", copy_conv:"Copiar conversación",
     newer_project_conv:"Más reciente", older_project_conv:"Más antigua",
     mark_conv:"Marcar conversación como revisada", unmark_conv:"Desmarcar conversación",
-    collapse_expand:"Colapsar/expandir todos", hide_tools:"Ocultar herramientas", show_tools:"Mostrar herramientas", go_last_turn:"Ir al último turno", client_desktop:"App de escritorio", copy:"copiar", copied:"✓ copiado",
+    collapse_expand:"Colapsar/expandir todos", hide_tools:"Ocultar herramientas", show_tools:"Mostrar herramientas", go_last_turn:"Ir al último turno", go_top:"Volver arriba", client_desktop:"App de escritorio", copy:"copiar", copied:"✓ copiado",
     mark_turn:"Marcar turno", copy_turn:"Copiar este turno", tool_tag:"Herr.", tool_result:"Resultado", table_region:"Tabla",
     subagent:"Subagente", subagents:"Subagentes", subagent_total:"total",
     subagent_completed:"completado", subagent_in_progress:"en curso al respaldar", subagent_unknown:"estado no disponible",
@@ -4078,8 +4084,8 @@ function openSession(id){
           ${s.orphaned?`<span class="subagent-orphan">${escapeHtml(t("subagent_parent_missing"))}</span>`:""}
         </div>
         <div class="doc-actions">
+          <button class="mini has-icon${pr.done?"":" primary"}" id="markDone">${iconLabel(pr.done?"x":"check", pr.done?t("unmark_conv"):t("mark_conv"))}</button>
           <button class="mini has-icon" id="copyConv">${iconLabel("copy", t("copy_conv"))}</button>
-          <button class="mini has-icon" id="markDone">${iconLabel(pr.done?"x":"check", pr.done?t("unmark_conv"):t("mark_conv"))}</button>
           ${counts.tool?`<button class="mini has-icon" id="toggleTools" aria-controls="conversationTurns">${iconLabel(state.types.tool?"eyeOff":"eye", state.types.tool?t("hide_tools"):t("show_tools"))}</button>`:""}
           <button class="mini has-icon" id="toggleAllTurns">${iconLabel("chevronsUpDown", t("collapse_expand"))}</button>
         </div>
@@ -4087,7 +4093,7 @@ function openSession(id){
       ${conversationSummaryCard(s)}
       <div id="conversationTurns">${turnsHtml}</div>
     </article>
-    <div class="jump-last-wrap"><button class="jump-last has-icon is-hidden" id="jumpLastTurn" type="button" tabindex="-1" aria-hidden="true" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button></div>`;
+    <div class="jump-last-wrap"><button class="jump-last jump-top has-icon is-hidden" id="jumpTop" type="button" tabindex="-1" aria-hidden="true" aria-label="${escapeHtml(t("go_top"))}">${iconLabel("arrowUp",t("go_top"))}</button><button class="jump-last has-icon is-hidden" id="jumpLastTurn" type="button" tabindex="-1" aria-hidden="true" aria-label="${escapeHtml(t("go_last_turn"))}">${iconLabel("arrowDown",t("go_last_turn"))}</button></div>`;
   reader.scrollTop=0;
   bindReviewUnreadBanners(reader);
   bindSessionInteractions(reader);
@@ -4103,6 +4109,10 @@ function openSession(id){
     const allCollapsed=[...reader.querySelectorAll(".turn")].every(turn=>turn.classList.contains("collapsed"));
     state.collapseAll=!allCollapsed;
     reader.querySelectorAll(".turn").forEach(turn=>turn.classList.toggle("collapsed",state.collapseAll));
+  });
+  document.getElementById("jumpTop").addEventListener("click",()=>{
+    const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    reader.scrollTo({top:0,behavior:reduceMotion?"auto":"smooth"});
   });
   document.getElementById("jumpLastTurn").addEventListener("click",()=>{
     const turns=[...reader.querySelectorAll("#conversationTurns .turn")].filter(turn=>turn.getClientRects().length);
@@ -4190,17 +4200,24 @@ function toggleType(type){
 document.getElementById("types").addEventListener("click",e=>{ const chip=e.target.closest(".chip"); if(chip) toggleType(chip.dataset.type); });
 // the sticky count bar's counts double as You / Agent / Tool show-toggles
 document.getElementById("reader").addEventListener("click",e=>{ const b=e.target.closest(".cb-count"); if(b) toggleType(b.dataset.type); });
-// Floating "go to last turn" shows only while the end of a long conversation is out of view.
-function updateJumpLast(){
-  const reader=document.getElementById("reader"), btn=document.getElementById("jumpLastTurn");
+// Floating jumps: "go to last turn" while the end of a long conversation is out of
+// view, "back to top" once the header (title, facts and actions) has scrolled away.
+function setFloatingJump(btn, hide){
   if(!btn) return;
-  const turns=reader.querySelectorAll("#conversationTurns .turn");
-  let last=null;
-  for(let i=turns.length-1;i>=0&&!last;i--) if(turns[i].getClientRects().length) last=turns[i];
-  const hide=!last||last.getBoundingClientRect().top<reader.getBoundingClientRect().bottom-80;
   btn.classList.toggle("is-hidden",hide);
   btn.tabIndex=hide?-1:0;
   btn.setAttribute("aria-hidden",hide?"true":"false");
+}
+function updateJumpLast(){
+  const reader=document.getElementById("reader"), btn=document.getElementById("jumpLastTurn");
+  if(!btn) return;
+  const box=reader.getBoundingClientRect();
+  const turns=reader.querySelectorAll("#conversationTurns .turn");
+  let last=null;
+  for(let i=turns.length-1;i>=0&&!last;i--) if(turns[i].getClientRects().length) last=turns[i];
+  setFloatingJump(btn, !last||last.getBoundingClientRect().top<box.bottom-80);
+  const head=reader.querySelector(".doc-head");
+  setFloatingJump(document.getElementById("jumpTop"), !head||head.getBoundingClientRect().bottom>box.top+60);
 }
 let jumpLastFrame=0;
 function scheduleJumpLast(){ if(!jumpLastFrame) jumpLastFrame=requestAnimationFrame(()=>{ jumpLastFrame=0; updateJumpLast(); }); }

@@ -254,7 +254,7 @@ Components are compact, familiar, and stateful. Controls reuse the same radii, b
 ### Chips
 
 - **Style:** pill geometry, compact metadata type, quiet lines, and panel backgrounds.
-- **Facts are not chips:** in the conversation header only the source keeps its colored badge; client, project, date and turn count read as one dot-separated text line, with the project as an underlined link. Bordered buttons are reserved for actions, and newer/older navigation uses ghost buttons.
+- **Facts are not chips:** in the conversation header only the source keeps its colored badge; client, project, date and turn count read as one dot-separated text line, with the project as an underlined link. The review toggle is the one filled primary action; find, copy, tool visibility and collapse are borderless tools, and newer/older navigation uses ghost buttons.
 - **State:** selected chips invert to Privacy Spine or their source color. State is also communicated by text and contrast, never color alone.
 
 ### Cards / Containers
@@ -283,6 +283,7 @@ Components are compact, familiar, and stateful. Controls reuse the same radii, b
 - User, assistant, and tool identity use text plus stable color. Tool output moves onto Tool Paper and code moves onto Code Night.
 - A bilingual Hide/Show Tools action lives with the conversation controls. It uses the established secondary button pattern, remains keyboard-operable, and preserves its state while navigating conversations.
 - Long conversations show a floating, accent-filled "go to last turn" pill at the reader's bottom-right while the last visible turn is out of view; it fades out once that turn is on screen, respects reduced motion, and keeps a 44px target on narrow screens.
+- Once the header scrolls away, a panel-surfaced "back to top" pill sits beside it, so the title, facts and actions are one click away.
 - Related subagents nest inside the parent timeline with explicit status, depth, and a minimum 44px disclosure target.
 
 ### Markdown Table

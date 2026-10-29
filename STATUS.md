@@ -15,7 +15,7 @@ _Actualizado 2026-10-25 · Claude Code_
 
 ## Último cambio
 
-- 2026-10-27 · fix(viewer): encabezado de conversación con jerarquía (datos como texto, navegación fantasma, acciones con borde)
+- 2026-10-29 · feat(viewer): «Marcar como revisada» como acción principal, herramientas livianas y botón flotante «Volver arriba»
 
 ## Próxima sesión
 
